@@ -275,6 +275,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Command"),
         build: pages::command::build,
     },
+    PageDef {
+        id: "tabs",
+        title: "Tabs",
+        group: "Navigation",
+        description: readme!("Tabs"),
+        build: pages::tabs::build,
+    },
 ];
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {

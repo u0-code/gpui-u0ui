@@ -23,6 +23,7 @@ pub mod popover;
 pub mod radio_group;
 pub mod sheet;
 pub mod switch;
+pub mod tabs;
 pub mod textarea;
 pub mod toggle;
 pub mod toggle_group;
