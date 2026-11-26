@@ -11,6 +11,7 @@ pub mod input;
 pub mod label;
 pub mod layout;
 pub mod motion;
+pub mod popover;
 pub mod sheet;
 pub mod toggle;
 pub mod tooltip;

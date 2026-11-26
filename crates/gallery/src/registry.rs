@@ -184,6 +184,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Tooltip"),
         build: pages::tooltip::build,
     },
+    PageDef {
+        id: "popover",
+        title: "Popover",
+        group: "Overlays",
+        description: readme!("Popover"),
+        build: pages::popover::build,
+    },
 ];
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {
