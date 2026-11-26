@@ -18,10 +18,11 @@
 //!   floating shadow, 0.25rem block padding, 10rem–18rem wide (12rem with
 //!   icons or selectable items); items `text-secondary` body-compact-01,
 //!   1rem inline padding, height per size (24/32/40/48) or `density-row-md`
-//!   in compact density; hover `layer-hover` + `text-primary`; danger hover
+//!   in compact density; hover `layer-hover` + `text-primary`; danger items
+//!   `text-error` at rest (as the live reference renders them); danger hover
 //!   and focus `button-danger-primary` + `text-on-color`; disabled
 //!   `text-disabled`; keyboard focus a 2px inset `focus` outline; dividers
-//!   1px `border-subtle` with 0.25rem margins.
+//!   1px `border-subtle-00` with 0.25rem margins.
 //! - **Motion**: item backgrounds `transition: background-color 70ms
 //!   cubic-bezier(0.2, 0, 0.38, 0.9)`; the surface shows and hides at once
 //!   (`.cds--menu { display: none }` → `.cds--menu--open`, no transition).
@@ -146,7 +147,9 @@ pub struct ItemState {
 pub struct MenuLook {
     /// `.cds--menu { background-color: var(--layer) }`.
     pub background: Hsla,
-    /// `.cds--menu-item-divider { background-color: var(--border-subtle) }`.
+    /// `.cds--menu-item-divider { background-color: var(--border-subtle) }`;
+    /// menus portal to the document root, where `--border-subtle` is
+    /// `border-subtle-00` (`:root { --border-subtle: var(--border-subtle-00) }`).
     pub divider: Hsla,
 }
 
@@ -155,7 +158,7 @@ impl MenuLook {
     pub fn current() -> Self {
         Self {
             background: color(ColorRole::Layer01),
-            divider: color(ColorRole::BorderSubtle01),
+            divider: color(ColorRole::BorderSubtle00),
         }
     }
 
@@ -175,6 +178,11 @@ impl MenuLook {
         if state.hovered {
             // `.cds--menu-item:hover { background-color: var(--layer-hover); color: text-primary }`.
             return (color(LayerHover01), color(TextPrimary), outline);
+        }
+        if state.danger {
+            // The live reference renders `kind="danger"` items in red at rest
+            // (`#da1e28` on White), not `text-secondary`; red text is `text-error`.
+            return (clear, color(TextError), outline);
         }
         // `.cds--menu-item { color: var(--text-secondary) }`.
         (clear, color(TextSecondary), outline)
@@ -1152,6 +1160,29 @@ mod tests {
         });
         assert_eq!(bg.a, 0.);
         assert_eq!(hex(MenuLook::current().background), "#f4f4f4");
+    }
+
+    #[test]
+    fn danger_items_are_red_at_rest_and_dividers_use_border_subtle_00() {
+        let danger = ItemState {
+            danger: true,
+            ..Default::default()
+        };
+        crate::theme::tests_set(CarbonTheme::White);
+        let (bg, text, _) = MenuLook::item(danger);
+        assert_eq!((bg.a, hex(text)), (0., "#da1e28".into()));
+        assert_eq!(hex(MenuLook::current().divider), "#e0e0e0");
+        // Disabled wins over danger.
+        let (_, text, _) = MenuLook::item(ItemState {
+            disabled: true,
+            ..danger
+        });
+        assert_eq!(text, color(ColorRole::TextDisabled));
+        crate::theme::tests_set(CarbonTheme::G90);
+        let (_, text, _) = MenuLook::item(danger);
+        assert_eq!(hex(text), "#ffb3b8");
+        assert_eq!(hex(MenuLook::current().divider), "#525252");
+        crate::theme::tests_set(CarbonTheme::White);
     }
 
     #[test]
