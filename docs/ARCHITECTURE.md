@@ -28,7 +28,7 @@ u0ui::icons        Icon (Material Symbols Sharp, FILL 0/1, wght 400, opsz 24),
                    Kit default icons → Sharp
 u0ui::density      Density::{Compact (default), Comfortable}, row/field heights
 u0ui::components   one module per component; button is the reference
-crates/gallery     shell (header, side nav, page area) + page registry
+crates/gallery     the Gallery: shell, home, overview, pages (see below)
 ```
 
 Each layer depends only on those above it. `u0ui::init(cx)` (after
@@ -87,21 +87,73 @@ Copy `crates/u0ui/src/components/button.rs`.
    no re-test unless you wire it differently.
 7. Export it from `components/mod.rs` (and `prelude` if it is common).
 
+## The gallery
+
+`crates/gallery` follows md3.io's component pages, built from u0ui's own
+components:
+
+```
+shell.rs      Route (Home | Overview(section) | Page), side nav (Sidebar), page
+              frame (Breadcrumb, title, description, Overview/Specs Tabs),
+              the ⌘K CommandDialog palette
+top_bar.rs    G100 header in a theme::zone: NavigationMenu (Foundations,
+              Components, Patterns) + ghost icon actions: search, theme and
+              display (density, motion) Popovers
+home.rs       the reference cover, live theme previews, the three ways in
+overview.rs   search + section switcher over a reflowing grid of Card tiles,
+              each with a live specimen (thumbnails.rs)
+page.rs       Body: Playground (stage + Configuration panel), then Examples
+controls.rs   config controls: Switch, ToggleGroup / Select, labels, blocks
+specs.rs      Specs tabs: anatomy, measurements, state colors from the
+              components' own Look/Geometry functions
+registry.rs   PageDef list, groups, sections
+capture.rs    --capture <dir>: render_to_image of each route, headless
+```
+
+Below 1056px the side nav folds behind the header's menu button and opens
+over the content; the playground's configuration panel wraps under the stage
+and the overview drops columns, so nothing scrolls sideways from 800px up.
+
 ## Recipe: adding a gallery page
 
-1. Create `crates/gallery/src/pages/<name>.rs` with
-   `pub fn build(window: &mut Window, cx: &mut App) -> AnyView` returning a view
-   whose `render` returns `controls::page_body(preview, Some(config))`:
-   the reference `preview.html` content, a live configurable instance, and a
-   config panel with a control for every variant, size and state in `index.d.ts`
-   (`controls::choices`, `controls::toggle`, `controls::field`).
-2. Add `pub mod <name>;` to `pages/mod.rs` and one `PageDef` to
-   `registry::PAGES` with the stable id, title, the artifact's group and
-   `description: Component::<Name>.summary()` (the README's first sentence, from
-   `crates/gallery/src/generated/descriptions.rs`; every reference component
-   already has a variant).
-3. Check it: `cargo run -p u0ui-gallery -- --page <id> --theme g100`. No horizontal
-   scrolling at the 800×520 minimum window.
+One file plus one registry line.
+
+1. Create `crates/gallery/src/pages/<name>.rs` exposing
+   `pub fn build(window: &mut Window, cx: &mut App) -> AnyView`: a state entity
+   whose `render` returns a `page::Body`:
+
+   ```rust
+   Body::new()
+       .playground(live)          // the real component, driven by the state
+       .hint("↑/↓ move, Enter selects")   // optional: what to try
+       .config(config)            // controls::{toggle, choices, field}: every
+                                  // variant, size, state and content option
+                                  // in index.d.ts
+       .example(controls::block("Reference preview", reference)) // preview.html
+       .example(controls::block("Sizes", sizes))                  // more, optional
+   ```
+
+   Controls write back with `controls::setter(&entity, |this, v| this.x = v)`.
+   `controls::choices` draws a content switcher for a short list and a Select
+   for a long one.
+2. Add `pub mod <name>;` to `pages/mod.rs` and one line to `registry::PAGES`:
+
+   ```rust
+   PageDef::new("tag-input", "TagInput", FORMS, Component::TagInput.summary(), pages::tag_input::build),
+   ```
+
+   with the stable id (the reference card, kebab-case), the title, the
+   artifact's group (a constant, or the group string such as
+   `"T3 · Composer"`; `T3 · `, `Ghost · ` and `Carbon · ` groups land under
+   Patterns) and the README's first sentence from
+   `crates/gallery/src/generated/descriptions.rs` (every reference component
+   already has a variant). Optional on the same line:
+   `.thumbnail(pages::tag_input::thumbnail)` (a small live specimen for the
+   overview tile, at most ~15rem wide; the group's icon otherwise) and
+   `.specs(specs::tag_input)` (a Specs tab).
+3. Check it: `cargo run -p u0ui-gallery -- --page <id> --theme g100`, and at
+   the 800×520 minimum window: no horizontal scrolling. Screenshot it with
+   `cargo run -p u0ui-gallery -- --page <id> --capture <dir>`.
 
 ## Gates
 
