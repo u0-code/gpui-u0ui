@@ -208,8 +208,7 @@ impl RenderOnce for InputOtp {
                     .w(rem(SLOT_WIDTH))
                     .h(rem(SLOT_HEIGHT))
                     .bg(look.background)
-                    .border_b_1()
-                    .border_color(look.border)
+                    .pb(gpui_kit::px(form::FIELD_RULE))
                     .font(typography::font(tokens::FontFamilyKey::Mono, 400))
                     .text_size(rem(20.))
                     .text_color(look.text)
@@ -232,6 +231,7 @@ impl RenderOnce for InputOtp {
                             this.child(caret)
                         }
                     })
+                    .child(form::bottom_rule(look.border))
                     .when_some(look.outline, |this, outline| {
                         this.child(form::inset_outline(2., outline))
                     })
@@ -264,7 +264,6 @@ impl RenderOnce for InputOtp {
             .flex()
             .flex_row()
             .items_center()
-            .gap(tokens::SPACING_03)
             .type_style(TypeStyle::BodyCompact01)
             .cursor(if self.disabled {
                 gpui_kit::CursorStyle::OperationNotAllowed
@@ -283,8 +282,19 @@ impl RenderOnce for InputOtp {
                     });
                 })
             })
-            .children(parts)
-            .child(editor)
+            // `.cu-otp { gap: var(--spacing-03) }` between the groups only.
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap(tokens::SPACING_03)
+                    .children(parts),
+            )
+            // `.cu-otp-input { position: absolute; inset: 0 }`: Kit's input keeps an
+            // in-flow root, so an absolute box holds it and the row stays as wide
+            // as its slots.
+            .child(div().absolute().top_0().left_0().size_full().child(editor))
     }
 }
 
