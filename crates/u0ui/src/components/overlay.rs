@@ -116,6 +116,33 @@ pub(crate) fn presence(
     )
 }
 
+/// Entrance-only presence, 0 → 1 with `enter` while open; closing cuts to 0
+/// on the same frame (the reference unmounts the surface at once, as
+/// `.cu-panel` does). Reopening animates the entrance again from 0.
+pub(crate) fn entrance(
+    id: impl Into<ElementId>,
+    open: bool,
+    enter: Motion,
+    window: &mut Window,
+    cx: &mut App,
+) -> f32 {
+    let id: ElementId = id.into();
+    if open {
+        // Non-spatial: callers drop any slide under reduced motion.
+        motion::animate((id, "presence"), 1f32, enter.spatial(false), window, cx)
+    } else {
+        // A zero-length transition finishes at once and leaves the keyed
+        // state at 0, so the next open starts from there.
+        gpui_kit::base::transition(
+            (id, "presence"),
+            0f32,
+            gpui_kit::base::Transition::new(std::time::Duration::ZERO),
+            window,
+            cx,
+        )
+    }
+}
+
 /// Focus that moves into a modal or floating surface when it opens and returns
 /// to the previously focused element when it closes. Base's hosts trap focus
 /// but leave both moves to the application.

@@ -12,10 +12,9 @@
 //!   the width like a Modal footer.
 //! - **Motion**: the scrim fades in over 110ms `cubic-bezier(0, 0, 0.38, 0.9)`
 //!   (`cu-fade`), the panel slides from its edge over 240ms
-//!   `cubic-bezier(0, 0, 0.3, 1)` (`cu-in-r/l/t/b`). The reference unmounts at
-//!   once on close; here the exit mirrors the entrance on Carbon's exit curves
-//!   at fast-02 (110ms) and plays before unmount. Reduced motion fades the
-//!   panel instead of moving it.
+//!   `cubic-bezier(0, 0, 0.3, 1)` (`cu-in-r/l/t/b`). Closing unmounts the
+//!   panel and scrim at once, as the reference does (no exit animation).
+//!   Reduced motion fades the panel in instead of moving it.
 use super::overlay::{self, OpenChange, Translate, rem};
 use crate::{
     icons::{CarbonIcon, Icon, IconSize},
@@ -35,13 +34,8 @@ use std::rc::Rc;
 
 /// Panel slide in: `cu-in-r 240ms cubic-bezier(0, 0, 0.3, 1)`.
 pub const PANEL_ENTER: Motion = Motion::new(Curve::ExpressiveEntrance, Speed::Moderate02);
-/// Panel slide out (not in the reference, which unmounts at once): the
-/// expressive exit curve at fast-02.
-pub const PANEL_EXIT: Motion = Motion::new(Curve::ExpressiveExit, Speed::Fast02);
 /// Scrim in: `.cu-panel-overlay { animation: cu-fade 110ms cubic-bezier(0, 0, 0.38, 0.9) }`.
 pub const SCRIM_ENTER: Motion = Motion::new(Curve::ProductiveEntrance, Speed::Fast02);
-/// Scrim out: productive exit at fast-02.
-pub const SCRIM_EXIT: Motion = Motion::new(Curve::ProductiveExit, Speed::Fast02);
 /// `.cu-panel-close` hover wash: `.cds--btn--ghost` 70ms.
 const CLOSE_HOVER: Motion = Motion::HOVER;
 
@@ -294,22 +288,8 @@ impl RenderOnce for Sheet {
         );
         let open = openness.open;
         let set_open = openness.setter();
-        let panel_p = overlay::presence(
-            (id.clone(), "panel"),
-            open,
-            PANEL_ENTER,
-            PANEL_EXIT,
-            window,
-            cx,
-        );
-        let scrim_p = overlay::presence(
-            (id.clone(), "scrim"),
-            open,
-            SCRIM_ENTER,
-            SCRIM_EXIT,
-            window,
-            cx,
-        );
+        let panel_p = overlay::entrance((id.clone(), "panel"), open, PANEL_ENTER, window, cx);
+        let scrim_p = overlay::entrance((id.clone(), "scrim"), open, SCRIM_ENTER, window, cx);
         let close_focus = window
             .use_keyed_state((id.clone(), "close-focus"), cx, |_, cx| cx.focus_handle())
             .read(cx)
@@ -324,7 +304,6 @@ impl RenderOnce for Sheet {
                 Rc::new(move |window, cx| set_open(true, window, cx)),
             )
         });
-        let visible = open || panel_p > 0. || scrim_p > 0.;
         let root = div()
             .flex()
             .flex_shrink_0()
@@ -332,7 +311,7 @@ impl RenderOnce for Sheet {
                 this.absolute().top_0().left_0().size_full()
             })
             .children(trigger);
-        if !visible {
+        if !open {
             return root.into_any_element();
         }
 
@@ -589,7 +568,6 @@ mod tests {
         assert_eq!(PANEL_ENTER.curve.points(), (0., 0., 0.3, 1.));
         assert_eq!(SCRIM_ENTER.speed.millis(), 110);
         assert_eq!(SCRIM_ENTER.curve.points(), (0., 0., 0.38, 0.9));
-        assert!(PANEL_EXIT.speed.millis() < PANEL_ENTER.speed.millis());
     }
 
     #[test]
