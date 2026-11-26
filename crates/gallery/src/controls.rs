@@ -1,10 +1,11 @@
 //! Configuration-panel controls, built from u0ui's own components: a
 //! [`Switch`] per flag, a content switcher ([`ToggleGroup`]) for a short
-//! choice and a [`Select`] for a long one, each under a `label-01` label.
+//! choice whose labels fit their equal-width segments (measured, so none is
+//! clipped) and a [`Select`] otherwise, each under a `label-01` label.
 //! The panel is a `layer-01` surface, so fields paint layer two.
 use gpui_kit::{
-    App, ElementId, Hsla, IntoElement, ParentElement, SharedString, Styled, StyledText, TextRun,
-    Window, div,
+    App, ElementId, Hsla, IntoElement, ParentElement, RenderOnce, SharedString, Styled, StyledText,
+    TextRun, Window, div,
 };
 use std::rc::Rc;
 use u0ui::components::switch::{Switch, SwitchSize};
@@ -47,54 +48,110 @@ pub fn field(label: impl Into<SharedString>, control: impl IntoElement) -> impl 
         .child(control)
 }
 
-/// Whether `options` fit one content-switcher row in the panel: about 7px a
-/// character plus each segment's 2×16px padding.
-pub fn fits_switcher(options: &[&str]) -> bool {
-    let text: usize = options.iter().map(|o| o.chars().count()).sum();
-    options.len() <= 5 && text as f32 * 7.5 + options.len() as f32 * 32. <= PANEL_CONTENT
+/// A content-switcher segment's inline padding (`.cds--content-switcher-btn
+/// { padding-inline: 1rem }`), both sides.
+const SEGMENT_PADDING: f32 = 32.;
+
+/// Whether labels `widths` px wide fit a content switcher `panel` px wide
+/// without clipping. Carbon's segments share the width equally, so the
+/// widest label plus its padding must fit `panel / n`; at most five.
+pub fn fits_switcher(widths: &[f32], panel: f32) -> bool {
+    let n = widths.len();
+    n > 0
+        && n <= 5
+        && widths
+            .iter()
+            .all(|w| w + SEGMENT_PADDING <= panel / n as f32)
 }
 
-/// One of `options`: a content switcher ([`ToggleGroup`], size sm) when they
-/// fit one row, a [`Select`] otherwise.
+/// One of `options`: a content switcher ([`ToggleGroup`], size sm) when every
+/// label fits its equal-width segment, a [`Select`] otherwise. The labels
+/// are measured with the switcher's own font when the control renders.
 pub fn choices(
     id: impl Into<ElementId>,
     options: &[&'static str],
     selected: usize,
     on_select: impl Fn(usize, &mut Window, &mut App) + 'static,
 ) -> gpui_kit::AnyElement {
-    let id: ElementId = id.into();
-    let options: Vec<&'static str> = options.to_vec();
-    let on_select = Rc::new(on_select);
-    let current: SharedString = options.get(selected).copied().unwrap_or_default().into();
-    let index_of = {
-        let options = options.clone();
-        move |value: &str| options.iter().position(|o| *o == value)
+    Choices {
+        id: id.into(),
+        options: options.to_vec(),
+        selected,
+        on_select: Rc::new(on_select),
+    }
+    .into_any_element()
+}
+
+type SelectHandler = Rc<dyn Fn(usize, &mut Window, &mut App)>;
+
+#[derive(IntoElement)]
+struct Choices {
+    id: ElementId,
+    options: Vec<&'static str>,
+    selected: usize,
+    on_select: SelectHandler,
+}
+
+/// The width of `label` in px at a 16px rem, in `body-compact-01` (14px IBM
+/// Plex Sans, 0.16px tracking), the switcher's label style.
+fn label_width(label: &str, window: &Window) -> f32 {
+    let rem = window.rem_size();
+    let size = gpui_kit::rems(14. / 16.).to_pixels(rem);
+    let run = TextRun {
+        len: label.len(),
+        font: u0ui::typography::font(u0ui::tokens::FontFamilyKey::Sans, 400),
+        color: Hsla::default(),
+        background_color: None,
+        underline: None,
+        strikethrough: None,
     };
-    if fits_switcher(&options) {
-        let mut group = ToggleGroup::new(id)
-            .size(ToggleSize::Sm)
-            .value([current])
-            .on_value_change(move |value, window, cx| {
-                if let Some(i) = value.first().and_then(|v| index_of(v)) {
-                    on_select(i, window, cx);
-                }
-            });
-        for option in &options {
-            group = group.item(ToggleGroupItem::new(*option).child(*option));
+    let line = window
+        .text_system()
+        .shape_line(label.to_string().into(), size, &[run], None);
+    let scale = f32::from(rem) / 16.;
+    f32::from(line.width) / scale + 0.16 * label.chars().count() as f32
+}
+
+impl RenderOnce for Choices {
+    fn render(self, window: &mut Window, _: &mut App) -> impl IntoElement {
+        let Choices {
+            id,
+            options,
+            selected,
+            on_select,
+        } = self;
+        let current: SharedString = options.get(selected).copied().unwrap_or_default().into();
+        let index_of = {
+            let options = options.clone();
+            move |value: &str| options.iter().position(|o| *o == value)
+        };
+        let widths: Vec<f32> = options.iter().map(|o| label_width(o, window)).collect();
+        if fits_switcher(&widths, PANEL_CONTENT) {
+            let mut group = ToggleGroup::new(id)
+                .size(ToggleSize::Sm)
+                .value([current])
+                .on_value_change(move |value, window, cx| {
+                    if let Some(i) = value.first().and_then(|v| index_of(v)) {
+                        on_select(i, window, cx);
+                    }
+                });
+            for option in &options {
+                group = group.item(ToggleGroupItem::new(*option).child(*option));
+            }
+            group.into_any_element()
+        } else {
+            Select::new(id)
+                .items(options.iter().copied())
+                .value(Some(current))
+                .size(u0ui::components::FieldSize::Sm)
+                .layer(LayerLevel::Two)
+                .on_value_change(move |value, window, cx| {
+                    if let Some(i) = value.and_then(|v| index_of(v)) {
+                        on_select(i, window, cx);
+                    }
+                })
+                .into_any_element()
         }
-        group.into_any_element()
-    } else {
-        Select::new(id)
-            .items(options.iter().copied())
-            .value(Some(current))
-            .size(u0ui::components::FieldSize::Sm)
-            .layer(LayerLevel::Two)
-            .on_value_change(move |value, window, cx| {
-                if let Some(i) = value.and_then(|v| index_of(v)) {
-                    on_select(i, window, cx);
-                }
-            })
-            .into_any_element()
     }
 }
 
@@ -207,14 +264,12 @@ mod tests {
 
     #[test]
     fn short_choices_switch_long_ones_select() {
-        assert!(fits_switcher(&["sm", "md", "lg"]));
-        assert!(fits_switcher(&["16", "20", "24", "32"]));
-        assert!(!fits_switcher(&[
-            "primary",
-            "secondary",
-            "tertiary",
-            "ghost",
-            "danger"
-        ]));
+        // Three 96px segments in the 288px panel: a 63px label fits ("horizontal").
+        assert!(fits_switcher(&[33., 52., 63.], PANEL_CONTENT));
+        assert!(fits_switcher(&[16., 16., 16., 16.], PANEL_CONTENT));
+        // "broken image" / "10 (default)" (~80px) would be clipped: Select.
+        assert!(!fits_switcher(&[30., 36., 82.], PANEL_CONTENT));
+        assert!(!fits_switcher(&[20.; 6], PANEL_CONTENT));
+        assert!(!fits_switcher(&[], PANEL_CONTENT));
     }
 }
