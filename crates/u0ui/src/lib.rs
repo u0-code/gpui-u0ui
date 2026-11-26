@@ -50,6 +50,11 @@ pub use theme::LayerLevel;
 pub use tokens::{CarbonTheme, ColorRole, TypeStyle};
 pub use typography::TypeStyled;
 
+/// The README's Rust examples compile as doctests.
+#[cfg(doctest)]
+#[doc = include_str!("../../../README.md")]
+struct ReadmeDoctests;
+
 /// Everything a component or page usually needs.
 pub mod prelude {
     pub use crate::components::{Button, ButtonKind, ButtonSize, ButtonVariant};
