@@ -310,10 +310,31 @@ pub struct DayState {
     pub in_range: bool,
     /// Pointer over it.
     pub hovered: bool,
+    /// The hovered end of a range being picked (flatpickr `endRange:hover`).
+    pub range_end: bool,
     /// Keyboard focus.
     pub focused: bool,
     /// Outside `minDate`/`maxDate`.
     pub disabled: bool,
+}
+
+/// While a range has only its start, hovering a later day previews the range
+/// (flatpickr `onMouseOver`): the days strictly between start and the hovered
+/// day are `inRange`; the hovered day is `endRange` when after the start.
+/// Returns (in range, range end) for `date`.
+pub fn range_preview(
+    mode: CalendarMode,
+    selection: Selection,
+    hovered: Option<CalendarDate>,
+    date: CalendarDate,
+) -> (bool, bool) {
+    match (mode, selection.start, selection.end, hovered) {
+        (CalendarMode::Range, Some(start), None, Some(hover)) => {
+            let (lo, hi) = (start.min(hover), start.max(hover));
+            (date > lo && date < hi, date == hover && hover > start)
+        }
+        _ => (false, false),
+    }
 }
 
 /// The paint of one day.
@@ -368,6 +389,17 @@ impl DayLook {
                 } else {
                     outline
                 },
+            };
+        }
+        if state.range_end {
+            // `.flatpickr-day.endRange:hover { outline: 2px solid var(--focus);
+            // background: var(--layer-01); color: var(--text-primary) }`.
+            return Self {
+                background: color(ColorRole::Layer01),
+                text: color(ColorRole::TextPrimary),
+                bold: state.today,
+                dot: state.today.then(|| color(ColorRole::LinkPrimary)),
+                outline: Some(color(ColorRole::Focus)),
             };
         }
         let background = if state.in_range {
@@ -479,8 +511,12 @@ pub(crate) fn panel(
             d if d < 0 => min.is_some_and(|m| view.first_of_month().add_days(-1) < m),
             _ => max.is_some_and(|m| view.add_months(1).first_of_month() > m),
         };
-        div()
-            .id((id.clone(), if delta < 0 { "prev" } else { "next" }))
+        // flatpickr's arrows are plain spans with no tooltip: the label is only
+        // the accessible name. They are not tab stops (the grid is).
+        gpui_kit::base::Button::new((id.clone(), if delta < 0 { "prev" } else { "next" }))
+            .tab_stop(false)
+            .disabled(disabled)
+            .when_some(label, |this, label| this.accessibility_label(label))
             .size(rem(DAY))
             .flex()
             .items_center()
@@ -495,11 +531,6 @@ pub(crate) fn panel(
                             cx.notify();
                         })
                     })
-            })
-            .when_some(label, |this, label| {
-                this.tooltip(move |window, cx| {
-                    gpui_kit::component::tooltip::Tooltip::new(label.clone()).build(window, cx)
-                })
             })
             .child(
                 Icon::carbon(icon)
@@ -550,22 +581,32 @@ pub(crate) fn panel(
 
     let days = grid.iter().map(|&date| {
         let selected = selection.start == Some(date) || selection.end == Some(date);
-        let in_range =
-            matches!((selection.start, selection.end), (Some(a), Some(b)) if date > a && date < b);
         let disabled = out_of_bounds(date, min, max);
+        let hover_day = hovered.filter(|&h| !out_of_bounds(h, min, max));
+        let (preview, range_end) = range_preview(mode, selection, hover_day, date);
+        let in_range = preview
+            || matches!((selection.start, selection.end), (Some(a), Some(b)) if date > a && date < b);
         let look = DayLook::of(DayState {
             in_month: date.month == view.month,
             today: date == today,
             selected,
             in_range,
             hovered: hovered == Some(date) && !disabled,
+            range_end: range_end && !selected,
             focused: focused && cursor == Some(date),
             disabled,
         });
         let key = (id.clone(), format!("day-{}", date.to_days()));
+        // flatpickr rebuilds the day cells when the month changes, so the 70ms
+        // transition only runs within one month (hover, selection): key the
+        // animation by the shown month too, so a new month starts at rest.
+        let anim = (
+            id.clone(),
+            format!("day-{}-{}-{}", view.year, view.month, date.to_days()),
+        );
         let background =
-            motion::animate_color((key.clone(), "bg"), look.background, DAY_MOTION, window, cx);
-        let text = motion::animate_color((key.clone(), "text"), look.text, DAY_MOTION, window, cx);
+            motion::animate_color((anim.clone(), "bg"), look.background, DAY_MOTION, window, cx);
+        let text = motion::animate_color((anim, "text"), look.text, DAY_MOTION, window, cx);
         let on_pick = on_pick.clone();
         let hover_state = state.clone();
         let click_state = state.clone();
@@ -942,5 +983,69 @@ mod tests {
         assert_eq!(hex(range.background), "#d0e2ff");
         let other = DayLook::of(DayState::default());
         assert_eq!(hex(other.text), "#6f6f6f");
+        // `.flatpickr-day.endRange:hover`: layer-01 with a 2px focus outline.
+        let end = DayLook::of(DayState {
+            in_month: true,
+            hovered: true,
+            range_end: true,
+            ..Default::default()
+        });
+        assert_eq!(hex(end.background), "#f4f4f4");
+        assert_eq!(end.outline.map(hex).as_deref(), Some("#0f62fe"));
+    }
+
+    #[test]
+    fn hovering_after_a_range_start_previews_the_range() {
+        let start = CalendarDate::new(2026, 11, 10);
+        let hover = CalendarDate::new(2026, 11, 13);
+        let sel = Selection::single(start);
+        let at = |d: u32| {
+            range_preview(
+                CalendarMode::Range,
+                sel,
+                Some(hover),
+                CalendarDate::new(2026, 11, d),
+            )
+        };
+        assert_eq!(at(10), (false, false));
+        assert_eq!(at(11), (true, false));
+        assert_eq!(at(12), (true, false));
+        assert_eq!(at(13), (false, true));
+        assert_eq!(at(14), (false, false));
+        // Hovering before the start: between days fill, no end marker.
+        let before = CalendarDate::new(2026, 11, 7);
+        assert_eq!(
+            range_preview(
+                CalendarMode::Range,
+                sel,
+                Some(before),
+                CalendarDate::new(2026, 11, 8)
+            ),
+            (true, false)
+        );
+        assert_eq!(
+            range_preview(CalendarMode::Range, sel, Some(before), before),
+            (false, false)
+        );
+        // Single mode and complete ranges show no preview.
+        assert_eq!(
+            range_preview(
+                CalendarMode::Single,
+                sel,
+                Some(hover),
+                CalendarDate::new(2026, 11, 11)
+            ),
+            (false, false)
+        );
+        let done = Selection::range(start, hover);
+        assert_eq!(
+            range_preview(
+                CalendarMode::Range,
+                done,
+                Some(CalendarDate::new(2026, 11, 20)),
+                CalendarDate::new(2026, 11, 15)
+            ),
+            (false, false)
+        );
     }
 }

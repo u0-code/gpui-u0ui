@@ -15,8 +15,10 @@
 //!   `simple` a 7.5rem field without a calendar. Disabled: no rule,
 //!   `text-disabled`; read-only: transparent with `border-subtle`.
 //! - **Motion**: the panel fades in while sliding 20px down over 110ms
-//!   (`fp-fade-in-down 110ms cubic-bezier(0, 0, 0.38, 0.9)`) and back out;
-//!   the slide is dropped under reduced motion.
+//!   (`.flatpickr-calendar.animate.open { animation: fp-fade-in-down 110ms
+//!   cubic-bezier(0, 0, 0.38, 0.9) }`); the slide is dropped under reduced
+//!   motion. Closing has no animation: flatpickr removes `.open` and the panel
+//!   is gone at once.
 //!
 //! ```ignore
 //! DatePicker::new("start").label("Start date").placeholder("mm/dd/yyyy")
@@ -33,7 +35,7 @@ use crate::{
     typography::TypeStyled as _,
 };
 use gpui_kit::{
-    App, AppContext as _, CursorStyle, ElementId, Entity, Focusable as _, Hsla,
+    AnimationExt as _, App, AppContext as _, CursorStyle, ElementId, Entity, Focusable as _, Hsla,
     InteractiveElement as _, IntoElement, MouseButton, ParentElement, RenderOnce, SharedString,
     Styled, Window,
     component::{
@@ -92,6 +94,8 @@ struct Fields {
     inputs: [Entity<InputState>; 2],
     was_focused: [bool; 2],
     open: bool,
+    /// Counts openings, so each one replays the entrance animation.
+    opened: u64,
 }
 
 /// A Carbon date picker. See the module docs.
@@ -284,6 +288,9 @@ fn set_open(fields: &Entity<Fields>, open: bool, cx: &mut App) {
     fields.update(cx, |f, cx| {
         if f.open != open {
             f.open = open;
+            if open {
+                f.opened += 1;
+            }
             cx.notify();
         }
     });
@@ -312,6 +319,7 @@ impl RenderOnce for DatePicker {
             ],
             was_focused: [false, false],
             open: false,
+            opened: 0,
         });
         let inputs = fields.read(cx).inputs.clone();
         let inert = self.disabled || self.readonly;
@@ -357,18 +365,8 @@ impl RenderOnce for DatePicker {
             }
         }
         let open = fields.read(cx).open && has_calendar && !inert;
-        let progress = motion::animate(
-            (id.clone(), "panel"),
-            if open { 1f32 } else { 0. },
-            PANEL_MOTION,
-            window,
-            cx,
-        );
-        let travel = if motion::reduced_motion(cx) {
-            0.
-        } else {
-            -PANEL_TRAVEL * (1. - progress)
-        };
+        let opened = fields.read(cx).opened;
+        let slide = !motion::reduced_motion(cx);
 
         let validation = if inert {
             Validation::None
@@ -447,8 +445,7 @@ impl RenderOnce for DatePicker {
                 .pl(rem(16.))
                 .pr(rem(pad_end))
                 .bg(look.background)
-                .border_b_1()
-                .border_color(look.border_bottom)
+                .pb(gpui_kit::px(form::FIELD_RULE))
                 .font(crate::typography::font(tokens::FontFamilyKey::Mono, 400))
                 .text_size(rem(14.))
                 .line_height(rem(20.))
@@ -524,6 +521,7 @@ impl RenderOnce for DatePicker {
                         .items_center()
                         .child(icon)
                 }))
+                .child(form::bottom_rule(look.border_bottom))
                 .child(form::inset_outline(2., outline));
             // `.cds--date-picker-container`: the label over its field.
             div()
@@ -545,7 +543,7 @@ impl RenderOnce for DatePicker {
 
         let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), row)
             .anchor(gpui_kit::Anchor::TopLeft)
-            .when(open || progress > 0., |this| {
+            .when(open, |this| {
                 let commit = commit.clone();
                 let pick_fields = fields.clone();
                 let close_fields = fields.clone();
@@ -582,14 +580,20 @@ impl RenderOnce for DatePicker {
                 // `.flatpickr-calendar.open { box-shadow: 0 2px 6px var(--shadow) }`.
                 .shadow(super::overlay::floating_shadow())
                 .on_mouse_down_out(move |_, _, cx| set_open(&close_fields, false, cx));
-                this.content(
-                    div()
-                        .opacity(progress)
-                        .child(super::overlay::Translate::y(panel, travel)),
-                )
+                this.content(div().relative().child(panel).with_animation(
+                    (id.clone(), format!("open-{opened}")),
+                    PANEL_MOTION.animation(),
+                    move |this, t| {
+                        let travel = if slide { -PANEL_TRAVEL * (1. - t) } else { 0. };
+                        this.opacity(t).top(px(travel))
+                    },
+                ))
             });
 
+        // `.cds--form-item { flex: 1 1 auto }`: as wide as its fields, so two
+        // pickers in a `cu-row` sit side by side instead of each taking the row.
         form::form_item()
+            .w_auto()
             .child(popup)
             .children(form::message(
                 &validation,
