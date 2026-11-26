@@ -5,6 +5,7 @@ pub mod button;
 pub mod button_group;
 pub mod checkbox;
 pub mod colors;
+pub mod context_menu;
 pub mod dialog;
 pub mod drawer;
 pub mod dropdown_menu;

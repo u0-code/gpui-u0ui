@@ -233,6 +233,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("DropdownMenu"),
         build: pages::dropdown_menu::build,
     },
+    PageDef {
+        id: "context-menu",
+        title: "ContextMenu",
+        group: "Overlays",
+        description: readme!("ContextMenu"),
+        build: pages::context_menu::build,
+    },
 ];
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {

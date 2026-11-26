@@ -989,23 +989,27 @@ impl RenderOnce for Menu {
     }
 }
 
-/// A menu that hangs from a trigger: the shared body of DropdownMenu and
-/// Menubar menus. Returns the trigger wrapped in Base's `Popup`, with the
-/// menu (fading per [`FLOAT_ENTER`]/[`FLOAT_EXIT`]) when open.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn anchored_menu(
+/// What every open menu needs, whatever places it.
+pub(crate) struct MenuSpec {
+    pub items: Vec<MenuItem>,
+    pub size: MenuSize,
+    pub label: SharedString,
+    pub open: bool,
+    pub set_open: overlay::OpenChange,
+    pub min_width: Option<f32>,
+    pub on_unhandled_key: Option<KeyHook>,
+}
+
+/// The faded menu surface for `spec` (closing on a press outside it and its
+/// submenus), or `None` once it has faded out. Focus moves into it on open
+/// and back on close.
+pub(crate) fn menu_surface(
     id: &ElementId,
-    trigger: AnyElement,
-    items: Vec<MenuItem>,
-    size: MenuSize,
-    label: SharedString,
-    open: bool,
-    set_open: overlay::OpenChange,
-    min_width: Option<f32>,
-    on_unhandled_key: Option<KeyHook>,
+    spec: MenuSpec,
     window: &mut Window,
     cx: &mut App,
-) -> AnyElement {
+) -> Option<AnyElement> {
+    let open = spec.open;
     let progress = overlay::presence(
         (id.clone(), "fade"),
         open,
@@ -1022,10 +1026,10 @@ pub(crate) fn anchored_menu(
         })
         .read(cx)
         .clone();
-    let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), trigger).anchor(Anchor::TopLeft);
     if !(open || progress > 0.) {
-        return popup.into_any_element();
+        return None;
     }
+    let set_open = spec.set_open;
     let chain = Chain {
         close: {
             let set_open = set_open.clone();
@@ -1035,7 +1039,6 @@ pub(crate) fn anchored_menu(
         bounds: bounds.clone(),
     };
     let outside = {
-        let set_open = set_open.clone();
         let bounds = bounds.clone();
         move |event: &gpui_kit::MouseDownEvent, window: &mut Window, cx: &mut App| {
             if open && !bounds.borrow().iter().any(|b| b.contains(&event.position)) {
@@ -1045,20 +1048,35 @@ pub(crate) fn anchored_menu(
     };
     // Submenus re-register their bounds while they paint.
     bounds.borrow_mut().clear();
-    let mut menu = Menu::new((id.clone(), "menu"), items, focus, chain)
-        .size(size)
-        .label(label)
-        .min_width(min_width);
-    menu.on_key = on_unhandled_key;
-    popup
-        .content(
-            div()
-                .id((id.clone(), "surface"))
-                .opacity(progress)
-                .on_mouse_down_out(outside)
-                .child(menu),
-        )
-        .into_any_element()
+    let mut menu = Menu::new((id.clone(), "menu"), spec.items, focus, chain)
+        .size(spec.size)
+        .label(spec.label)
+        .min_width(spec.min_width);
+    menu.on_key = spec.on_unhandled_key;
+    Some(
+        div()
+            .id((id.clone(), "surface"))
+            .opacity(progress)
+            .on_mouse_down_out(outside)
+            .child(menu)
+            .into_any_element(),
+    )
+}
+
+/// A menu that hangs from a trigger's start edge (Base's `Popup`): the
+/// shared body of DropdownMenu and Menubar menus.
+pub(crate) fn anchored_menu(
+    id: &ElementId,
+    trigger: AnyElement,
+    spec: MenuSpec,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
+    let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), trigger).anchor(Anchor::TopLeft);
+    match menu_surface(id, spec, window, cx) {
+        Some(surface) => popup.content(surface).into_any_element(),
+        None => popup.into_any_element(),
+    }
 }
 
 #[cfg(test)]

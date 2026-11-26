@@ -4,6 +4,7 @@ pub mod alert_dialog;
 pub mod button;
 pub mod button_group;
 pub mod checkbox;
+pub mod context_menu;
 pub mod dialog;
 pub mod drawer;
 pub mod dropdown_menu;
@@ -28,6 +29,7 @@ pub use button_group::{
     ButtonGroup, ButtonGroupOrientation, ButtonGroupSeparator, ButtonGroupText,
 };
 pub use checkbox::{Checkbox, CheckboxState};
+pub use context_menu::ContextMenu;
 pub use dialog::{Dialog, DialogSize};
 pub use drawer::Drawer;
 pub use dropdown_menu::{DropdownMenu, DropdownMenuKind, DropdownMenuSize};

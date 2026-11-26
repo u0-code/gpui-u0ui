@@ -281,13 +281,15 @@ impl RenderOnce for DropdownMenu {
         menu::anchored_menu(
             &id,
             trigger,
-            self.items,
-            size.menu(labeled),
-            self.label.clone().unwrap_or(self.overflow_label.clone()),
-            open,
-            set_open,
-            labeled.then_some(trigger_width),
-            None,
+            menu::MenuSpec {
+                items: self.items,
+                size: size.menu(labeled),
+                label: self.label.clone().unwrap_or(self.overflow_label.clone()),
+                open,
+                set_open,
+                min_width: labeled.then_some(trigger_width),
+                on_unhandled_key: None,
+            },
             window,
             cx,
         )
