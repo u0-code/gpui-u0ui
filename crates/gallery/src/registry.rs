@@ -514,6 +514,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::code_block::build,
     },
     PageDef {
+        id: "empty",
+        title: "Empty",
+        group: "Data display",
+        description: readme!("Empty"),
+        build: pages::empty::build,
+    },
+    PageDef {
         id: "typography",
         title: "Typography",
         group: "Data display",
