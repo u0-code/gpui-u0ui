@@ -5,6 +5,7 @@ pub mod alert_dialog;
 pub mod button;
 pub mod button_group;
 pub mod checkbox;
+pub mod collapsible;
 pub mod colors;
 pub mod command;
 pub mod context_menu;

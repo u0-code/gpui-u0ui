@@ -1,11 +1,11 @@
 //! Overlays › Drawer: the reference preview (a contained drawer, open) and a
 //! live window-level drawer with every side.
-use crate::{controls, stand_in};
+use crate::controls;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window,
     div, rems,
 };
-use u0ui::components::{Drawer, Sheet, SheetSide};
+use u0ui::components::{Checkbox, Drawer, Sheet, SheetSide};
 use u0ui::prelude::*;
 
 /// Build the page.
@@ -66,18 +66,18 @@ impl Render for DrawerPage {
                         .size(ButtonSize::Xl)
                         .full_width(true),
                 )
-                .child(stand_in::checkbox(
-                    (prefix, 2usize),
-                    "Running",
-                    self.running,
-                    update(|this, on| this.running = on),
-                ))
-                .child(stand_in::checkbox(
-                    (prefix, 3usize),
-                    "Stopped",
-                    self.stopped,
-                    update(|this, on| this.stopped = on),
-                ))
+                .child(
+                    Checkbox::new((prefix, 2usize))
+                        .label("Running")
+                        .checked(self.running)
+                        .on_checked_change(update(|this, on| this.running = on)),
+                )
+                .child(
+                    Checkbox::new((prefix, 3usize))
+                        .label("Stopped")
+                        .checked(self.stopped)
+                        .on_checked_change(update(|this, on| this.stopped = on)),
+                )
         };
 
         // `components/Drawer/preview.html`.

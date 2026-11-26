@@ -5,6 +5,7 @@ pub mod alert_dialog;
 pub mod button;
 pub mod button_group;
 pub mod checkbox;
+pub mod collapsible;
 pub mod command;
 pub mod context_menu;
 pub mod dialog;
@@ -40,6 +41,7 @@ pub use button_group::{
     ButtonGroup, ButtonGroupOrientation, ButtonGroupSeparator, ButtonGroupText,
 };
 pub use checkbox::{Checkbox, CheckboxState};
+pub use collapsible::Collapsible;
 pub use command::{Command, CommandDialog, CommandGroup, CommandItem};
 pub use context_menu::ContextMenu;
 pub use dialog::{Dialog, DialogSize};
