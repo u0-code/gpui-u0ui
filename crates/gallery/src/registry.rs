@@ -268,6 +268,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Menubar"),
         build: pages::menubar::build,
     },
+    PageDef {
+        id: "command",
+        title: "Command",
+        group: "Overlays",
+        description: readme!("Command"),
+        build: pages::command::build,
+    },
 ];
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {
