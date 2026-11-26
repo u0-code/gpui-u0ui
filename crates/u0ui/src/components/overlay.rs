@@ -289,6 +289,8 @@ pub(crate) struct DropAnchor {
     trigger: Rc<Cell<Bounds<Pixels>>>,
     surface: Rc<Cell<Size<Pixels>>>,
     side: Rc<Cell<DropSide>>,
+    /// See [`Self::set_top_inset`].
+    top_inset: Rc<Cell<f32>>,
 }
 
 /// The [`DropAnchor`] keyed by `id`.
@@ -309,6 +311,25 @@ impl DropAnchor {
         f32::from(self.trigger.get().size.width)
     }
 
+    /// The trigger's last measured height in px.
+    pub fn height(&self) -> f32 {
+        f32::from(self.trigger.get().size.height)
+    }
+
+    /// How far below the measured trigger's top edge a surface placed
+    /// [`DropSide::Above`] stands (px): the measured element can hold more
+    /// than the control the surface belongs to, such as a field's label over
+    /// its input, and the room above is counted from that control's top.
+    pub fn set_top_inset(&self, inset: f32) {
+        self.top_inset.set(inset.max(0.));
+    }
+
+    /// The trigger's last measured `(top, bottom)`, with the top inset.
+    fn edges(trigger: Bounds<Pixels>, inset: f32) -> (f32, f32) {
+        let bottom = f32::from(trigger.bottom());
+        ((f32::from(trigger.top()) + inset).min(bottom), bottom)
+    }
+
     /// A zero-size canvas that records the bounds of its (`relative`) parent,
     /// the trigger.
     pub fn measure_trigger(&self) -> impl IntoElement + use<> {
@@ -324,8 +345,7 @@ impl DropAnchor {
     /// trigger's last bounds (the side is remembered for
     /// [`Self::measure_surface`]).
     pub fn place(&self, height: f32, window: &Window) -> (DropSide, f32) {
-        let trigger = self.trigger.get();
-        let (top, bottom) = (f32::from(trigger.top()), f32::from(trigger.bottom()));
+        let (top, bottom) = Self::edges(self.trigger.get(), self.top_inset.get());
         let viewport = f32::from(window.viewport_size().height);
         let side = DropSide::choose(top, bottom, height, viewport);
         self.side.set(side);
@@ -342,18 +362,19 @@ impl DropAnchor {
     /// the surface's size and asks for another frame when the side chosen
     /// for it no longer fits (its first open, or its size changed).
     pub fn measure_surface(&self) -> impl IntoElement + use<> {
-        let (trigger, surface, side) = (
+        let (trigger, surface, side, inset) = (
             self.trigger.clone(),
             self.surface.clone(),
             self.side.clone(),
+            self.top_inset.clone(),
         );
         canvas(
             move |bounds, window, _| {
                 surface.set(bounds.size);
-                let t = trigger.get();
+                let (top, bottom) = Self::edges(trigger.get(), inset.get());
                 let want = DropSide::choose(
-                    f32::from(t.top()),
-                    f32::from(t.bottom()),
+                    top,
+                    bottom,
                     f32::from(bounds.size.height),
                     f32::from(window.viewport_size().height),
                 );

@@ -28,6 +28,7 @@
 use super::calendar::{self, CalendarDate, CalendarLocale, CalendarMode, Panel, Selection};
 use super::form::{self, FieldSize, Validation, rem};
 use super::input::{FIELD_MOTION, FieldLook, FieldState, InputState};
+use super::overlay::DropSide;
 use crate::{
     density::{self, Density},
     icons::{CarbonIcon, Icon, IconSize},
@@ -54,6 +55,21 @@ use std::rc::Rc;
 pub const PANEL_MOTION: Motion = Motion::new(Curve::ProductiveEntrance, Speed::Fast02);
 /// `fp-fade-in-down`: `translate3d(0, -20px, 0)` → 0.
 pub const PANEL_TRAVEL: f32 = 20.;
+
+/// The Popup offset placing the calendar on `side` of the input, given the
+/// label over it (`label_inset` px between the measured row's top and the
+/// input's). Below it hangs flush from the row's (= the input's) bottom:
+/// flatpickr's `+ 2` less the 2px `margin-block-start: -0.125rem`. Above, its
+/// bottom edge sits `2 + 2` px over the input's top (`input.top - height - 2`,
+/// then the same margin).
+pub fn above_offset(side: DropSide, label_inset: f32) -> f32 {
+    match side {
+        DropSide::Below => 0.,
+        // Base's `BottomLeft` anchor puts the surface's bottom at
+        // `row.top - offset`.
+        DropSide::Above => 4. - label_inset,
+    }
+}
 
 /// `index.d.ts` `DatePickerProps.mode`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -549,9 +565,18 @@ impl RenderOnce for DatePicker {
             row = row.child(div().w(px(1.))).child(field(1, window, cx));
         }
 
+        // flatpickr positions the calendar against the input, not the label
+        // over it: below, `top = input.bottom + 2`; above,
+        // `top = input.top - height - 2`; and
+        // `.flatpickr-calendar.open { margin-block-start: -0.125rem }` lifts
+        // both by 2px: flush below, 4px clear of the input above.
+        let input_height = height / 16. * f32::from(window.rem_size());
+        let label_inset = (anchor.height() - input_height).max(0.);
+        anchor.set_top_inset(label_inset);
         let side = anchor.place_measured(window);
         let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), row)
             .anchor(side.anchor())
+            .offset(px(above_offset(side, label_inset)))
             .when(open, |this| {
                 let commit = commit.clone();
                 let pick_fields = fields.clone();
@@ -666,5 +691,18 @@ mod tests {
         assert_eq!(DatePickerMode::Simple.field_width(), 7.5 * 16.);
         assert_eq!(PANEL_TRAVEL, 20.);
         assert_eq!(PANEL_MOTION.speed.millis(), 110);
+    }
+
+    #[test]
+    fn calendar_anchors_to_the_input_not_its_label() {
+        // Below: flush with the row's bottom, which is the input's.
+        assert_eq!(above_offset(DropSide::Below, 24.), 0.);
+        // Above, under a 16px label + 8px gap: the surface's bottom lands at
+        // `row.top + 24 - 4`, i.e. 4px over the input's top edge.
+        let row_top = 100.;
+        let bottom = row_top - above_offset(DropSide::Above, 24.);
+        assert_eq!(bottom, row_top + 24. - 4.);
+        // Without a label the input is the row: 4px clear of it.
+        assert_eq!(row_top - above_offset(DropSide::Above, 0.), row_top - 4.);
     }
 }
