@@ -205,6 +205,9 @@ impl Gallery {
             .placeholder("Search pages, themes and settings")
             .empty_text("No page matches.")
             .label("Search the gallery")
+            // Results filter inside a fixed-height list: the dialog keeps its
+            // size and position while the user types.
+            .stable_height(true)
             .group(
                 CommandGroup::new("Gallery")
                     .item(

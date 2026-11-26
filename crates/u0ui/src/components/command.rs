@@ -236,6 +236,7 @@ pub struct Command {
     empty: SharedString,
     label: SharedString,
     clear_label: SharedString,
+    stable_height: bool,
     /// State owned by a host ([`CommandDialog`] keys it outside its modal,
     /// so it can reach the field's focus handle).
     state: Option<Entity<CommandState>>,
@@ -252,8 +253,18 @@ impl Command {
             empty: "No results found.".into(),
             label: "Command menu".into(),
             clear_label: "Clear".into(),
+            stable_height: false,
             state: None,
         }
+    }
+
+    /// Hold the list at its full `.cu-command-list` height (18rem) while the
+    /// query filters it, instead of shrinking to the matches, so a
+    /// [`CommandDialog`] around it keeps its size and does not re-center as
+    /// the user types. Off by default (the reference list shrinks).
+    pub fn stable_height(mut self, stable: bool) -> Self {
+        self.stable_height = stable;
+        self
     }
 
     /// The search placeholder (`CommandInput placeholder`).
@@ -505,11 +516,13 @@ impl RenderOnce for Command {
                 )
             });
 
+        // `.cu-command-list { max-height: 18rem }`.
         let mut list = div()
             .id((id.clone(), "list"))
             .flex()
             .flex_col()
             .max_h(rem(288.))
+            .when(self.stable_height, |this| this.h(rem(288.)))
             .overflow_y_scroll()
             .pb(rem(8.));
         let mut flat_index = 0usize;
