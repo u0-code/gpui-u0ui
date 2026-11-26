@@ -54,6 +54,7 @@ pub mod progress;
 pub mod questionnaire;
 pub mod radio_group;
 pub mod resizable;
+pub(crate) mod resize;
 pub mod scroll_area;
 pub mod select;
 pub mod separator;

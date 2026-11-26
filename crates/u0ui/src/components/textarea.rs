@@ -11,10 +11,10 @@
 //!   `enableCounter` the label row shows `count/maxCount` at its end
 //!   (`.cds--text-area__label-wrapper { justify-content: space-between }`).
 //!   The placeholder is drawn here in `text-placeholder`.
+//! - **Resize**: `resize: vertical`. The field starts `rows` lines tall; the
+//!   corner grip ([`super::resize`]) drags its height, down to `min-block-size:
+//!   2.5rem`. Disabled fields have none (`:disabled { resize: none }`).
 //! - **Motion**: background and outline 70ms ([`super::input::FIELD_MOTION`]).
-//!
-//! Deviation: Carbon's `resize: vertical` handle is not drawn; the height
-//! follows `rows`.
 //!
 //! ```ignore
 //! let state = cx.new(|cx| TextareaState::new(window, cx));
@@ -43,10 +43,19 @@ pub const LINE: f32 = 20.;
 /// inline); the field padding subtracts it.
 const KIT_INSET: (f32, f32) = (2., 4.);
 
+/// `.cds--text-area { min-block-size: 2.5rem }`.
+pub const MIN_HEIGHT: f32 = 40.;
+
 /// Field height for `rows` lines: rows × 20 + 11 + 8 (+1 bottom rule),
 /// at least `min-block-size: 2.5rem`.
 pub fn field_height(rows: usize) -> f32 {
-    (rows as f32 * LINE + PADDING_TOP + PADDING_BOTTOM + 1.).max(40.)
+    (rows as f32 * LINE + PADDING_TOP + PADDING_BOTTOM + 1.).max(MIN_HEIGHT)
+}
+
+/// The text box height inside a field `height` tall (the inverse of
+/// [`field_height`]).
+pub fn text_height(height: f32) -> f32 {
+    (height - PADDING_TOP - PADDING_BOTTOM - 1.).max(0.)
 }
 
 /// The counter text (`3/200`), or `None` without `enableCounter`/`maxCount`.
@@ -233,7 +242,12 @@ impl RenderOnce for Textarea {
             cx,
         );
         let pad_end = if validation.has_icon() { 40. } else { 16. };
-        let editor_height = self.rows as f32 * LINE;
+        let resize = super::resize::height_store(&id, window, cx);
+        let height = resize
+            .read(cx)
+            .height
+            .unwrap_or_else(|| field_height(self.rows));
+        let editor_height = text_height(height);
 
         let editor = KitTextarea::new(&state)
             .appearance(false)
@@ -268,14 +282,14 @@ impl RenderOnce for Textarea {
             .id((id.clone(), "field"))
             .relative()
             .w_full()
-            .min_h(rem(40.))
+            .h(rem(height))
+            .min_h(rem(MIN_HEIGHT))
+            .overflow_hidden()
             .pt(rem(PADDING_TOP - KIT_INSET.0))
-            .pb(rem(PADDING_BOTTOM - KIT_INSET.0))
+            .pb(rem(PADDING_BOTTOM - KIT_INSET.0 + form::FIELD_RULE))
             .pl(rem(16. - KIT_INSET.1))
             .pr(rem(pad_end - KIT_INSET.1))
             .bg(background)
-            .border_b_1()
-            .border_color(look.border_bottom)
             .type_style(TypeStyle::Body01)
             .text_color(look.text)
             .cursor(if self.disabled {
@@ -292,6 +306,11 @@ impl RenderOnce for Textarea {
             .child(editor)
             .children(placeholder)
             .children(icon)
+            .when(!self.disabled, |this| {
+                this.on_drag_move(super::resize::on_drag_move(&resize, MIN_HEIGHT))
+                    .child(super::resize::grip(&id, &resize))
+            })
+            .child(form::bottom_rule(look.border_bottom))
             .child(form::inset_outline(2., outline));
 
         let counter_text = counter(self.enable_counter, count, self.max_count);
@@ -334,6 +353,9 @@ mod tests {
         assert_eq!(field_height(4), 100.);
         // `min-block-size: 2.5rem`.
         assert_eq!(field_height(1), 40.);
+        // A dragged height gives the text box what the paddings leave.
+        assert_eq!(text_height(field_height(4)), 80.);
+        assert_eq!(text_height(MIN_HEIGHT), 20.);
     }
 
     #[test]
