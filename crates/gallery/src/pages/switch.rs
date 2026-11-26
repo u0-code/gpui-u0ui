@@ -16,7 +16,7 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
         checked: true,
         disabled: false,
         readonly: false,
-        state_text: true,
+        hide_label: false,
     })
     .into()
 }
@@ -26,10 +26,11 @@ struct SwitchPage {
     checked: bool,
     disabled: bool,
     readonly: bool,
-    state_text: bool,
+    hide_label: bool,
 }
 
-/// The reference's default state texts (`labelOn = 'On', labelOff = 'Off'`).
+/// The reference's default state texts (`labelOn = 'On', labelOff = 'Off'`),
+/// spelled out as in the preview (a labelled Switch also defaults to them).
 fn on_off(switch: Switch) -> Switch {
     switch.label_on("On").label_off("Off")
 }
@@ -78,8 +79,9 @@ impl Render for SwitchPage {
                     )),
             );
 
-        let mut live_switch = Switch::new("live")
+        let live_switch = Switch::new("live")
             .label("Auto-scaling")
+            .hide_label(self.hide_label)
             .size(size)
             .checked(self.checked)
             .disabled(self.disabled)
@@ -93,9 +95,6 @@ impl Render for SwitchPage {
                     })
                 }
             });
-        if self.state_text {
-            live_switch = on_off(live_switch);
-        }
         let live = div()
             .flex()
             .flex_col()
@@ -169,10 +168,10 @@ impl Render for SwitchPage {
                 toggle(|this, on| this.checked = on),
             ))
             .child(controls::toggle(
-                "switch-text",
-                "labelOn / labelOff",
-                self.state_text,
-                toggle(|this, on| this.state_text = on),
+                "switch-hide-label",
+                "hideLabel",
+                self.hide_label,
+                toggle(|this, on| this.hide_label = on),
             ))
             .child(controls::toggle(
                 "switch-disabled",

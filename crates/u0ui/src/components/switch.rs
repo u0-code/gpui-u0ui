@@ -6,11 +6,19 @@
 //! - **Appearance**: a 48×24 (`sm` 32×16) pill track in `toggle-off`, checked
 //!   `support-success`; an 18px (`sm` 10px) `icon-on-color` knob inset 3px; the
 //!   `sm` checked knob carries a `support-success` check; the state text
-//!   (`labelOff`/`labelOn`, `body-01`) always shows; the label above is
-//!   `label-01` `text-secondary` 16px over the track. Focus and press draw a
+//!   (`labelOff`/`labelOn`, `body-01`) shows beside the track; the label
+//!   above is `label-01` `text-secondary` 16px over the track. Focus and press draw a
 //!   2px `focus` ring 1px outside the track. Disabled: `button-disabled`
 //!   track, `icon-on-color-disabled` knob, `text-disabled`. Read-only: hollow
 //!   track (`icon-disabled` border) with an `icon-primary` knob.
+//! - **Label and state text** ([`state_text`]): as the reference `Switch`
+//!   (`labelOn = 'On'`, `labelOff = 'Off'` → Carbon `labelB`/`labelA`), a
+//!   switch with a label shows "On"/"Off" unless `label_on`/`label_off`
+//!   override them. Without a label the reference passes `hideLabel`, which
+//!   drops the state text; explicit `label_on`/`label_off` still show here.
+//!   [`Switch::hide_label`] is `cu-switch--bare`: no label above and no state
+//!   text (`.cu-switch--bare .cds--toggle__text { display: none }`), only the
+//!   track, with the label kept as the accessible name.
 //! - **Motion**: `transition: background-color 70ms, transform 70ms
 //!   cubic-bezier(0.2, 0, 1, 0.9)`; the knob slide is spatial, so reduced
 //!   motion snaps it.
@@ -175,6 +183,31 @@ impl SwitchLook {
     }
 }
 
+/// The reference's default `labelOn` / `labelOff`.
+pub const DEFAULT_LABEL_ON: &str = "On";
+/// See [`DEFAULT_LABEL_ON`].
+pub const DEFAULT_LABEL_OFF: &str = "Off";
+
+/// The state text beside the track (`.cds--toggle__text`), or `None` when
+/// none is drawn. See the module docs.
+pub fn state_text(
+    checked: bool,
+    has_label: bool,
+    hide_label: bool,
+    label_on: Option<SharedString>,
+    label_off: Option<SharedString>,
+) -> Option<SharedString> {
+    if hide_label {
+        return None;
+    }
+    let (text, default) = if checked {
+        (label_on, DEFAULT_LABEL_ON)
+    } else {
+        (label_off, DEFAULT_LABEL_OFF)
+    };
+    text.or_else(|| has_label.then(|| default.into()))
+}
+
 type ChangeHandler = Rc<dyn Fn(bool, &mut Window, &mut App)>;
 
 /// A Carbon toggle switch. See the module docs.
@@ -182,6 +215,7 @@ type ChangeHandler = Rc<dyn Fn(bool, &mut Window, &mut App)>;
 pub struct Switch {
     id: ElementId,
     label: Option<SharedString>,
+    hide_label: bool,
     checked: Option<bool>,
     default_checked: bool,
     label_on: Option<SharedString>,
@@ -198,6 +232,7 @@ impl Switch {
         Self {
             id: id.into(),
             label: None,
+            hide_label: false,
             checked: None,
             default_checked: false,
             label_on: None,
@@ -215,6 +250,13 @@ impl Switch {
         self
     }
 
+    /// `hideLabel` (`cu-switch--bare`): draw only the track; the label stays
+    /// the accessible name.
+    pub fn hide_label(mut self, hide: bool) -> Self {
+        self.hide_label = hide;
+        self
+    }
+
     /// Controlled `checked`.
     pub fn checked(mut self, checked: bool) -> Self {
         self.checked = Some(checked);
@@ -227,13 +269,13 @@ impl Switch {
         self
     }
 
-    /// `labelOn`: state text while on (the reference defaults it to "On").
+    /// `labelOn`: state text while on (default "On" when a label is set).
     pub fn label_on(mut self, text: impl Into<SharedString>) -> Self {
         self.label_on = Some(text.into());
         self
     }
 
-    /// `labelOff`: state text while off (the reference defaults it to "Off").
+    /// `labelOff`: state text while off (default "Off" when a label is set).
     pub fn label_off(mut self, text: impl Into<SharedString>) -> Self {
         self.label_off = Some(text.into());
         self
@@ -307,11 +349,14 @@ impl RenderOnce for Switch {
         // { outline: 2px solid var(--focus); outline-offset: 1px; border-radius: 1rem }`.
         let ring = !self.disabled && (focus.is_focused(window) || *pressed.read(cx));
         let inert = self.disabled || self.readonly;
-        let text = if checked {
-            self.label_on.clone()
-        } else {
-            self.label_off.clone()
-        };
+        let has_label = self.label.as_ref().is_some_and(|l| !l.is_empty());
+        let text = state_text(
+            checked,
+            has_label,
+            self.hide_label,
+            self.label_on.clone(),
+            self.label_off.clone(),
+        );
         let on_change = self.on_checked_change.clone();
 
         let knob = div()
@@ -426,7 +471,9 @@ impl RenderOnce for Switch {
             })
             // `.cds--toggle__label-text { label-01; color: text-secondary; margin-block-end: 1rem }`.
             .when_some(
-                self.label.clone().filter(|l| !l.is_empty()),
+                self.label
+                    .clone()
+                    .filter(|l| !l.is_empty() && !self.hide_label),
                 |this, label| {
                     this.child(
                         div()
@@ -476,6 +523,21 @@ mod tests {
         });
         assert_eq!(readonly.track.a, 0.);
         assert_eq!(hex(readonly.knob), "#161616");
+    }
+
+    #[test]
+    fn state_text_follows_reference_toggle() {
+        let s = |t: &str| Some(SharedString::from(t.to_string()));
+        // A labelled switch defaults to On/Off.
+        assert_eq!(state_text(true, true, false, None, None), s("On"));
+        assert_eq!(state_text(false, true, false, None, None), s("Off"));
+        // Overrides win.
+        assert_eq!(state_text(true, true, false, s("Yes"), s("No")), s("Yes"));
+        // No label: no default text; explicit texts still show.
+        assert_eq!(state_text(true, false, false, None, None), None);
+        assert_eq!(state_text(false, false, false, None, s("Dark")), s("Dark"));
+        // hideLabel (cu-switch--bare) hides the state text.
+        assert_eq!(state_text(true, true, true, s("Yes"), None), None);
     }
 
     #[test]
