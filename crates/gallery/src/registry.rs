@@ -192,6 +192,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::native_select::build,
     },
     PageDef {
+        id: "combobox",
+        title: "Combobox",
+        group: "Forms",
+        description: readme!("Combobox"),
+        build: pages::combobox::build,
+    },
+    PageDef {
         id: "input-group",
         title: "InputGroup",
         group: "Forms",

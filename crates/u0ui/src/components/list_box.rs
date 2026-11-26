@@ -366,7 +366,19 @@ pub(crate) fn menu(menu: Menu<'_>, progress: f32, window: &mut Window, cx: &mut 
             );
         }
         let state = states[k];
-        let look = ItemLook::of(level, state);
+        // A multi-select marks its choices with checkboxes, not `--active` rows;
+        // a checked label is `text-primary`
+        // (`.cds--multi-select … .cds--checkbox:checked ~ .cds--checkbox-label-text`).
+        let mut look = ItemLook::of(
+            level,
+            ItemState {
+                selected: state.selected && !checkboxes,
+                ..state
+            },
+        );
+        if checkboxes && state.selected && !state.disabled {
+            look.text = color(ColorRole::TextPrimary);
+        }
         let rule = rule_visible(k, &states) && item.group.is_none();
         let on_pick = on_pick.clone();
         let on_hover = on_hover.clone();

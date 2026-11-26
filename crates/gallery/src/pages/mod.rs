@@ -8,6 +8,7 @@ pub mod button_group;
 pub mod checkbox;
 pub mod collapsible;
 pub mod colors;
+pub mod combobox;
 pub mod command;
 pub mod context_menu;
 pub mod dialog;
