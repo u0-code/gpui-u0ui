@@ -32,6 +32,7 @@ pub mod radio_group;
 pub mod select;
 pub mod sheet;
 pub mod sidebar;
+pub mod slider;
 pub mod switch;
 pub mod tabs;
 pub mod textarea;
