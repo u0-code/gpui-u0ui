@@ -34,7 +34,7 @@ use crate::{
 use gpui_kit::{
     AnyElement, App, ClickEvent, CursorStyle, ElementId, Hsla, InteractiveElement, IntoElement,
     ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, StyleRefinement,
-    Styled, Window, base::StyledExt as _, div, prelude::FluentBuilder as _,
+    Styled, Window, base::StyledExt as _, div, prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -180,6 +180,34 @@ impl Look {
             icon,
             // `.cds--tile--clickable:focus { outline: 2px solid focus; outline-offset: -2px }`.
             focus: (interactive && state.focused).then(|| c(Focus)),
+        }
+    }
+}
+
+/// How a tile draws its 2px inset focus ring.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FocusRing {
+    /// The tile's own 1px border takes the focus color (the outline covers it).
+    pub border_takes_focus: bool,
+    /// The ring's width inside the border, on a layer over the padding box.
+    pub inner_width: f32,
+}
+
+/// The focus ring of a `kind` tile. The outline (2px, offset -2px) starts at
+/// the border edge; a selectable tile has a real 1px border
+/// (`.cds--tile--selectable { border: 1px solid transparent }`), which GPUI
+/// paints over the children, so the border itself turns `focus` and the
+/// layer inside adds the second pixel. No other border shows outside it.
+pub fn focus_ring(kind: TileKind) -> FocusRing {
+    if kind == TileKind::Selectable {
+        FocusRing {
+            border_takes_focus: true,
+            inner_width: 1.,
+        }
+    } else {
+        FocusRing {
+            border_takes_focus: false,
+            inner_width: 2.,
         }
     }
 }
@@ -494,15 +522,22 @@ impl RenderOnce for Card {
             );
         }
         if let Some(focus_color) = look.focus {
-            tile = tile.child(
-                div()
-                    .absolute()
-                    .top_0()
-                    .left_0()
-                    .size_full()
-                    .border_2()
-                    .border_color(focus_color),
-            );
+            // `.cds--tile:focus { outline: 2px solid focus; outline-offset: -2px }`
+            // runs from the border edge inward, over a selectable tile's border.
+            let ring = focus_ring(kind);
+            tile = tile
+                .when(ring.border_takes_focus, |this| {
+                    this.border_color(focus_color)
+                })
+                .child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .size_full()
+                        .border(px(ring.inner_width))
+                        .border_color(focus_color),
+                );
         }
         if kind == TileKind::Static {
             return tile.into_any_element();
@@ -845,5 +880,16 @@ mod tests {
             Card::new("c").expandable(div()).kind(),
             TileKind::Expandable
         );
+    }
+
+    #[test]
+    fn focus_ring_covers_the_selectable_border() {
+        // Border (1px) + inner layer (1px) = the 2px outline from the edge.
+        let sel = focus_ring(TileKind::Selectable);
+        assert!(sel.border_takes_focus);
+        assert_eq!(sel.inner_width + 1., 2.);
+        let click = focus_ring(TileKind::Clickable);
+        assert!(!click.border_takes_focus);
+        assert_eq!(click.inner_width, 2.);
     }
 }
