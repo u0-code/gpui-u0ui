@@ -226,6 +226,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("HoverCard"),
         build: pages::hover_card::build,
     },
+    PageDef {
+        id: "dropdown-menu",
+        title: "DropdownMenu",
+        group: "Overlays",
+        description: readme!("DropdownMenu"),
+        build: pages::dropdown_menu::build,
+    },
 ];
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {
