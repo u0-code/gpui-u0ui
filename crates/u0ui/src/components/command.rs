@@ -6,8 +6,10 @@
 //!   items by their value (or label), case-insensitively; groups without a
 //!   match disappear, separators hide while a query is typed, and the empty
 //!   text shows when nothing matches. ↑/↓ move the highlighted item (wrapping,
-//!   skipping disabled ones), Enter runs it, Escape clears the query. Pointer
-//!   hover highlights, click runs.
+//!   skipping disabled ones), Enter runs it (the first enabled match when
+//!   nothing is highlighted, as cmdk selects its first item), Escape clears
+//!   the query. Pointer hover highlights, click runs. [`CommandDialog`] opens
+//!   with an empty query and focus in the search field.
 //! - **Appearance**: `layer-01` box with the floating shadow, max 32rem; the
 //!   search field is 3rem tall with a 16px magnifier, `border-subtle-01`
 //!   bottom line and a clear button; the list scrolls past 18rem; headings
@@ -184,6 +186,40 @@ fn visible(parts: &[Part], query: &str) -> Vec<Visible> {
     out
 }
 
+/// The next enabled index from `from` by `dir` (±1), wrapping; `None` starts
+/// before the first (down) or after the last (up) item.
+fn step(from: Option<usize>, dir: isize, disabled: &[bool]) -> Option<usize> {
+    let n = disabled.len() as isize;
+    let mut i = from.map_or(if dir > 0 { -1 } else { n }, |i| i as isize);
+    for _ in 0..n {
+        i = (i + dir).rem_euclid(n);
+        if !disabled[i as usize] {
+            return Some(i as usize);
+        }
+    }
+    None
+}
+
+/// The palette's keyed state (shared with [`CommandDialog`], which focuses
+/// its field).
+fn command_state(id: &ElementId, window: &mut Window, cx: &mut App) -> Entity<CommandState> {
+    window.use_keyed_state((id.clone(), "command"), cx, |window, cx| {
+        let input = cx.new(|cx| InputState::new(window, cx));
+        let subscription = cx.subscribe(&input, |this: &mut CommandState, _, event, cx| {
+            if matches!(event, InputEvent::Change) {
+                this.active = None;
+                cx.notify();
+            }
+        });
+        CommandState {
+            input,
+            active: None,
+            keyboard: false,
+            _subscription: subscription,
+        }
+    })
+}
+
 struct CommandState {
     input: Entity<InputState>,
     active: Option<usize>,
@@ -200,6 +236,9 @@ pub struct Command {
     empty: SharedString,
     label: SharedString,
     clear_label: SharedString,
+    /// State owned by a host ([`CommandDialog`] keys it outside its modal,
+    /// so it can reach the field's focus handle).
+    state: Option<Entity<CommandState>>,
 }
 
 impl Command {
@@ -213,6 +252,7 @@ impl Command {
             empty: "No results found.".into(),
             label: "Command menu".into(),
             clear_label: "Clear".into(),
+            state: None,
         }
     }
 
@@ -294,21 +334,10 @@ impl CommandLook {
 impl RenderOnce for Command {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
-        let state = window.use_keyed_state((id.clone(), "command"), cx, |window, cx| {
-            let input = cx.new(|cx| InputState::new(window, cx));
-            let subscription = cx.subscribe(&input, |this: &mut CommandState, _, event, cx| {
-                if matches!(event, InputEvent::Change) {
-                    this.active = None;
-                    cx.notify();
-                }
-            });
-            CommandState {
-                input,
-                active: None,
-                keyboard: false,
-                _subscription: subscription,
-            }
-        });
+        let state = match self.state.clone() {
+            Some(state) => state,
+            None => command_state(&id, window, cx),
+        };
         let input = state.read(cx).input.clone();
         let query = input.read(cx).value().to_string();
         let parts = Rc::new(self.parts);
@@ -350,21 +379,12 @@ impl RenderOnce for Command {
             let input = input.clone();
             move |event: &KeyDownEvent, window: &mut Window, cx: &mut App| {
                 let n = flat.len();
-                let step = |from: Option<usize>, dir: isize| -> Option<usize> {
-                    let mut i = from.map_or(if dir > 0 { -1 } else { n as isize }, |i| i as isize);
-                    for _ in 0..n {
-                        i = (i + dir).rem_euclid(n as isize);
-                        if !item_at(flat[i as usize]).disabled {
-                            return Some(i as usize);
-                        }
-                    }
-                    None
-                };
+                let disabled: Vec<bool> = flat.iter().map(|&at| item_at(at).disabled).collect();
                 let current = state.read(cx).active;
                 match event.keystroke.key.as_str() {
                     "down" | "up" if n > 0 => {
-                        let next =
-                            step(current, if event.keystroke.key == "down" { 1 } else { -1 });
+                        let dir = if event.keystroke.key == "down" { 1 } else { -1 };
+                        let next = step(current, dir, &disabled);
                         state.update(cx, |s, cx| {
                             s.active = next;
                             s.keyboard = true;
@@ -373,7 +393,7 @@ impl RenderOnce for Command {
                         cx.stop_propagation();
                     }
                     "enter" => {
-                        if let Some(i) = current
+                        if let Some(i) = current.or_else(|| step(None, 1, &disabled))
                             && let item = item_at(flat[i])
                             && !item.disabled
                             && let Some(f) = item.on_select
@@ -675,14 +695,36 @@ impl CommandDialog {
 }
 
 impl RenderOnce for CommandDialog {
-    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let on_change = self.on_open_change.clone();
+        // Focus opens in the search field, not on the modal's close button.
+        // Keyed here (keyed state is scoped by the element path, which the
+        // modal extends) and handed to the palette.
+        let state = command_state(&self.command.id, window, cx);
+        let field = state.read(cx).input.read(cx).focus_handle(cx);
+        // Each opening starts from an empty query, as the reference's modal
+        // mounts a fresh palette.
+        let was_open = window.use_keyed_state((self.id.clone(), "was-open"), cx, |_, _| false);
+        if self.open != *was_open.read(cx) {
+            was_open.update(cx, |w, _| *w = self.open);
+            if self.open {
+                let input = state.read(cx).input.clone();
+                input.update(cx, |s, cx| s.set_value("", window, cx));
+                state.update(cx, |s, _| {
+                    s.active = None;
+                    s.keyboard = false;
+                });
+            }
+        }
+        let mut command = self.command;
+        command.state = Some(state);
         Dialog::new(self.id)
+            .initial_focus(&field)
             .open(self.open)
             .on_open_change(move |open, window, cx| on_change(open, window, cx))
             .passive(true)
             .size(DialogSize::Sm)
-            .child(div().pt(rem(32.)).child(self.command.into_any_element()))
+            .child(div().pt(rem(32.)).child(command.into_any_element()))
     }
 }
 
@@ -722,6 +764,19 @@ mod tests {
         // The value replaces the label for matching.
         assert_eq!(visible(&parts(), "prefs"), vec![Visible::Group(2, vec![1])]);
         assert!(visible(&parts(), "zzz").is_empty());
+    }
+
+    #[test]
+    fn keyboard_steps_wrap_and_skip_disabled() {
+        let disabled = [false, true, false];
+        // Enter with nothing highlighted runs the first enabled match.
+        assert_eq!(step(None, 1, &disabled), Some(0));
+        assert_eq!(step(None, 1, &[true, false]), Some(1));
+        assert_eq!(step(Some(0), 1, &disabled), Some(2));
+        assert_eq!(step(Some(2), 1, &disabled), Some(0));
+        assert_eq!(step(None, -1, &disabled), Some(2));
+        assert_eq!(step(None, 1, &[true]), None);
+        assert_eq!(step(None, 1, &[]), None);
     }
 
     #[test]
