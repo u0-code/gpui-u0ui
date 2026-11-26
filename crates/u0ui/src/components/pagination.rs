@@ -309,6 +309,7 @@ pub struct Pagination {
     page_size: usize,
     page_sizes: Vec<usize>,
     on_page_change: Option<PageChange>,
+    on_page_size_change: Option<PageChange>,
     text: PaginationText,
 }
 
@@ -323,6 +324,7 @@ impl Pagination {
             page_size: 10,
             page_sizes: vec![10, 20, 30, 40, 50],
             on_page_change: None,
+            on_page_size_change: None,
             text: PaginationText::default(),
         }
     }
@@ -354,6 +356,16 @@ impl Pagination {
     /// Called with the new 1-based page.
     pub fn on_page_change(mut self, f: impl Fn(usize, &mut Window, &mut App) + 'static) -> Self {
         self.on_page_change = Some(Rc::new(f));
+        self
+    }
+
+    /// Called with the new items-per-page when the size picker changes (the
+    /// page then resets to 1 through [`Pagination::on_page_change`]).
+    pub fn on_page_size_change(
+        mut self,
+        f: impl Fn(usize, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_page_size_change = Some(Rc::new(f));
         self
     }
 
@@ -406,11 +418,15 @@ impl RenderOnce for Pagination {
             {
                 let state = state.clone();
                 let go = go.clone();
+                let on_size = self.on_page_size_change.clone();
                 Rc::new(move |i, window, cx| {
                     state.update(cx, |s, cx| {
                         s.size = sizes[i];
                         cx.notify();
                     });
+                    if let Some(f) = &on_size {
+                        f(sizes[i], window, cx);
+                    }
                     go(1, window, cx);
                 })
             },

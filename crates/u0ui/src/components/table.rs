@@ -305,11 +305,17 @@ pub(crate) fn rem(px_value: f32) -> gpui_kit::Rems {
 
 /// A cell box of `width` with Carbon's 16px inline padding.
 pub(crate) fn cell_box(width: ColumnWidth, align: CellAlign) -> Div {
+    cell_box_padded(width, align, CELL_PADDING_X, CELL_PADDING_X)
+}
+
+/// A cell box of `width` with explicit inline padding (start, end) in px.
+pub(crate) fn cell_box_padded(width: ColumnWidth, align: CellAlign, start: f32, end: f32) -> Div {
     let d = div()
         .flex()
         .flex_row()
         .min_w_0()
-        .px(rem(CELL_PADDING_X))
+        .pl(rem(start))
+        .pr(rem(end))
         .map(|d| match align {
             CellAlign::Start => d.justify_start(),
             CellAlign::Center => d.justify_center(),
