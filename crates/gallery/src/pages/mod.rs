@@ -1,5 +1,6 @@
 //! Gallery pages. Each module exposes `pub fn build(&mut Window, &mut App) -> AnyView`
 //! and is registered with one line in `registry.rs`.
+pub mod accordion;
 pub mod alert_dialog;
 pub mod button;
 pub mod button_group;

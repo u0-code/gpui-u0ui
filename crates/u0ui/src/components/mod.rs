@@ -1,5 +1,6 @@
 //! Carbon components. One module per component; see `docs/ARCHITECTURE.md`
 //! for the recipe ([`button`] is the reference implementation).
+pub mod accordion;
 pub mod alert_dialog;
 pub mod button;
 pub mod button_group;
@@ -29,6 +30,7 @@ pub mod toggle;
 pub mod toggle_group;
 pub mod tooltip;
 
+pub use accordion::{Accordion, AccordionAlign, AccordionItem, AccordionSize};
 pub use alert_dialog::AlertDialog;
 pub use button::{Button, ButtonKind, ButtonSize, ButtonVariant};
 pub use button_group::{

@@ -282,6 +282,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Tabs"),
         build: pages::tabs::build,
     },
+    PageDef {
+        id: "accordion",
+        title: "Accordion",
+        group: "Navigation",
+        description: readme!("Accordion"),
+        build: pages::accordion::build,
+    },
 ];
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {
