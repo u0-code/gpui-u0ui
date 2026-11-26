@@ -7,7 +7,8 @@
 //!   8px/16px padding; `xs` 32px min, 4px/12px padding, 8px gap ([`Geometry`]).
 //! - Variants: `outline` (1px inset `border-subtle`), `muted` (`layer-01`).
 //!   With `href`/`on_click` the item is a link: hover `layer-hover-01`, 2px
-//!   inset `focus` outline (`.cu-item--link`); the CSS has no transition, so
+//!   inset `focus` outline on keyboard focus only (`.cu-item--link:focus-visible`);
+//!   a bare `#fragment` href opens nothing ([`opens_url`]); the CSS has no transition, so
 //!   colors switch at once.
 //! - Parts: `ItemMedia` (`icon`: 40px `layer-accent-01` square; `image`: 48px
 //!   clipped square; icons in `icon-primary`), `ItemContent` (column, 2px gap),
@@ -119,6 +120,19 @@ impl Geometry {
     }
 }
 
+/// Whether a link item draws its focus ring: `.cu-item--link:focus-visible`,
+/// so only for keyboard focus, never after a pointer press.
+pub fn focus_ring_visible(link: bool, focused: bool, keyboard: bool) -> bool {
+    link && focused && keyboard
+}
+
+/// Whether activating a link with `href` opens it. A bare fragment (`#`,
+/// `#section`) points into the current page, which a desktop app has no
+/// browser document for, so it navigates nowhere (the reference's `href="#"`).
+pub fn opens_url(href: &str) -> bool {
+    !href.is_empty() && !href.starts_with('#')
+}
+
 /// (background, outline) of an item: `muted` paints `layer-01`, link hover
 /// `layer-hover-01`; `outline` draws `border-subtle`.
 pub fn look(variant: ItemVariant, hovered_link: bool, level: LayerLevel) -> (Hsla, Option<Hsla>) {
@@ -181,7 +195,8 @@ impl Item {
         self
     }
 
-    /// Make the item a link to `href` (opened with the system handler).
+    /// Make the item a link to `href` (opened with the system handler; a bare
+    /// `#fragment` opens nothing, see [`opens_url`]).
     pub fn href(mut self, href: impl Into<SharedString>) -> Self {
         self.href = Some(href.into());
         self
@@ -218,7 +233,11 @@ impl RenderOnce for Item {
             .use_keyed_state((self.id.clone(), "focus"), cx, |_, cx| cx.focus_handle())
             .read(cx)
             .clone();
-        let focused = link && focus.is_focused(window);
+        let focused = focus_ring_visible(
+            link,
+            focus.is_focused(window),
+            window.last_input_was_keyboard(),
+        );
         let (background, outline) = look(self.variant, link && *hovered.read(cx), self.level);
         let r = |v: f32| rems(v / 16.);
         let row = div()
@@ -285,7 +304,7 @@ impl RenderOnce for Item {
                         if let Some(handler) = &on_click {
                             handler(event, window, cx);
                         }
-                        if let Some(href) = &href {
+                        if let Some(href) = href.as_ref().filter(|h| opens_url(h)) {
                             cx.open_url(href);
                         }
                     }),
@@ -517,5 +536,21 @@ mod tests {
         assert_eq!(bg, color(ColorRole::LayerHover01));
         let (_, outline) = look(ItemVariant::Outline, false, LayerLevel::One);
         assert_eq!(outline, Some(color(ColorRole::BorderSubtle00)));
+    }
+
+    #[test]
+    fn link_focus_ring_is_keyboard_only() {
+        assert!(focus_ring_visible(true, true, true));
+        // A pointer press focuses the link without `:focus-visible`.
+        assert!(!focus_ring_visible(true, true, false));
+        assert!(!focus_ring_visible(false, true, true));
+    }
+
+    #[test]
+    fn fragment_links_open_nothing() {
+        assert!(!opens_url("#"));
+        assert!(!opens_url("#owner"));
+        assert!(!opens_url(""));
+        assert!(opens_url("https://carbondesignsystem.com"));
     }
 }

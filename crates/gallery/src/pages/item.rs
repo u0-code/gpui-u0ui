@@ -68,7 +68,8 @@ impl Render for ItemPage {
             .child(ItemSeparator::new())
             .child(
                 Item::new("ref-jane")
-                    .href("https://carbondesignsystem.com")
+                    // `preview.html`: `href: '#'`, a link that goes nowhere.
+                    .href("#")
                     .label("Jane Doe")
                     .child(
                         ItemMedia::new().child(Avatar::new().fallback(AvatarFallback::new("JD"))),
