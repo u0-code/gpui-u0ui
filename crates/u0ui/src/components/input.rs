@@ -30,8 +30,7 @@ use crate::{
 };
 use gpui_kit::{
     App, CursorStyle, ElementId, Entity, Focusable as _, Hsla, InteractiveElement, IntoElement,
-    MouseButton, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
-    TextAlign, Window,
+    MouseButton, ParentElement, RenderOnce, SharedString, Styled, TextAlign, Window,
     component::{Sizable as _, Size, input::Input as KitInput},
     div,
     prelude::FluentBuilder as _,
@@ -379,9 +378,7 @@ impl RenderOnce for Input {
             let mut button = gpui_kit::base::Button::new((id.clone(), "visibility"))
                 .track_focus(&toggle_focus)
                 .disabled(self.disabled)
-                .absolute()
-                .top_0()
-                .map(|d| if rtl { d.left_0() } else { d.right_0() })
+                .relative()
                 .size(rem(height))
                 .flex()
                 .items_center()
@@ -415,15 +412,30 @@ impl RenderOnce for Input {
                         s.set_masked(next, window, cx);
                     })
                 });
-            if let Some((show, hide)) = labels {
-                let tip = if masked { show } else { hide };
-                button = button
-                    .accessibility_label(tip.clone())
-                    .tooltip(move |window, cx| {
-                        gpui_kit::component::tooltip::Tooltip::new(tip.clone()).build(window, cx)
-                    });
+            // `.cds--toggle-password-tooltip { position: absolute; aspect-ratio: 1;
+            // inset-block: 0; inset-inline-end: 0 }`.
+            let slot = div()
+                .absolute()
+                .top_0()
+                .map(|d| if rtl { d.left_0() } else { d.right_0() })
+                .size(rem(height));
+            match labels {
+                // Carbon's `PasswordInput` wraps the toggle in its Tooltip
+                // (`tooltipPosition="bottom" tooltipAlignment="end"`). The u0ui
+                // Tooltip re-reads its text every frame, so it always names the
+                // action the next press takes, and a press cancels a show still
+                // waiting out the enter delay.
+                Some((show, hide)) => {
+                    let tip = if masked { show } else { hide };
+                    button = button.accessibility_label(tip.clone());
+                    slot.child(
+                        super::tooltip::Tooltip::new((id.clone(), "visibility-tip"), button)
+                            .content(tip)
+                            .align(super::floating::Align::BottomRight),
+                    )
+                }
+                None => slot.child(button),
             }
-            button
         });
 
         let field = div()

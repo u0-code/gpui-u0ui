@@ -29,7 +29,8 @@ use crate::{
 };
 use gpui_kit::{
     AnyElement, App, ElementId, Hsla, InteractiveElement, IntoElement, KeyDownEvent, ParentElement,
-    RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
+    RenderOnce, Role, SharedString, StatefulInteractiveElement as _, Styled, TestSupportExt as _,
+    Window, div,
 };
 use std::cell::Cell;
 use std::time::Duration;
@@ -72,6 +73,12 @@ pub struct TipState {
     pub focus_shown: bool,
     /// Hidden by a press or Escape until the next deliberate arrival.
     pub dismissed: bool,
+    /// The pointer is on the trigger.
+    pub pointer_in: bool,
+    /// The dismissal holds until the pointer leaves: it was on the trigger
+    /// when pressed, so a hover report arriving with or after the press is
+    /// not a fresh arrival.
+    pub held: bool,
 }
 
 impl TipState {
@@ -91,15 +98,29 @@ impl TipState {
         self
     }
 
-    /// The pointer entered the trigger: a fresh arrival undoes a dismissal.
+    /// The pointer entered the trigger: a fresh arrival undoes a dismissal
+    /// (one the pointer has left since; see [`TipState::held`]).
     pub fn pointer_entered(mut self) -> Self {
-        self.dismissed = false;
+        self.pointer_in = true;
+        if !self.held {
+            self.dismissed = false;
+        }
         self
     }
 
-    /// A press on the trigger (pointer, Enter, Space) or Escape.
-    pub fn dismiss(mut self) -> Self {
+    /// The pointer left the trigger: the next entry is a fresh arrival.
+    pub fn pointer_left(mut self) -> Self {
+        self.pointer_in = false;
+        self.held = false;
+        self
+    }
+
+    /// A press on the trigger (pointer, Enter, Space) or Escape. A pointer
+    /// press means the pointer is on the trigger even if its hover report
+    /// has not arrived yet, so the dismissal holds until it leaves.
+    pub fn dismiss(mut self, by_pointer: bool) -> Self {
         self.dismissed = true;
+        self.held = by_pointer || self.pointer_in;
         self
     }
 
@@ -187,12 +208,15 @@ impl RenderOnce for Tooltip {
         }
         let open = next.open(hover.read(cx).open);
 
+        // A press hides the tooltip and also cancels a show still waiting out
+        // `ENTER_DELAY` (the zero-delay request drops the pending task), so a
+        // press inside the delay never lets it appear afterwards.
         let dismiss = {
             let tip = tip.clone();
             let hover = hover.clone();
-            move |cx: &mut App| {
+            move |by_pointer: bool, cx: &mut App| {
                 tip.update(cx, |t, cx| {
-                    *t = t.dismiss();
+                    *t = t.dismiss(by_pointer);
                     cx.notify();
                 });
                 floating::schedule(&hover, false, Duration::ZERO, cx);
@@ -208,6 +232,8 @@ impl RenderOnce for Tooltip {
                 move |hovered, _, cx| {
                     if *hovered {
                         tip.update(cx, |t, _| *t = t.pointer_entered());
+                    } else {
+                        tip.update(cx, |t, _| *t = t.pointer_left());
                     }
                     floating::pointer(
                         &hover,
@@ -221,15 +247,16 @@ impl RenderOnce for Tooltip {
             // press itself and may stop it.
             .capture_any_mouse_down({
                 let dismiss = dismiss.clone();
-                move |_, _, cx| dismiss(cx)
+                move |_, _, cx| dismiss(true, cx)
             })
             .capture_key_down(move |event: &KeyDownEvent, _, cx| {
                 if matches!(event.keystroke.key.as_str(), "escape" | "enter" | "space") {
-                    dismiss(cx);
+                    dismiss(false, cx);
                 }
             })
             .child(self.trigger)
             .child(floating::window_exit_guard(hover.clone(), LEAVE_DELAY))
+            .test_support()
             .into_any_element();
 
         let look = TooltipLook::current();
@@ -244,7 +271,14 @@ impl RenderOnce for Tooltip {
                 .bg(look.background)
                 .text_color(look.text)
                 .type_style(TypeStyle::Body01)
-                .child(self.content.clone())
+                .child(
+                    div()
+                        .id((id.clone(), "text"))
+                        .role(Role::Tooltip)
+                        .aria_label(self.content.clone())
+                        .child(self.content.clone())
+                        .test_support(),
+                )
         });
         floating::anchored(
             (id, "popup"),
@@ -283,14 +317,19 @@ mod tests {
         let rest = TipState::default();
         // Hover shows; a press hides while the pointer stays.
         assert!(rest.open(true));
-        let pressed = rest.focus(true, false).dismiss();
+        let pressed = rest.pointer_entered().focus(true, false).dismiss(true);
         assert!(!pressed.open(true));
         // The popover it opened takes focus, then hands it back on Escape:
         // still hidden (focus came back without navigation).
         let back = pressed.focus(false, false).focus(true, false);
         assert!(!back.open(false) && !back.open(true));
+        // A hover report that arrives after the press (the pointer moved
+        // and pressed within the enter delay) is not a fresh arrival.
+        assert!(!back.pointer_entered().open(true));
+        let late = TipState::default().dismiss(true).pointer_entered();
+        assert!(!late.open(true));
         // The pointer leaves and enters again: shows.
-        assert!(back.pointer_entered().open(true));
+        assert!(back.pointer_left().pointer_entered().open(true));
     }
 
     #[test]
@@ -298,7 +337,7 @@ mod tests {
         let tabbed = TipState::default().focus(true, true);
         assert!(tabbed.open(false));
         // Escape hides it while focus stays.
-        let escaped = tabbed.dismiss().focus(true, true);
+        let escaped = tabbed.dismiss(false).focus(true, true);
         assert!(!escaped.open(false));
         // Clicked into focus: no focus tooltip (hover alone decides).
         let clicked = TipState::default().focus(true, false);
