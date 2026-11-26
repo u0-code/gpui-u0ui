@@ -576,16 +576,30 @@ fn rem(px_value: f32) -> gpui_kit::Rems {
     rems(px_value / crate::tokens::REM_PX)
 }
 
-/// Carbon's `outline: 2px solid focus; outline-offset: 1px` around a pill.
-fn focus_outline(radius: f32) -> impl IntoElement {
+/// `.cds--tag--operational:focus` / `.cds--tag--selectable:focus { outline: 2px solid focus }`.
+pub const FOCUS_WIDTH: f32 = 2.;
+/// `… { outline-offset: 1px }`: the gap between the tag and its ring.
+pub const FOCUS_OFFSET: f32 = 1.;
+
+/// The inset (px, negative: outside) of the focus ring layer on a tag with a
+/// `border` px border. An absolute child is placed from the padding box, so
+/// the border is added back to start the 1px gap at the tag's outer edge.
+pub fn focus_ring_inset(border: f32) -> f32 {
+    -(border + FOCUS_OFFSET + FOCUS_WIDTH)
+}
+
+/// Carbon's `outline: 2px solid focus; outline-offset: 1px` around a pill
+/// with a `border` px border.
+fn focus_outline(radius: f32, border: f32) -> impl IntoElement {
+    let inset = px(focus_ring_inset(border));
     div()
         .absolute()
-        .top(px(-3.))
-        .left(px(-3.))
-        .right(px(-3.))
-        .bottom(px(-3.))
-        .rounded(px(radius + 3.))
-        .border_2()
+        .top(inset)
+        .left(inset)
+        .right(inset)
+        .bottom(inset)
+        .rounded(px(radius + border + FOCUS_OFFSET + FOCUS_WIDTH))
+        .border(px(FOCUS_WIDTH))
         .border_color(color(ColorRole::Focus))
 }
 
@@ -709,7 +723,12 @@ impl RenderOnce for Badge {
                     })
                     .children(icon)
                     .child(label)
-                    .when(focused, |this| this.child(focus_outline(radius)))
+                    .when(focused, |this| {
+                        this.child(focus_outline(
+                            radius,
+                            if look.border.is_some() { 1. } else { 0. },
+                        ))
+                    })
                     .child(
                         // The Base button covers the pill: it owns focus,
                         // keyboard and pointer activation.
@@ -923,5 +942,14 @@ mod tests {
         );
         assert_eq!(Geometry::of(BadgeSize::Md, false, true).padding_left, 4.);
         assert_eq!((MIN_WIDTH, MAX_WIDTH), (32., 208.));
+    }
+
+    #[test]
+    fn focus_ring_leaves_a_1px_gap_outside_the_border() {
+        // Operational and selectable tags have a 1px border: the ring's inner
+        // edge sits 1px outside it (2px from the padding box), 2px wide.
+        assert_eq!(focus_ring_inset(1.), -4.);
+        assert_eq!(focus_ring_inset(0.), -3.);
+        assert_eq!((FOCUS_WIDTH, FOCUS_OFFSET), (2., 1.));
     }
 }
