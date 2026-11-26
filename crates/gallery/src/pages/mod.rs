@@ -12,6 +12,7 @@ pub mod dropdown_menu;
 pub mod hover_card;
 pub mod icons;
 pub mod input;
+pub mod input_group;
 pub mod label;
 pub mod layout;
 pub mod menubar;

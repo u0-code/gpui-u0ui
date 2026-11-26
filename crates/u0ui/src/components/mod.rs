@@ -12,6 +12,7 @@ pub mod floating;
 pub mod form;
 pub mod hover_card;
 pub mod input;
+pub mod input_group;
 pub mod label;
 pub mod menu;
 pub mod menubar;
@@ -39,6 +40,9 @@ pub use floating::Align;
 pub use form::{FieldSize, Validation};
 pub use hover_card::HoverCard;
 pub use input::{Input, InputState};
+pub use input_group::{
+    InputGroup, InputGroupAddon, InputGroupInput, InputGroupText, InputGroupTextarea,
+};
 pub use label::Label;
 pub use menu::{MenuItem, MenuSize};
 pub use menubar::Menubar;
