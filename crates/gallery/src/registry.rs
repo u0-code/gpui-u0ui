@@ -457,6 +457,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Carousel"),
         build: pages::carousel::build,
     },
+    PageDef {
+        id: "skeleton",
+        title: "Skeleton",
+        group: "Feedback",
+        description: readme!("Skeleton"),
+        build: pages::skeleton::build,
+    },
 ];
 
 /// Look a page up by id.
