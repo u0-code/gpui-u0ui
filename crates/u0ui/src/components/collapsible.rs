@@ -2,19 +2,16 @@
 //! `custom.css`; Carbon has no direct equivalent).
 //!
 //! - **Behavior**: the trigger is a Base `Button` (focus, Enter/Space,
-//!   pointer) that toggles the content, controlled or uncontrolled; the
-//!   content sits in Base's `Collapsible` and is revealed with Base's
-//!   `MotionReveal`.
+//!   pointer) that toggles the content, controlled or uncontrolled.
 //! - **Appearance**: the trigger is an inline `size-md` row (0.5rem start,
 //!   1rem end padding, 0.5rem gap) in `text-primary`, `background-hover` on
-//!   hover, a 2px inset `focus` outline; a 16px `ChevronRight` in
+//!   hover, a 2px inset `focus` outline on keyboard focus only
+//!   (`.cu-collapsible-trigger:focus-visible`); a 16px `ChevronRight` in
 //!   `icon-primary` before the label; content padded `0.5rem 0 0.5rem 2rem`.
 //! - **Motion**: the chevron turns 90° on open in 110ms
 //!   (`.cu-collapsible-chev { transition: transform 110ms cubic-bezier(0.2, 0, 0.38, 0.9) }`;
-//!   a cut under reduced motion). The reference mounts the content at once;
-//!   here it reveals and fades with the Accordion's 110ms panel motion, and
-//!   collapses before unmounting (reduced motion: fade only).
-use super::accordion::REVEAL;
+//!   a cut under reduced motion). The content mounts and unmounts at once,
+//!   as the reference's `{open && <div className="cu-collapsible-content">}`.
 use super::overlay::{self, OpenChange, rem};
 use crate::{
     icons::{CarbonIcon, Icon, IconSize},
@@ -117,8 +114,6 @@ impl RenderOnce for Collapsible {
             window,
             cx,
         );
-        let progress = overlay::presence((id.clone(), "reveal"), open, REVEAL, REVEAL, window, cx);
-        let reduced = motion::reduced_motion(cx);
         let hover = window.use_keyed_state((id.clone(), "hover"), cx, |_, _| false);
         let bg = motion::animate_color(
             (id.clone(), "bg"),
@@ -191,28 +186,15 @@ impl RenderOnce for Collapsible {
                 )
             });
 
-        let content = (open || progress > 0.).then(|| {
-            gpui_kit::base::Collapsible::new()
-                .open(true)
-                .reveal(
-                    (id.clone(), "content"),
-                    if reduced {
-                        if open { 1. } else { 0. }
-                    } else {
-                        progress
-                    },
-                )
-                .content(
-                    // `.cu-collapsible-content { padding: spacing-03 0 spacing-03 spacing-07 }`.
-                    div()
-                        .w_full()
-                        .flex()
-                        .flex_col()
-                        .pt(rem(8.))
-                        .when(!trace, |this| this.pb(rem(8.)).pl(rem(32.)))
-                        .opacity(progress)
-                        .children(self.children),
-                )
+        let content = open.then(|| {
+            // `.cu-collapsible-content { padding: spacing-03 0 spacing-03 spacing-07 }`.
+            div()
+                .w_full()
+                .flex()
+                .flex_col()
+                .pt(rem(8.))
+                .when(!trace, |this| this.pb(rem(8.)).pl(rem(32.)))
+                .children(self.children)
         });
         div()
             .flex()
