@@ -506,6 +506,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Marker"),
         build: pages::marker::build,
     },
+    PageDef {
+        id: "code-block",
+        title: "CodeBlock",
+        group: "Data display",
+        description: readme!("CodeBlock"),
+        build: pages::code_block::build,
+    },
 ];
 
 /// Look a page up by id.

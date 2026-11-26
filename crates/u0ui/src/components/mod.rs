@@ -14,6 +14,7 @@ pub mod card;
 pub mod carousel;
 pub mod chart;
 pub mod checkbox;
+pub mod code_block;
 pub mod collapsible;
 pub mod combobox;
 pub mod command;
@@ -81,6 +82,7 @@ pub use carousel::{
     Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselOrientation, CarouselPrevious,
 };
 pub use checkbox::{Checkbox, CheckboxState};
+pub use code_block::{CodeBlock, CodeLine, CodeSnippet, CopyButton, SnippetType};
 pub use collapsible::Collapsible;
 pub use combobox::Combobox;
 pub use command::{Command, CommandDialog, CommandGroup, CommandItem};

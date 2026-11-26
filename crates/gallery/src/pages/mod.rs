@@ -14,6 +14,7 @@ pub mod card;
 pub mod carousel;
 pub mod chart;
 pub mod checkbox;
+pub mod code_block;
 pub mod collapsible;
 pub mod colors;
 pub mod combobox;
