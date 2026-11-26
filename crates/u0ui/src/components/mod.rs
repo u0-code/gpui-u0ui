@@ -1,6 +1,7 @@
 //! Carbon components. One module per component; see `docs/ARCHITECTURE.md`
 //! for the recipe ([`button`] is the reference implementation).
 pub mod accordion;
+pub mod alert;
 pub mod alert_dialog;
 pub mod aspect_ratio;
 pub mod attachment;

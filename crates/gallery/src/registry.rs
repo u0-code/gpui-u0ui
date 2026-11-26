@@ -548,6 +548,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Attachment"),
         build: pages::attachment::build,
     },
+    PageDef {
+        id: "alert",
+        title: "Alert",
+        group: "Feedback",
+        description: readme!("Alert"),
+        build: pages::alert::build,
+    },
 ];
 
 /// Look a page up by id.
