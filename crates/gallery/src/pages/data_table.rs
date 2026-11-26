@@ -1,6 +1,7 @@
 //! Data display › DataTable: the reference "Virtual servers" table (sort,
 //! search, select, pagination, a Create action) and a live table with every
-//! `DataTableProps` prop plus batch actions and expandable rows.
+//! `DataTableProps` prop. Its defaults reproduce `preview.html`; batch actions
+//! and expandable rows (not in `index.d.ts`) are opt-in toggles, off.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
@@ -14,20 +15,27 @@ use u0ui::prelude::*;
 
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
-    cx.new(|_| DataTablePage {
-        size: 3,
-        sortable: true,
-        selectable: true,
-        search: true,
-        page_size: 1,
-        zebra: false,
-        title: true,
-        actions: true,
-        batch: true,
-        expandable: true,
-        last_action: None,
-    })
-    .into()
+    cx.new(|_| DataTablePage::initial()).into()
+}
+
+impl DataTablePage {
+    /// The playground defaults: `preview.html`'s table (`size: lg`, sortable,
+    /// selectable, search, `pageSize: 5`, title, Create) with the extras off.
+    fn initial() -> Self {
+        Self {
+            size: 3,
+            sortable: true,
+            selectable: true,
+            search: true,
+            page_size: 1,
+            zebra: false,
+            title: true,
+            actions: true,
+            batch: false,
+            expandable: false,
+            last_action: None,
+        }
+    }
 }
 
 struct DataTablePage {
@@ -249,5 +257,19 @@ impl Render for DataTablePage {
             .playground(live)
             .config(config)
             .example(controls::block("Reference preview", reference))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_reproduce_the_preview() {
+        let page = DataTablePage::initial();
+        assert_eq!(TableSize::ALL[page.size].name(), "lg");
+        assert_eq!(PAGE_SIZES[page.page_size].1, 5);
+        assert!(page.sortable && page.selectable && page.search && page.title && page.actions);
+        assert!(!page.zebra && !page.batch && !page.expandable);
     }
 }
