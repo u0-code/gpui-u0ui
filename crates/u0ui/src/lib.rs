@@ -77,6 +77,7 @@ pub fn init(cx: &mut gpui_kit::App) {
     typography::register_fonts(cx);
     theme::init(cx);
     icons::init(cx);
+    components::tooltip::init(cx);
     if cx.try_global::<density::ActiveDensity>().is_none() {
         cx.set_global(density::ActiveDensity(density::current()));
     }

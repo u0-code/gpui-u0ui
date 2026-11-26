@@ -473,6 +473,7 @@ pub struct Button {
     selected: bool,
     full_width: bool,
     tooltip: bool,
+    tooltip_align: super::floating::Align,
     tab_index: isize,
     focus_handle: Option<FocusHandle>,
     on_click: Option<ClickHandler>,
@@ -495,6 +496,7 @@ impl Button {
             selected: false,
             full_width: false,
             tooltip: true,
+            tooltip_align: super::floating::Align::Top,
             tab_index: 0,
             focus_handle: None,
             on_click: None,
@@ -563,6 +565,13 @@ impl Button {
     /// it off when the caller wraps the button in its own `Tooltip`).
     pub fn tooltip(mut self, tooltip: bool) -> Self {
         self.tooltip = tooltip;
+        self
+    }
+
+    /// Where the icon-only tooltip sits (Carbon `IconButton` `align`, default
+    /// `top`; header actions use `bottom`).
+    pub fn tooltip_align(mut self, align: super::floating::Align) -> Self {
+        self.tooltip_align = align;
         self
     }
 
@@ -830,9 +839,10 @@ impl RenderOnce for Button {
         .collect();
         let button = button.children(focus_layers).into_any_element();
         if self.icon_only && self.tooltip {
-            // `.cds--icon-tooltip`: the label as a Carbon tooltip above.
+            // `.cds--icon-tooltip`: the label as a Carbon tooltip (above by default).
             return super::tooltip::Tooltip::new((id, "tooltip"), button)
                 .content(label)
+                .align(self.tooltip_align)
                 .into_any_element();
         }
         button

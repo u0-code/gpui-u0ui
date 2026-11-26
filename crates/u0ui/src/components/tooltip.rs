@@ -3,7 +3,11 @@
 //!
 //! - **Behavior**: shows while the pointer rests on the trigger (after
 //!   Carbon's `enterDelayMs` 100ms; hides `leaveDelayMs` 300ms after it leaves)
-//!   or while keyboard focus is inside the trigger; Escape hides it. Kit's
+//!   or while focus that arrived by keyboard navigation (Tab, arrows) is
+//!   inside the trigger. Pressing the trigger (pointer, Enter or Space) and
+//!   Escape hide it until the pointer enters again or focus arrives again by
+//!   navigation, so it never covers the popover or menu the press opened,
+//!   nor comes back when that surface hands focus back on close. Kit's
 //!   `component::tooltip` is a builder for GPUI's single window tooltip slot,
 //!   which cannot place a caret or honor Carbon's 12 alignments, so the
 //!   surface is drawn here and positioned by Base's `Popup`.
@@ -27,12 +31,83 @@ use gpui_kit::{
     AnyElement, App, ElementId, Hsla, InteractiveElement, IntoElement, KeyDownEvent, ParentElement,
     RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
 };
+use std::cell::Cell;
 use std::time::Duration;
 
 /// Carbon Tooltip `enterDelayMs` default.
 pub const ENTER_DELAY: Duration = Duration::from_millis(100);
 /// Carbon Tooltip `leaveDelayMs` default.
 pub const LEAVE_DELAY: Duration = Duration::from_millis(300);
+
+thread_local! {
+    /// Whether the last key pressed in any window moves focus (Tab, arrows,
+    /// Home/End, Page Up/Down), recorded by [`init`].
+    static NAVIGATED: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Whether `key` (a GPUI key name) moves focus.
+pub fn navigation_key(key: &str) -> bool {
+    matches!(
+        key,
+        "tab" | "up" | "down" | "left" | "right" | "home" | "end" | "pageup" | "pagedown"
+    )
+}
+
+/// Watch keystrokes so a tooltip can tell focus that arrived by keyboard
+/// navigation (shown, like `:focus-visible`) from focus handed back by a
+/// closing popover or dialog (not shown). Called by [`crate::init`].
+pub(crate) fn init(cx: &mut App) {
+    cx.observe_keystrokes(|event, _, _| {
+        NAVIGATED.with(|n| n.set(navigation_key(&event.keystroke.key)));
+    })
+    .detach();
+}
+
+/// Per-tooltip visibility state besides hover intent.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TipState {
+    /// Focus was inside the trigger last frame.
+    pub was_focused: bool,
+    /// Focus is inside the trigger and arrived there by keyboard navigation.
+    pub focus_shown: bool,
+    /// Hidden by a press or Escape until the next deliberate arrival.
+    pub dismissed: bool,
+}
+
+impl TipState {
+    /// This frame's focus: `focused` inside the trigger, and whether focus
+    /// that just arrived came by keyboard navigation.
+    pub fn focus(mut self, focused: bool, by_navigation: bool) -> Self {
+        if focused && !self.was_focused {
+            self.focus_shown = by_navigation;
+            if by_navigation {
+                self.dismissed = false;
+            }
+        }
+        if !focused {
+            self.focus_shown = false;
+        }
+        self.was_focused = focused;
+        self
+    }
+
+    /// The pointer entered the trigger: a fresh arrival undoes a dismissal.
+    pub fn pointer_entered(mut self) -> Self {
+        self.dismissed = false;
+        self
+    }
+
+    /// A press on the trigger (pointer, Enter, Space) or Escape.
+    pub fn dismiss(mut self) -> Self {
+        self.dismissed = true;
+        self
+    }
+
+    /// Whether the tooltip shows, given the hover intent.
+    pub fn open(self, hovered: bool) -> bool {
+        (hovered || self.focus_shown) && !self.dismissed
+    }
+}
 
 /// The tooltip's colors (`.cds--popover--high-contrast`).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -103,20 +178,37 @@ impl RenderOnce for Tooltip {
             .use_keyed_state((id.clone(), "within"), cx, |_, cx| cx.focus_handle())
             .read(cx)
             .clone();
-        let dismissed = window.use_keyed_state((id.clone(), "dismissed"), cx, |_, _| false);
+        let tip = window.use_keyed_state((id.clone(), "tip"), cx, |_, _| TipState::default());
         let focused = within.contains_focused(window, cx);
-        if !focused && *dismissed.read(cx) && !hover.read(cx).open {
-            dismissed.update(cx, |d, _| *d = false);
+        let by_navigation = window.last_input_was_keyboard() && NAVIGATED.with(Cell::get);
+        let next = tip.read(cx).focus(focused, by_navigation);
+        if next != *tip.read(cx) {
+            tip.update(cx, |t, _| *t = next);
         }
-        let open = (hover.read(cx).open || focused) && !*dismissed.read(cx);
+        let open = next.open(hover.read(cx).open);
 
+        let dismiss = {
+            let tip = tip.clone();
+            let hover = hover.clone();
+            move |cx: &mut App| {
+                tip.update(cx, |t, cx| {
+                    *t = t.dismiss();
+                    cx.notify();
+                });
+                floating::schedule(&hover, false, Duration::ZERO, cx);
+            }
+        };
         let trigger = div()
             .id((id.clone(), "trigger"))
             .flex_shrink_0()
             .track_focus(&within.clone().tab_stop(false))
             .on_hover({
                 let hover = hover.clone();
+                let tip = tip.clone();
                 move |hovered, _, cx| {
+                    if *hovered {
+                        tip.update(cx, |t, _| *t = t.pointer_entered());
+                    }
                     floating::pointer(
                         &hover,
                         *hovered,
@@ -125,17 +217,15 @@ impl RenderOnce for Tooltip {
                     )
                 }
             })
-            .on_key_down({
-                let dismissed = dismissed.clone();
-                let hover = hover.clone();
-                move |event: &KeyDownEvent, _, cx| {
-                    if event.keystroke.key == "escape" {
-                        dismissed.update(cx, |d, cx| {
-                            *d = true;
-                            cx.notify();
-                        });
-                        floating::schedule(&hover, false, Duration::ZERO, cx);
-                    }
+            // Capture: the trigger (a button, a popover trigger) handles the
+            // press itself and may stop it.
+            .capture_any_mouse_down({
+                let dismiss = dismiss.clone();
+                move |_, _, cx| dismiss(cx)
+            })
+            .capture_key_down(move |event: &KeyDownEvent, _, cx| {
+                if matches!(event.keystroke.key.as_str(), "escape" | "enter" | "space") {
+                    dismiss(cx);
                 }
             })
             .child(self.trigger)
@@ -186,6 +276,37 @@ mod tests {
         assert_eq!(hex(look.text), "#ffffff");
         crate::theme::tests_set(CarbonTheme::G100);
         assert_eq!(hex(TooltipLook::current().background), "#f4f4f4");
+    }
+
+    #[test]
+    fn presses_and_escape_hide_until_a_fresh_arrival() {
+        let rest = TipState::default();
+        // Hover shows; a press hides while the pointer stays.
+        assert!(rest.open(true));
+        let pressed = rest.focus(true, false).dismiss();
+        assert!(!pressed.open(true));
+        // The popover it opened takes focus, then hands it back on Escape:
+        // still hidden (focus came back without navigation).
+        let back = pressed.focus(false, false).focus(true, false);
+        assert!(!back.open(false) && !back.open(true));
+        // The pointer leaves and enters again: shows.
+        assert!(back.pointer_entered().open(true));
+    }
+
+    #[test]
+    fn focus_shows_only_when_navigated_to() {
+        let tabbed = TipState::default().focus(true, true);
+        assert!(tabbed.open(false));
+        // Escape hides it while focus stays.
+        let escaped = tabbed.dismiss().focus(true, true);
+        assert!(!escaped.open(false));
+        // Clicked into focus: no focus tooltip (hover alone decides).
+        let clicked = TipState::default().focus(true, false);
+        assert!(!clicked.open(false));
+        // Leaving and tabbing back shows again.
+        assert!(escaped.focus(false, false).focus(true, true).open(false));
+        assert!(navigation_key("tab") && navigation_key("down"));
+        assert!(!navigation_key("escape") && !navigation_key("enter"));
     }
 
     #[test]
