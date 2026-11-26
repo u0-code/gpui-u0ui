@@ -49,6 +49,7 @@ pub struct Body {
     playground: Option<AnyElement>,
     hint: Option<SharedString>,
     config: Option<AnyElement>,
+    stage_min_width: Option<f32>,
     examples: Vec<AnyElement>,
 }
 
@@ -75,6 +76,14 @@ impl Body {
         self
     }
 
+    /// A wider stage minimum (rems, padding included) for a component whose
+    /// own minimum row is wider than [`STAGE_MIN_WIDTH`] leaves room for: the
+    /// panel wraps below the stage sooner instead of the component overflowing.
+    pub fn stage_min_width(mut self, rems: f32) -> Self {
+        self.stage_min_width = Some(rems.max(STAGE_MIN_WIDTH));
+        self
+    }
+
     /// The configuration panel's controls.
     pub fn config(mut self, controls: impl IntoElement) -> Self {
         self.config = Some(controls.into_any_element());
@@ -94,6 +103,7 @@ fn playground(
     stage: AnyElement,
     hint: Option<SharedString>,
     config: Option<AnyElement>,
+    stage_min_width: f32,
 ) -> impl IntoElement {
     div()
         .flex()
@@ -105,7 +115,7 @@ fn playground(
             div()
                 .flex_1()
                 .flex_grow(1000.)
-                .min_w(rems(STAGE_MIN_WIDTH))
+                .min_w(rems(stage_min_width))
                 .min_h(rems(16.))
                 .p(tokens::SPACING_07)
                 .flex()
@@ -177,7 +187,12 @@ impl RenderOnce for Body {
             .flex_col()
             .gap(tokens::SPACING_09)
             .when_some(self.playground, |this, stage| {
-                this.child(playground(stage, self.hint, self.config))
+                this.child(playground(
+                    stage,
+                    self.hint,
+                    self.config,
+                    self.stage_min_width.unwrap_or(STAGE_MIN_WIDTH),
+                ))
             })
             .when(has_examples, |this| {
                 this.child(

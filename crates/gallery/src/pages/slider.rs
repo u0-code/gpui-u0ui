@@ -145,6 +145,9 @@ impl Render for SliderPage {
 
         Body::new()
             .playground(live)
+            // The range row's minimum (two 4rem inputs, the labels, the
+            // 12.5rem track and its margins, 1rem gaps) plus the stage padding.
+            .stage_min_width(32.)
             .hint("drag, click the track, ←/→, Shift ×4, type a value")
             .config(config)
             .example(reference)
