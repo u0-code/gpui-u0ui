@@ -13,7 +13,8 @@ use u0ui::prelude::*;
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
     cx.new(|_| ProgressPage {
-        value: 2,
+        // 62%, like the reference's "Uploading backup.tar" bar.
+        value: 3,
         status: 0,
         size: 0,
         kind: 0,
@@ -33,6 +34,15 @@ struct ProgressPage {
 }
 
 const VALUES: [&str; 6] = ["none", "0", "25", "62", "90", "100"];
+
+/// The live bar's helper text while active, consistent with its value (the
+/// reference's "620 MB of 1 GB" at 62%); indeterminate has no amount yet.
+fn active_helper(value: Option<f32>) -> String {
+    match value {
+        Some(v) => format!("{} MB of 1 GB", (v * 10.).round() as u32),
+        None => "Estimating time…".to_string(),
+    }
+}
 
 impl Render for ProgressPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -74,9 +84,9 @@ impl Render for ProgressPage {
         }
         if self.helper {
             live = live.helper_text(match status {
-                ProgressStatus::Error => "Upload failed",
-                ProgressStatus::Finished => "Done",
-                ProgressStatus::Active => "620 MB of 1 GB",
+                ProgressStatus::Error => "Upload failed".to_string(),
+                ProgressStatus::Finished => "Done".to_string(),
+                ProgressStatus::Active => active_helper(value),
             });
         }
         let on_layer = div()
@@ -151,5 +161,17 @@ impl Render for ProgressPage {
             .config(config)
             .example(controls::block("Reference preview", reference))
             .example(controls::block("On layer-01", on_layer))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn helper_text_follows_the_value() {
+        assert_eq!(active_helper(Some(62.)), "620 MB of 1 GB");
+        assert_eq!(active_helper(Some(25.)), "250 MB of 1 GB");
+        assert_eq!(active_helper(None), "Estimating time…");
     }
 }
