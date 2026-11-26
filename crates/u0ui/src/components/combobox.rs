@@ -8,10 +8,16 @@
 //!   Carbon's list box, so the combobox keyboard is written here, captured
 //!   ahead of the editor: ↓/↑ open the menu and move the highlight, Enter
 //!   picks it, Escape closes the menu (and, when closed, clears a single
-//!   value); typing opens the menu and filters it (case-insensitive
-//!   substring). Leaving a single combobox restores the text of its value
-//!   (no custom values, Carbon's default). A multiple combobox keeps the menu
-//!   open while picking, with a checkbox per row.
+//!   value). Typing opens the menu. A single combobox keeps every item
+//!   (Carbon `ComboBox`'s default `shouldFilterItem` returns `true`; the
+//!   reference passes none) and highlights the first whose label contains
+//!   the text ([`highlight_match`], Carbon's `findHighlightedIndex`).
+//!   Leaving it restores the text of its value (no custom values, Carbon's
+//!   default). A multiple combobox filters (case-insensitive substring,
+//!   [`filter`]) and lists the items selected when the menu opened first,
+//!   each part in label order ([`sort_shown`], `FilterableMultiSelect`'s
+//!   `defaultSortItems`); it keeps the menu open while picking, with a
+//!   checkbox per row.
 //! - **Appearance**: the Carbon list-box field ([`super::select::TriggerLook`])
 //!   with the text input inside; a 24px clear button (`.cds--list-box__selection`)
 //!   45px from the end, split from the chevron by a 1×16px `border-subtle`
@@ -67,6 +73,67 @@ pub fn filter(items: &[ListItem], query: &str, current_label: Option<&str>) -> V
         .collect()
 }
 
+/// The first item whose label contains `query`, case-insensitively, or
+/// `None` for empty text (Carbon `ComboBox` `findHighlightedIndex`).
+pub fn highlight_match(items: &[ListItem], query: &str) -> Option<usize> {
+    if query.is_empty() {
+        return None;
+    }
+    let needle = query.to_lowercase();
+    items
+        .iter()
+        .position(|i| i.label.to_lowercase().contains(&needle))
+}
+
+/// Order a multi-select's shown rows like `FilterableMultiSelect`'s
+/// `defaultSortItems`: the items in `top` (the selection when the menu
+/// opened) first, then the rest, each part by label
+/// (`localeCompare(…, { numeric: true })`).
+pub fn sort_shown(items: &[ListItem], shown: &mut [usize], top: &[SharedString]) {
+    shown.sort_by(|&a, &b| {
+        let (ia, ib) = (&items[a], &items[b]);
+        let (ta, tb) = (top.contains(&ia.value), top.contains(&ib.value));
+        tb.cmp(&ta).then_with(|| natural_cmp(&ia.label, &ib.label))
+    });
+}
+
+/// A case-insensitive comparison that orders digit runs by number
+/// (`"Item 2" < "Item 10"`), like `localeCompare` with `numeric: true`.
+pub fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    let (mut a, mut b) = (a.chars().peekable(), b.chars().peekable());
+    loop {
+        match (a.peek().copied(), b.peek().copied()) {
+            (None, None) => return Ordering::Equal,
+            (None, Some(_)) => return Ordering::Less,
+            (Some(_), None) => return Ordering::Greater,
+            (Some(x), Some(y)) if x.is_ascii_digit() && y.is_ascii_digit() => {
+                let take = |it: &mut std::iter::Peekable<std::str::Chars>| {
+                    let mut n = String::new();
+                    while let Some(c) = it.peek().copied().filter(char::is_ascii_digit) {
+                        n.push(c);
+                        it.next();
+                    }
+                    n.trim_start_matches('0').to_string()
+                };
+                let (na, nb) = (take(&mut a), take(&mut b));
+                let ord = na.len().cmp(&nb.len()).then_with(|| na.cmp(&nb));
+                if ord != Ordering::Equal {
+                    return ord;
+                }
+            }
+            (Some(x), Some(y)) => {
+                let ord = x.to_lowercase().cmp(y.to_lowercase());
+                if ord != Ordering::Equal {
+                    return ord;
+                }
+                a.next();
+                b.next();
+            }
+        }
+    }
+}
+
 /// The next value list after picking `value`: single replaces, multiple toggles.
 pub fn toggled(values: &[SharedString], value: &SharedString, multiple: bool) -> Vec<SharedString> {
     if !multiple {
@@ -88,6 +155,10 @@ type CommitFn = Rc<dyn Fn(Vec<SharedString>, &mut Window, &mut App)>;
 struct Typing {
     /// The text last seen, to notice typing.
     last: Option<SharedString>,
+    /// Whether the menu was open last frame, to notice it opening.
+    was_open: bool,
+    /// The multi-select's selection when the menu opened (listed first).
+    top: Vec<SharedString>,
 }
 
 /// A Carbon combo box. See the module docs.
@@ -301,18 +372,49 @@ impl RenderOnce for Combobox {
             }
         }
         let query = input.read(cx).value();
-        let shown = filter(&items, &query, current.as_deref());
+        // Snapshot the multi-select's selection as the menu opens.
+        let open_before = list.read(cx).open && !self.disabled;
+        if open_before != typing.read(cx).was_open {
+            typing.update(cx, |t, _| {
+                t.was_open = open_before;
+                if open_before {
+                    t.top = values.clone();
+                }
+            });
+        }
+        let mut shown = if multiple {
+            filter(&items, &query, None)
+        } else {
+            (0..items.len()).collect()
+        };
+        if multiple {
+            sort_shown(&items, &mut shown, &typing.read(cx).top);
+        }
 
-        // Typing opens the menu on the first match.
+        // Typing opens the menu: a single combobox highlights the first match,
+        // a multi-select its first enabled filtered row.
         let changed = typing.read(cx).last.as_ref() != Some(&query);
         if changed {
             typing.update(cx, |t, _| t.last = Some(query.clone()));
             if focused && !self.disabled {
-                let first = shown.iter().copied().find(|&i| !items[i].disabled);
+                let first = if multiple {
+                    shown.iter().copied().find(|&i| !items[i].disabled)
+                } else {
+                    highlight_match(&items, query.trim())
+                };
                 list.update(cx, |s, _| {
-                    s.open = true;
+                    if !s.open {
+                        s.open = true;
+                    }
                     s.highlighted = first;
                 });
+                if multiple && !typing.read(cx).was_open {
+                    typing.update(cx, |t, _| {
+                        t.was_open = true;
+                        t.top = values.clone();
+                    });
+                    sort_shown(&items, &mut shown, &values);
+                }
             }
         }
         let (open, highlighted, hover_row, width) = {
@@ -622,8 +724,7 @@ impl RenderOnce for Combobox {
             .when(!(multiple && tag.is_some()), |this| this.pl(rem(16.)))
             .pr(rem(pad_end))
             .bg(background)
-            .border_b_1()
-            .border_color(look.border)
+            .pb(gpui_kit::px(form::FIELD_RULE))
             .type_style(TypeStyle::BodyCompact01)
             .text_color(text_color)
             .cursor(if self.disabled {
@@ -657,6 +758,7 @@ impl RenderOnce for Combobox {
             .children(status)
             .children(clear_button)
             .child(chevron)
+            .child(form::bottom_rule(look.border))
             .child(form::inset_outline(2., outline));
 
         let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), field)
@@ -704,8 +806,6 @@ impl RenderOnce for Combobox {
                         }),
                     },
                     progress,
-                    window,
-                    cx,
                 ))
             });
 
@@ -806,6 +906,26 @@ mod tests {
         assert_eq!(filter(&items, "E", None), vec![0, 2, 3, 4]);
         // Reopening a filled combobox lists everything.
         assert_eq!(filter(&items, "React", Some("React")).len(), 5);
+    }
+
+    #[test]
+    fn single_highlights_the_first_containing_item() {
+        let items = items();
+        assert_eq!(highlight_match(&items, ""), None);
+        assert_eq!(highlight_match(&items, "ve"), Some(3));
+        assert_eq!(highlight_match(&items, "E"), Some(0));
+        assert_eq!(highlight_match(&items, "zz"), None);
+    }
+
+    #[test]
+    fn multi_lists_the_opening_selection_first_then_by_label() {
+        let items = items();
+        let mut shown: Vec<usize> = (0..items.len()).collect();
+        sort_shown(&items, &mut shown, &["Vue".into(), "Angular".into()]);
+        // Angular, Vue (selected), then React, Svelte, Web Components.
+        assert_eq!(shown, vec![1, 2, 0, 3, 4]);
+        assert!(natural_cmp("Item 2", "Item 10").is_lt());
+        assert!(natural_cmp("apple", "Banana").is_lt());
     }
 
     #[test]

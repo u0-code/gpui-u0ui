@@ -11,8 +11,8 @@
 //!   `icon-disabled` box, `text-disabled` label. Invalid: `support-error` box
 //!   border plus the error icon and message; warn: warning icon and message.
 //!   Read-only: hollow `icon-disabled` box with a `text-primary` check.
-//! - **Motion**: the check scales in (`transform: scale(0) → scale(1)`) over
-//!   fast-01, and the fill fades with it.
+//! - **Motion**: none; the fill and check change instantly (`.cds--checkbox-label`
+//!   has no `transition` in `bundle.css`).
 //!
 //! ```ignore
 //! Checkbox::new("notes").label("Send me release notes").default_checked(true)
@@ -20,25 +20,17 @@
 use super::form::{self, Validation, rem};
 use crate::{
     icons::Icon,
-    motion::{self, Motion},
     theme::color,
     tokens::{ColorRole, TypeStyle},
     typography::TypeStyled as _,
 };
 use gpui_kit::{
     App, CursorStyle, ElementId, Hsla, IntoElement, ParentElement, RenderOnce, SharedString,
-    Styled, Transformation, Window, div, prelude::FluentBuilder as _, px, size,
+    Styled, Window, div, prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
 pub use gpui_kit::base::CheckboxState;
-
-/// The check's scale-in: fast-01, productive standard.
-pub const CHECK_MOTION: Motion = Motion::new(
-    crate::motion::Curve::ProductiveStandard,
-    crate::motion::Speed::Fast01,
-)
-.spatial(true);
 
 /// The state a checkbox look is computed for.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -244,31 +236,32 @@ impl Checkbox {
     }
 }
 
+/// The focus ring's inset (px, negative = outside) from the box's padding
+/// edge, where absolutely positioned children are placed: `outline: 2px;
+/// outline-offset: 1px` puts the ring 1–3px outside the border edge, and a
+/// bordered box's padding edge is its 1px border further in.
+pub fn focus_ring_inset(bordered: bool) -> f32 {
+    const OFFSET: f32 = 1.;
+    const RING: f32 = 2.;
+    let border = if bordered { 1. } else { 0. };
+    -(OFFSET + RING + border)
+}
+
 /// The 16px box with its mark, for checkbox-like rows (also used by
 /// multi-select menus).
 pub(crate) fn checkbox_box(
-    id: ElementId,
     look: CheckboxLook,
     value: CheckboxState,
     focus_ring: bool,
-    window: &mut Window,
-    cx: &mut App,
 ) -> impl IntoElement {
     let on = value != CheckboxState::Unchecked;
-    let progress = motion::animate(
-        (id.clone(), "check"),
-        if on { 1f32 } else { 0. },
-        CHECK_MOTION,
-        window,
-        cx,
-    );
-    let fill = motion::animate_color((id.clone(), "fill"), look.fill, Motion::HOVER, window, cx);
+    let ring = focus_ring_inset(look.border.is_some());
     div()
         .relative()
         .flex_shrink_0()
         .size(rem(BOX))
         .rounded(rem(2.))
-        .bg(fill)
+        .bg(look.fill)
         .when_some(look.border, |this, border| {
             this.border_1().border_color(border)
         })
@@ -278,12 +271,7 @@ pub(crate) fn checkbox_box(
         .map(|this| match value {
             // `:indeterminate + …::after { border-block-end: 2px solid; inline-size: 0.5rem }`.
             CheckboxState::Indeterminate => this.child(div().w(rem(8.)).h(rem(2.)).bg(look.mark)),
-            _ if progress > 0. => this.child(
-                Icon::named("check")
-                    .size_length(rem(14.))
-                    .color(look.mark)
-                    .transform(Transformation::scale(size(progress, progress))),
-            ),
+            _ if on => this.child(Icon::named("check").size_length(rem(14.)).color(look.mark)),
             _ => this,
         })
         // `:focus + …::before { outline: 2px solid var(--focus); outline-offset: 1px }`.
@@ -291,10 +279,10 @@ pub(crate) fn checkbox_box(
             this.child(
                 div()
                     .absolute()
-                    .top(px(-3.))
-                    .left(px(-3.))
-                    .right(px(-3.))
-                    .bottom(px(-3.))
+                    .top(px(ring))
+                    .left(px(ring))
+                    .right(px(ring))
+                    .bottom(px(ring))
                     .rounded(rem(4.))
                     .border_2()
                     .border_color(color(ColorRole::Focus)),
@@ -341,7 +329,7 @@ impl RenderOnce for Checkbox {
             .clone();
         let focused = focus.is_focused(window) && !self.disabled;
         let on_change = self.on_checked_change.clone();
-        let mark = checkbox_box(id.clone(), look, value, focused, window, cx);
+        let mark = checkbox_box(look, value, focused);
 
         let row = gpui_kit::base::Checkbox::new(id.clone())
             .track_focus(&focus)
@@ -484,5 +472,14 @@ mod tests {
         assert_eq!(BOX_INSET, 3.);
         // 1.25rem + 0.625rem.
         assert_eq!(LABEL_START, 30.);
+    }
+
+    #[test]
+    fn focus_ring_sits_one_px_outside_the_box() {
+        // `outline: 2px solid var(--focus); outline-offset: 1px`: the ring spans
+        // 1–3px outside the border edge. Unchecked boxes have a 1px border, so
+        // from their padding edge the ring starts 4px out.
+        assert_eq!(focus_ring_inset(true), -4.);
+        assert_eq!(focus_ring_inset(false), -3.);
     }
 }

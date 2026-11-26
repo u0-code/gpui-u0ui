@@ -459,8 +459,7 @@ impl RenderOnce for Select {
             .pl(rem(if inline { 12. } else { 16. }))
             .pr(rem(if inline { pad_end - 16. } else { pad_end }))
             .bg(background)
-            .border_b_1()
-            .border_color(look.border)
+            .pb(gpui_kit::px(form::FIELD_RULE))
             .type_style(TypeStyle::BodyCompact01)
             .text_color(look.text)
             .cursor(if self.disabled {
@@ -499,6 +498,7 @@ impl RenderOnce for Select {
                         cx,
                     )),
             )
+            .child(form::bottom_rule(look.border))
             .child(form::inset_outline(2., outline));
 
         let trigger = div()
@@ -571,8 +571,6 @@ impl RenderOnce for Select {
                         }),
                     },
                     progress,
-                    window,
-                    cx,
                 ))
             });
 

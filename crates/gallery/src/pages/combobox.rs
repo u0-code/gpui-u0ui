@@ -98,9 +98,7 @@ impl Render for ComboboxPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section(
-                "Live (type to filter, ↑/↓, Enter, Escape)",
-            ))
+            .child(controls::section("Live (type to find, ↑/↓, Enter, Escape)"))
             .child(
                 div().max_w(rems(22.5)).child(
                     Combobox::new(SharedString::from(format!("live-{}", self.multiple)), state)
@@ -109,7 +107,11 @@ impl Render for ComboboxPage {
                         .items(items.iter().copied())
                         .value(self.value.clone())
                         .placeholder("Filter…")
-                        .helper_text("Start typing to narrow the list.")
+                        .helper_text(if self.multiple {
+                            "Start typing to narrow the list."
+                        } else {
+                            "Start typing to jump to a match."
+                        })
                         .size(FieldSize::ALL[self.size])
                         .invalid(self.invalid)
                         .invalid_text("Pick at least one.")

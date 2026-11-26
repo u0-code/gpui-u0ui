@@ -318,7 +318,7 @@ pub(crate) struct Menu<'a> {
 }
 
 /// The menu surface, clipped to `progress` of its height (0 closed → 1 open).
-pub(crate) fn menu(menu: Menu<'_>, progress: f32, window: &mut Window, cx: &mut App) -> AnyElement {
+pub(crate) fn menu(menu: Menu<'_>, progress: f32) -> AnyElement {
     let Menu {
         id,
         items,
@@ -366,16 +366,11 @@ pub(crate) fn menu(menu: Menu<'_>, progress: f32, window: &mut Window, cx: &mut 
             );
         }
         let state = states[k];
-        // A multi-select marks its choices with checkboxes, not `--active` rows;
-        // a checked label is `text-primary`
+        // A multi-select's checked rows are `--active` too (`<ListBox.MenuItem
+        // isActive={isChecked}>`: `layer-selected`), with a checkbox instead of
+        // the checkmark; a checked label is `text-primary`
         // (`.cds--multi-select … .cds--checkbox:checked ~ .cds--checkbox-label-text`).
-        let mut look = ItemLook::of(
-            level,
-            ItemState {
-                selected: state.selected && !checkboxes,
-                ..state
-            },
-        );
+        let mut look = ItemLook::of(level, state);
         if checkboxes && state.selected && !state.disabled {
             look.text = color(ColorRole::TextPrimary);
         }
@@ -390,7 +385,6 @@ pub(crate) fn menu(menu: Menu<'_>, progress: f32, window: &mut Window, cx: &mut 
                 CheckboxState::Unchecked
             };
             checkbox_box(
-                (id.clone(), format!("cb-{i}")).into(),
                 CheckboxLook::of(CheckboxLookState {
                     value,
                     disabled: state.disabled,
@@ -398,8 +392,6 @@ pub(crate) fn menu(menu: Menu<'_>, progress: f32, window: &mut Window, cx: &mut 
                 }),
                 value,
                 false,
-                window,
-                cx,
             )
         });
         children.push(
