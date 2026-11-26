@@ -310,6 +310,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Collapsible"),
         build: pages::collapsible::build,
     },
+    PageDef {
+        id: "breadcrumb",
+        title: "Breadcrumb",
+        group: "Navigation",
+        description: readme!("Breadcrumb"),
+        build: pages::breadcrumb::build,
+    },
 ];
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {

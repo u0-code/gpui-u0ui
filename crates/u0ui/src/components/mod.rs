@@ -2,6 +2,7 @@
 //! for the recipe ([`button`] is the reference implementation).
 pub mod accordion;
 pub mod alert_dialog;
+pub mod breadcrumb;
 pub mod button;
 pub mod button_group;
 pub mod checkbox;
@@ -36,6 +37,7 @@ pub mod tooltip;
 
 pub use accordion::{Accordion, AccordionAlign, AccordionItem, AccordionSize};
 pub use alert_dialog::AlertDialog;
+pub use breadcrumb::{Breadcrumb, BreadcrumbItem, BreadcrumbSize};
 pub use button::{Button, ButtonKind, ButtonSize, ButtonVariant};
 pub use button_group::{
     ButtonGroup, ButtonGroupOrientation, ButtonGroupSeparator, ButtonGroupText,
