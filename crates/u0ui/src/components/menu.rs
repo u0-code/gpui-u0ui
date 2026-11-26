@@ -101,7 +101,8 @@ impl MenuSize {
 pub struct MenuGeometry {
     /// `padding: 0.25rem 0`.
     pub padding_block: f32,
-    /// `min-inline-size: 10rem` (`--with-icons`/selectable: 12rem).
+    /// `.cds--menu { min-inline-size: 10rem }`; `.cds--menu--with-icons
+    /// { min-inline-size: 12rem }` (selectable items alone keep 10rem).
     pub min_width: f32,
     /// `max-inline-size: 18rem`.
     pub max_width: f32,
@@ -114,11 +115,11 @@ pub struct MenuGeometry {
 }
 
 impl MenuGeometry {
-    /// Geometry for a menu that has icons or selectable items (or not).
-    pub const fn of(with_columns: bool) -> Self {
+    /// Geometry for a menu with icons (or not).
+    pub const fn of(with_icons: bool) -> Self {
         Self {
             padding_block: 4.,
-            min_width: if with_columns { 192. } else { 160. },
+            min_width: if with_icons { 192. } else { 160. },
             max_width: 288.,
             item_padding: 16.,
             column_gap: 8.,
@@ -679,7 +680,7 @@ impl RenderOnce for Menu {
                 }
             )
         });
-        let geometry = MenuGeometry::of(with_icons || with_selection);
+        let geometry = MenuGeometry::of(with_icons);
         let look = MenuLook::current();
         let (active, hovered, submenu, submenu_focus) = {
             let s = state.read(cx);
