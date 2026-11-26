@@ -24,7 +24,6 @@ use super::form::{self, FieldSize, rem};
 use super::input::{FIELD_MOTION, InputState};
 use super::textarea::TextareaState;
 use crate::{
-    density::{self, Density},
     motion,
     theme::{LayerLevel, color},
     tokens::{self, ColorRole, TypeStyle},
@@ -94,6 +93,21 @@ impl AddonAlign {
             Self::BlockEnd => [4., 8., 4., 16.],
         }
     }
+}
+
+/// The text area's block padding, `0.6875rem` above and below, less Kit's
+/// 2px text inset on each side.
+const TEXTAREA_PADDING: f32 = 18.;
+
+/// The `.cu-ig-textarea` height for `rows` lines (`padding-block: 0.6875rem`,
+/// 20px lines); also its smallest dragged height at one row.
+pub fn textarea_height(rows: usize) -> f32 {
+    rows.max(1) as f32 * 20. + 22.
+}
+
+/// The single-line group height: `size-md` (40px) in every density.
+pub fn group_height() -> f32 {
+    FieldSize::Md.carbon_height()
 }
 
 /// An addon (`InputGroupAddon`).
@@ -265,7 +279,6 @@ pub struct InputGroup {
     id: ElementId,
     invalid: bool,
     disabled: bool,
-    density: Option<Density>,
     level: LayerLevel,
     addons: Vec<InputGroupAddon>,
     editor: Option<Editor>,
@@ -278,7 +291,6 @@ impl InputGroup {
             id: id.into(),
             invalid: false,
             disabled: false,
-            density: None,
             level: LayerLevel::One,
             addons: Vec::new(),
             editor: None,
@@ -294,12 +306,6 @@ impl InputGroup {
     /// Disable the editor.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
-        self
-    }
-
-    /// Override the app density (the single-line height is `size-md`).
-    pub fn density(mut self, density: Density) -> Self {
-        self.density = Some(density);
         self
     }
 
@@ -331,8 +337,10 @@ impl InputGroup {
 impl RenderOnce for InputGroup {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
-        let density = self.density.unwrap_or_else(density::current);
-        let height = FieldSize::Md.height(density);
+        // `.cu-ig { min-height: var(--size-md) }`, `.cu-ig-input { height:
+        // var(--size-md) }`: 40px in every density (the reference's compact rules
+        // in `src/ghost.css` do not touch `.cu-ig`).
+        let height = group_height();
         let hovered = window.use_keyed_state((id.clone(), "hover"), cx, |_, _| false);
         let (focus, empty) = match &self.editor {
             Some(Editor::Input(i)) => (
@@ -346,11 +354,13 @@ impl RenderOnce for InputGroup {
             None => (None, true),
         };
         let focused = focus.as_ref().is_some_and(|f| f.is_focused(window));
+        // `.cu-field[data-invalid] .cu-ig, .cu-ig[data-invalid]`.
+        let invalid = self.invalid || super::field::in_invalid_field();
         let look = GroupLook::of(
             self.level,
             *hovered.read(cx),
             focused,
-            self.invalid,
+            invalid,
             self.disabled,
         );
         let background = motion::animate_color(
@@ -429,10 +439,18 @@ impl RenderOnce for InputGroup {
             }
             Editor::Textarea(area) => {
                 // `.cu-ig-textarea { padding: 0.6875rem var(--spacing-05); line-height:
-                // 1.42857; flex-basis: 100% }` (Kit insets its text by 2px/4px).
+                // 1.42857; flex-basis: 100%; resize: vertical }` (Kit insets its text by
+                // 2px/4px). The corner grip drags the text area's height.
+                let resize = super::resize::height_store(&(id.clone(), "ta").into(), window, cx);
+                let height = resize
+                    .read(cx)
+                    .height
+                    .unwrap_or_else(|| textarea_height(area.rows));
                 let element = div()
                     .relative()
                     .w_full()
+                    .h(rem(height))
+                    .overflow_hidden()
                     .pt(rem(9.))
                     .pb(rem(9.))
                     .px(rem(12.))
@@ -441,7 +459,7 @@ impl RenderOnce for InputGroup {
                             .appearance(false)
                             .with_size(Size::XSmall)
                             .disabled(self.disabled)
-                            .h(rem(area.rows as f32 * 20. + 4.))
+                            .h(rem(height - TEXTAREA_PADDING))
                             .w_full()
                             .text_size(rem(14.))
                             .line_height(rem(20.))
@@ -458,6 +476,10 @@ impl RenderOnce for InputGroup {
                                 .text_color(placeholder_color)
                                 .child(text),
                         )
+                    })
+                    .when(!self.disabled, |this| {
+                        this.on_drag_move(super::resize::on_drag_move(&resize, textarea_height(1)))
+                            .child(super::resize::grip(&(id.clone(), "ta").into(), &resize))
                     });
                 (0, element.into_any_element())
             }
@@ -504,8 +526,7 @@ impl RenderOnce for InputGroup {
             .w_full()
             .min_h(rem(height))
             .bg(background)
-            .border_b_1()
-            .border_color(look.border)
+            .pb(gpui_kit::px(form::FIELD_RULE))
             .type_style(TypeStyle::BodyCompact01)
             .text_color(text_color)
             .when(self.disabled, |this| {
@@ -527,6 +548,7 @@ impl RenderOnce for InputGroup {
                 })
             })
             .children(parts.into_iter().map(|(_, e)| e))
+            .child(form::bottom_rule(look.border))
             .child(form::inset_outline(2., outline))
     }
 }
@@ -557,6 +579,14 @@ mod tests {
         assert_eq!(both.outline.map(hex).as_deref(), Some("#0f62fe"));
         let invalid = GroupLook::of(LayerLevel::One, false, false, true, false);
         assert_eq!(invalid.outline.map(hex).as_deref(), Some("#da1e28"));
+    }
+
+    #[test]
+    fn group_is_size_md_in_every_density() {
+        assert_eq!(group_height(), 40.);
+        // 3 rows × 20 + 2 × 11.
+        assert_eq!(textarea_height(3), 82.);
+        assert_eq!(textarea_height(3) - TEXTAREA_PADDING, 64.);
     }
 
     #[test]

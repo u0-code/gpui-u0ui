@@ -15,8 +15,11 @@
 //! | [`FieldContent`] / [`FieldTitle`] | a 4px-gap column / 14px semibold `text-primary` |
 //!
 //! These are layout and type only; behavior lives in the controls they hold.
-//! Unlike CSS, a `Field`'s `invalid` cannot reach into its children: set
-//! `invalid` on the control (e.g. [`super::InputGroup::invalid`]) as well.
+//! A `Field`'s `invalid` reaches the [`super::InputGroup`]s inside it, which
+//! draw the red outline (`.cu-field[data-invalid] .cu-ig { outline: 2px solid
+//! var(--support-error) }`): the field marks its subtree while it lays out
+//! (GPUI renders components during layout; see [`in_invalid_field`]). Other
+//! controls take their own `invalid`, as the reference CSS only styles `.cu-ig`.
 use super::form::{self, rem};
 use crate::{
     theme::color,
@@ -24,9 +27,99 @@ use crate::{
     typography::TypeStyled as _,
 };
 use gpui_kit::{
-    AnyElement, App, IntoElement, ParentElement, RenderOnce, SharedString, Styled, Window, div,
+    AnyElement, App, Bounds, Element, ElementId, GlobalElementId, InspectorElementId, IntoElement,
+    LayoutId, ParentElement, Pixels, RenderOnce, SharedString, Styled, Window, div,
     prelude::FluentBuilder as _, px,
 };
+use std::cell::Cell;
+
+thread_local! {
+    /// How many `invalid` [`Field`]s are laying out their children now.
+    static INVALID_DEPTH: Cell<u32> = const { Cell::new(0) };
+}
+
+/// Whether the component rendering now sits inside an `invalid` [`Field`]
+/// (`.cu-field[data-invalid] …`). Read it in `render`.
+pub fn in_invalid_field() -> bool {
+    INVALID_DEPTH.with(|d| d.get() > 0)
+}
+
+/// Run `f` marked as inside an invalid field when `invalid`.
+pub fn with_invalid_field<R>(invalid: bool, f: impl FnOnce() -> R) -> R {
+    if !invalid {
+        return f();
+    }
+    INVALID_DEPTH.with(|d| d.set(d.get() + 1));
+    struct Pop;
+    impl Drop for Pop {
+        fn drop(&mut self) {
+            INVALID_DEPTH.with(|d| d.set(d.get().saturating_sub(1)));
+        }
+    }
+    let _pop = Pop;
+    f()
+}
+
+/// The element a [`Field`] renders: its body, laid out with the field's
+/// `invalid` mark in scope.
+pub struct FieldScope {
+    invalid: bool,
+    child: AnyElement,
+}
+
+impl Element for FieldScope {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, ()) {
+        let child = &mut self.child;
+        let id = with_invalid_field(self.invalid, || child.request_layout(window, cx));
+        (id, ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        let child = &mut self.child;
+        with_invalid_field(self.invalid, || {
+            child.prepaint(window, cx);
+        });
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        let child = &mut self.child;
+        with_invalid_field(self.invalid, || child.paint(window, cx));
+    }
+}
 
 macro_rules! parent {
     ($name:ident) => {
@@ -96,7 +189,7 @@ parent!(Field);
 
 impl RenderOnce for Field {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
-        match self.orientation {
+        let body = match self.orientation {
             // `.cds--form-item { display: flex; flex-direction: column; align-items: flex-start }`.
             FieldOrientation::Vertical => form::form_item().children(self.children),
             // `.cu-field--horizontal { flex-direction: row; align-items: center; gap: var(--spacing-05) }`.
@@ -108,7 +201,11 @@ impl RenderOnce for Field {
                 .w_full()
                 .children(self.children),
         }
-        .type_style(TypeStyle::BodyCompact01)
+        .type_style(TypeStyle::BodyCompact01);
+        FieldScope {
+            invalid: self.invalid,
+            child: body.into_any_element(),
+        }
     }
 }
 
@@ -422,6 +519,18 @@ impl RenderOnce for FieldTitle {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn invalid_mark_nests_and_clears() {
+        assert!(!in_invalid_field());
+        with_invalid_field(true, || {
+            assert!(in_invalid_field());
+            // A valid field inside an invalid one stays inside it.
+            with_invalid_field(false, || assert!(in_invalid_field()));
+        });
+        assert!(!in_invalid_field());
+        with_invalid_field(false, || assert!(!in_invalid_field()));
+    }
 
     #[test]
     fn field_error_joins_errors_like_the_reference() {

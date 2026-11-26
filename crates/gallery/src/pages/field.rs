@@ -80,8 +80,9 @@ impl Render for FieldPage {
                                         .invalid(vat_invalid)
                                         .child(FieldLabel::new("VAT number"))
                                         .child(
+                                            // `.cu-field[data-invalid] .cu-ig`: the field's
+                                            // `invalid` outlines the group.
                                             InputGroup::new("ref-vat")
-                                                .invalid(vat_invalid)
                                                 .input(InputGroupInput::new(&self.vat)),
                                         )
                                         .when_invalid(
@@ -112,7 +113,6 @@ impl Render for FieldPage {
             .child(
                 div().flex_1().w_full().child(
                     InputGroup::new("live-input")
-                        .invalid(self.invalid)
                         .input(InputGroupInput::new(&self.live).placeholder("proj-1234")),
                 ),
             );
