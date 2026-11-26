@@ -5,7 +5,10 @@
 //! `TypeStyle` enum with its specs, and the spacing / size / radius consts that
 //! `u0ui::tokens` re-exports. Never hand-type a token value: change the JSON.
 use serde_json::Value;
-use std::{collections::HashMap, fmt::Write as _};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Write as _,
+};
 
 /// `tokens.json` → `crates/u0ui/src/generated/tokens.rs`.
 pub fn tokens(source: &str) -> String {
@@ -30,12 +33,12 @@ pub fn carbon_icons(js: &str) -> String {
         .expect("CARBON_TO_MATERIAL in material.js")
         + "CARBON_TO_MATERIAL = ".len();
     let end = start + js[start..].find('}').unwrap() + 1;
-    let map: serde_json::Map<String, Value> = serde_json::from_str(&js[start..end]).unwrap();
+    let map = sorted(serde_json::from_str(&js[start..end]).unwrap());
     let mut out = String::from(crate::HEADER);
     out.push_str("// Source: $U0UI_DESIGN_DIR/src/icons/material.js\n\n");
     out.push_str("/// The reference's Carbon-named icons (`CarbonUI.Icons.<Name>`), drawn with Material Symbols Sharp.\n");
     out.push_str("#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]\npub enum CarbonIcon {\n");
-    for (name, material) in &map {
+    for (name, material) in map.iter() {
         writeln!(out, "    /// `{name}` → `{}`", material.as_str().unwrap()).unwrap();
         writeln!(out, "    {},", camel(name)).unwrap();
     }
@@ -50,7 +53,7 @@ pub fn carbon_icons(js: &str) -> String {
         writeln!(out, "        CarbonIcon::{},", camel(name)).unwrap();
     }
     out.push_str("    ];\n\n    /// `(carbon name, material symbol name, filled)`.\n    pub const fn spec(self) -> (&'static str, &'static str, bool) {\n        match self {\n");
-    for (name, material) in &map {
+    for (name, material) in map.iter() {
         let material = material.as_str().unwrap();
         let (symbol, filled) = match material.strip_suffix('+') {
             Some(s) => (s, true),
@@ -87,6 +90,14 @@ fn custom_glyphs(js: &str, out: &mut String) {
         writeln!(out, "    (\"{key}\", \"{}\"),", escape(d)).unwrap();
     }
     out.push_str("];\n");
+}
+
+/// A JSON object's entries in key order. `serde_json::Map` iterates in key
+/// order by default but in insertion order once any crate in the build enables
+/// its `preserve_order` feature (GPUI does, so a workspace build unifies it on);
+/// sorting explicitly keeps the generated sources identical in both builds.
+fn sorted(map: serde_json::Map<String, Value>) -> BTreeMap<String, Value> {
+    map.into_iter().collect()
 }
 
 /// `border-subtle-01` → `BorderSubtle01`.
@@ -343,8 +354,8 @@ fn type_styles(json: &Value, out: &mut String) {
 
 /// `type.families`: CSS font stacks → the quoted family names, generic keywords dropped.
 fn families(json: &Value, out: &mut String) {
-    let families = json["type"]["families"].as_object().unwrap();
-    for (key, stack) in families {
+    let families = sorted(json["type"]["families"].as_object().unwrap().clone());
+    for (key, stack) in &families {
         let names: Vec<String> = stack
             .as_str()
             .unwrap()
