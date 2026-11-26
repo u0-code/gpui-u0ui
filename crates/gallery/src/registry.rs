@@ -374,6 +374,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::sidebar::build,
     },
     PageDef {
+        id: "kbd",
+        title: "Kbd",
+        group: "Data display",
+        description: readme!("Kbd"),
+        build: pages::kbd::build,
+    },
+    PageDef {
         id: "separator",
         title: "Separator",
         group: "Data display",

@@ -22,6 +22,7 @@ pub mod hover_card;
 pub mod input;
 pub mod input_group;
 pub mod input_otp;
+pub mod kbd;
 pub mod label;
 pub mod list_box;
 pub mod menu;
@@ -69,6 +70,7 @@ pub use input_group::{
     InputGroup, InputGroupAddon, InputGroupInput, InputGroupText, InputGroupTextarea,
 };
 pub use input_otp::InputOtp;
+pub use kbd::{Kbd, KbdGroup};
 pub use label::Label;
 pub use menu::{MenuItem, MenuSize};
 pub use menubar::Menubar;
