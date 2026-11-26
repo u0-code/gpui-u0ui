@@ -164,6 +164,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::checkbox::build,
     },
     PageDef {
+        id: "radio-group",
+        title: "RadioGroup",
+        group: "Forms",
+        description: readme!("RadioGroup"),
+        build: pages::radio_group::build,
+    },
+    PageDef {
         id: "switch",
         title: "Switch",
         group: "Forms",
