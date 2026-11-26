@@ -372,6 +372,9 @@ impl Render for Gallery {
             .min_w_0()
             .h_full()
             .overflow_y_scroll()
+            // A horizontal wheel over a sideways scroller (code snippets)
+            // scrolls only that, not the page.
+            .restrict_scroll_to_axis()
             .track_scroll(&self.scroll)
             .child(
                 div()

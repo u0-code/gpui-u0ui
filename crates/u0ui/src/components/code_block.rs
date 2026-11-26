@@ -651,7 +651,10 @@ impl RenderOnce for CodeBlock {
             .font(mono)
             .text_size(rem(font_size))
             .line_height(rem(line_height))
-            .when(!wrap, |this| this.overflow_x_scroll())
+            // A vertical wheel scrolls the page, not the code sideways.
+            .when(!wrap, |this| {
+                this.overflow_x_scroll().restrict_scroll_to_axis()
+            })
             .children(rows);
 
         div()
@@ -731,6 +734,20 @@ impl SnippetType {
 /// The collapsed height of a multi snippet in px (`maxCollapsedNumberOfRows × 16`).
 pub fn collapsed_height(rows: usize) -> Option<f32> {
     (rows > MAX_COLLAPSED_ROWS).then_some(MAX_COLLAPSED_ROWS as f32 * ROW)
+}
+
+/// The multi snippet's `.cds--snippet-container` height in px. Collapsed, its
+/// `max-height` is `maxCollapsedNumberOfRows × 16` = 240 and clips everything
+/// past 15 rows (the `pre`'s padding included); otherwise it holds the rows
+/// plus `pre { padding-block-end: 1.5rem }`, and expanded adds
+/// `.cds--snippet--expand .cds--snippet-container { padding-block-end: 1rem }`.
+pub fn container_height(rows: usize, expanded: bool) -> f32 {
+    let natural = rows as f32 * ROW + 24.;
+    match collapsed_height(rows) {
+        Some(c) if !expanded => c,
+        Some(_) => natural + 16.,
+        None => natural,
+    }
 }
 
 /// Carbon's `CodeSnippet`. See the module docs.
@@ -894,6 +911,9 @@ impl RenderOnce for CodeSnippet {
                     .max_w(rem(768.))
                     .h(rem(40.))
                     .pr(rem(40.))
+                    // The container's `padding-inline-start: 1rem`, kept outside the
+                    // scroller so the code never loses its start inset.
+                    .pl(rem(16.))
                     .bg(layer)
                     .text_color(text_color)
                     .child(
@@ -904,8 +924,10 @@ impl RenderOnce for CodeSnippet {
                             .h_full()
                             .flex()
                             .items_center()
-                            .pl(rem(16.))
+                            // Only a horizontal wheel (or shift-wheel) scrolls the
+                            // code; a vertical wheel scrolls the page.
                             .overflow_x_scroll()
+                            .restrict_scroll_to_axis()
                             .font(mono)
                             .text_size(size)
                             .line_height(lh)
@@ -935,15 +957,10 @@ impl RenderOnce for CodeSnippet {
                 let expanded_state =
                     window.use_keyed_state((id.clone(), "expanded"), cx, |_, _| false);
                 let expanded = *expanded_state.read(cx);
-                let full = lines.len() as f32 * ROW;
-                let target = match (collapsed, expanded) {
-                    (Some(c), false) => c,
-                    _ => full,
-                };
                 // `.cds--snippet-container { transition: max-height 150ms cubic-bezier(0.2, 0, 0.38, 0.9) }`.
                 let height = motion::animate(
                     (id.clone(), "height"),
-                    target,
+                    container_height(lines.len(), expanded),
                     Motion::new(Curve::ProductiveStandard, Speed::Moderate01).spatial(true),
                     window,
                     cx,
@@ -1025,15 +1042,15 @@ impl RenderOnce for CodeSnippet {
                         div()
                             .id((id.clone(), "scroll"))
                             .w_full()
-                            .h(rem(height + 24.))
+                            .h(rem(height))
                             .overflow_hidden()
-                            .when(!wrap, |this| this.overflow_x_scroll())
+                            .when(!wrap, |this| {
+                                this.overflow_x_scroll().restrict_scroll_to_axis()
+                            })
                             .pr(rem(24.))
-                            .pb(rem(24.))
                             .font(mono)
                             .text_size(size)
                             .line_height(lh)
-                            .when(collapsed.is_some(), |this| this.pb(rem(32.)))
                             .children(lines.into_iter().map(move |l| {
                                 div().when(!wrap, |this| this.whitespace_nowrap()).child(
                                     if l.is_empty() {
@@ -1131,5 +1148,9 @@ mod tests {
         assert_eq!(feedback_opacity(Duration::from_millis(2111)), None);
         assert_eq!(collapsed_height(10), None);
         assert_eq!(collapsed_height(20), Some(240.));
+        // Collapsed: exactly 15 rows of 16px, nothing more.
+        assert_eq!(container_height(20, false), 15. * ROW);
+        assert_eq!(container_height(20, true), 20. * ROW + 24. + 16.);
+        assert_eq!(container_height(4, false), 4. * ROW + 24.);
     }
 }
