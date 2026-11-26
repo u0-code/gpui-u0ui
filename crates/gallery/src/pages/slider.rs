@@ -32,10 +32,20 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
             .step(5.)
             .default_value(40.)
     });
+    // `range` (`SliderProps.range`): two thumbs, each with its own input.
+    let live_range = cx.new(|_| {
+        SliderState::new()
+            .min(0.)
+            .max(100.)
+            .step(5.)
+            .default_value((20., 80.))
+    });
     cx.new(|_| SliderPage {
         memory,
         price,
         live,
+        live_range,
+        range: false,
         disabled: false,
         hide_input: false,
     })
@@ -46,6 +56,8 @@ struct SliderPage {
     memory: Entity<SliderState>,
     price: Entity<SliderState>,
     live: Entity<SliderState>,
+    live_range: Entity<SliderState>,
+    range: bool,
     disabled: bool,
     hide_input: bool,
 }
@@ -79,15 +91,24 @@ impl Render for SliderPage {
                     .child(Slider::new("ref-price", &self.price).label("Price range")),
             );
 
-        let live_value = self.live.read(cx).value();
+        let state = if self.range {
+            &self.live_range
+        } else {
+            &self.live
+        };
+        let live_value = state.read(cx).value();
         let live = div()
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
             .child(
                 div().max_w(rems(32.5)).child(
-                    Slider::new("live", &self.live)
-                        .label("CPU threshold (%)")
+                    Slider::new(if self.range { "live-range" } else { "live" }, state)
+                        .label(if self.range {
+                            "CPU band (%)"
+                        } else {
+                            "CPU threshold (%)"
+                        })
                         .disabled(self.disabled)
                         .hide_input(self.hide_input),
                 ),
@@ -103,6 +124,12 @@ impl Render for SliderPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_06)
+            .child(controls::toggle(
+                "slider-range",
+                "range",
+                self.range,
+                toggle(|this, on| this.range = on),
+            ))
             .child(controls::toggle(
                 "slider-disabled",
                 "disabled",
