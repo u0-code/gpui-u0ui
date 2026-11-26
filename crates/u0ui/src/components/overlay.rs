@@ -192,6 +192,16 @@ pub(crate) fn surface_focus(
             state.previous.take()
         });
         let surface = state.read(cx).focus.clone();
+        // An action that closed the surface may also have moved focus on
+        // purpose (a palette entry that navigates focuses the new page): keep
+        // that instead of pulling focus back to the old trigger. The last
+        // frame still holds the surface, so "inside it" is answerable here.
+        let now = window.focused(cx);
+        if moved_elsewhere(now.as_ref(), previous.as_ref(), || {
+            surface.contains_focused(window, cx)
+        }) {
+            return state.read(cx).focus.clone();
+        }
         window.defer(cx, move |window, cx| match previous {
             Some(previous) => previous.focus(window, cx),
             // Nothing had focus before: do not leave it on a surface that is
@@ -201,6 +211,20 @@ pub(crate) fn surface_focus(
         });
     }
     state.read(cx).focus.clone()
+}
+
+/// Whether focus left a closing surface for somewhere other than the element
+/// it would return to: `now` is set, is not `previous`, and is not inside the
+/// surface (`inside`, asked only when needed).
+fn moved_elsewhere(
+    now: Option<&FocusHandle>,
+    previous: Option<&FocusHandle>,
+    inside: impl FnOnce() -> bool,
+) -> bool {
+    match now {
+        Some(now) => Some(now) != previous && !inside(),
+        None => false,
+    }
 }
 
 /// Wrap a caller's trigger element so pressing it (pointer) or activating it

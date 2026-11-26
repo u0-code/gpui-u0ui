@@ -1,6 +1,7 @@
 //! A CommandDialog opens with focus in its search field (not on the modal's
 //! close button), Enter runs the first match of a typed query without ↓, and
-//! closing hands focus back to where it was (design review A2, G1).
+//! closing hands focus back to where it was (design review A2, G1), unless
+//! the entry that closed it moved focus on purpose (design review A3, S3).
 use gpui_kit::test::{TestSupportExt as _, TestWindowExt as _};
 use gpui_kit::{
     AppContext as _, Bounds, Context, FocusHandle, InteractiveElement as _, IntoElement,
@@ -14,6 +15,8 @@ struct Page {
     open: bool,
     picked: Option<&'static str>,
     focus: FocusHandle,
+    /// Where the "Navigate" entry moves focus (a new page's content).
+    target: FocusHandle,
 }
 
 impl Render for Page {
@@ -33,7 +36,19 @@ impl Render for Page {
             CommandGroup::new("Pages")
                 .item(CommandItem::new("Home").on_select(pick("Home")))
                 .item(CommandItem::new("Profile").on_select(pick("Profile")))
-                .item(CommandItem::new("Preferences").on_select(pick("Preferences"))),
+                .item(CommandItem::new("Preferences").on_select(pick("Preferences")))
+                .item(CommandItem::new("Navigate").on_select({
+                    let entity = entity.clone();
+                    let target = self.target.clone();
+                    move |window: &mut Window, cx: &mut gpui_kit::App| {
+                        target.focus(window, cx);
+                        entity.update(cx, |this, cx| {
+                            this.picked = Some("Navigate");
+                            this.open = false;
+                            cx.notify();
+                        })
+                    }
+                })),
         );
         div()
             .id("page")
@@ -51,6 +66,7 @@ impl Render for Page {
                     }))
                     .child("Search"),
             )
+            .child(div().id("main").track_focus(&self.target).h(px(40.)))
             .child(CommandDialog::new(
                 "palette",
                 self.open,
@@ -68,13 +84,12 @@ impl Render for Page {
     }
 }
 
-#[gpui_kit::test]
-fn command_dialog_focuses_its_field_and_enter_runs_the_first_match(cx: &mut TestAppContext) {
+fn open_page(cx: &mut TestAppContext) -> (gpui_kit::AnyWindowHandle, gpui_kit::Entity<Page>) {
     cx.update(|cx| {
         gpui_kit::init(cx);
         u0ui::init(cx);
     });
-    let (window, page) = cx.update(|cx| {
+    cx.update(|cx| {
         gpui_kit::open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(Bounds {
@@ -87,15 +102,21 @@ fn command_dialog_focuses_its_field_and_enter_runs_the_first_match(cx: &mut Test
             |window, cx| {
                 let focus = cx.focus_handle();
                 focus.focus(window, cx);
-                cx.new(|_| Page {
+                cx.new(|cx| Page {
                     open: false,
                     picked: None,
                     focus,
+                    target: cx.focus_handle(),
                 })
             },
         )
         .expect("open test window")
-    });
+    })
+}
+
+#[gpui_kit::test]
+fn command_dialog_focuses_its_field_and_enter_runs_the_first_match(cx: &mut TestAppContext) {
+    let (window, page) = open_page(cx);
     let settle = |cx: &mut TestAppContext| {
         cx.executor().advance_clock(Duration::from_secs(1));
         cx.run_until_parked();
@@ -132,4 +153,49 @@ fn command_dialog_focuses_its_field_and_enter_runs_the_first_match(cx: &mut Test
         .unwrap();
     settle(cx);
     cx.update(|cx| assert_eq!(page.read(cx).picked, Some("Preferences")));
+}
+
+#[gpui_kit::test]
+fn an_entry_that_moves_focus_keeps_it_there(cx: &mut TestAppContext) {
+    let (window, page) = open_page(cx);
+    let settle = |cx: &mut TestAppContext| {
+        cx.executor().advance_clock(Duration::from_secs(1));
+        cx.run_until_parked();
+        cx.update_window(window, |_, window, cx| window.render_frame(cx))
+            .unwrap();
+    };
+    settle(cx);
+    cx.update_window(window, |_, window, cx| window.click("open", cx))
+        .unwrap();
+    settle(cx);
+    cx.update_window(window, |_, window, cx| window.input("navi", cx))
+        .unwrap();
+    settle(cx);
+    cx.update_window(window, |_, window, cx| window.press("enter", cx))
+        .unwrap();
+    settle(cx);
+    cx.update_window(window, |_, window, cx| {
+        let page = page.read(cx);
+        assert_eq!(page.picked, Some("Navigate"));
+        assert!(page.target.is_focused(window), "focus was pulled back");
+    })
+    .unwrap();
+    // Closed with Escape (focus still in the field): focus returns.
+    cx.update_window(window, |_, window, cx| {
+        page.read(cx).focus.clone().focus(window, cx)
+    })
+    .unwrap();
+    settle(cx);
+    cx.update_window(window, |_, window, cx| window.click("open", cx))
+        .unwrap();
+    settle(cx);
+    cx.update_window(window, |_, window, cx| window.press("escape", cx))
+        .unwrap();
+    settle(cx);
+    cx.update_window(window, |_, window, cx| {
+        let page = page.read(cx);
+        assert!(!page.open);
+        assert!(page.focus.is_focused(window), "focus was not restored");
+    })
+    .unwrap();
 }
