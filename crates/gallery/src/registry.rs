@@ -485,6 +485,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("DataTable"),
         build: pages::data_table::build,
     },
+    PageDef {
+        id: "bubble",
+        title: "Bubble",
+        group: "Chat & AI",
+        description: readme!("Bubble"),
+        build: pages::bubble::build,
+    },
 ];
 
 /// Look a page up by id.

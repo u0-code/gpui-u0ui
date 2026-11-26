@@ -6,6 +6,7 @@ pub mod aspect_ratio;
 pub mod avatar;
 pub mod badge;
 pub mod breadcrumb;
+pub mod bubble;
 pub mod button;
 pub mod button_group;
 pub mod calendar;
@@ -65,6 +66,7 @@ pub use aspect_ratio::AspectRatio;
 pub use avatar::{Avatar, AvatarColor, AvatarFallback, AvatarGroup, AvatarSize};
 pub use badge::{Badge, BadgeSize, BadgeVariant, TagType};
 pub use breadcrumb::{Breadcrumb, BreadcrumbItem, BreadcrumbSize};
+pub use bubble::{Bubble, BubbleAlign, BubbleContent, BubbleGroup, BubbleReactions, BubbleVariant};
 pub use button::{Button, ButtonKind, ButtonSize, ButtonVariant};
 pub use button_group::{
     ButtonGroup, ButtonGroupOrientation, ButtonGroupSeparator, ButtonGroupText,

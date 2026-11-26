@@ -6,6 +6,7 @@ pub mod aspect_ratio;
 pub mod avatar;
 pub mod badge;
 pub mod breadcrumb;
+pub mod bubble;
 pub mod button;
 pub mod button_group;
 pub mod calendar;
