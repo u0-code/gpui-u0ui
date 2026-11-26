@@ -13,4 +13,5 @@ pub mod layout;
 pub mod motion;
 pub mod sheet;
 pub mod toggle;
+pub mod tooltip;
 pub mod typography;

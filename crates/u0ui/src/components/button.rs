@@ -472,6 +472,7 @@ pub struct Button {
     loading: bool,
     selected: bool,
     full_width: bool,
+    tooltip: bool,
     tab_index: isize,
     focus_handle: Option<FocusHandle>,
     on_click: Option<ClickHandler>,
@@ -493,6 +494,7 @@ impl Button {
             loading: false,
             selected: false,
             full_width: false,
+            tooltip: true,
             tab_index: 0,
             focus_handle: None,
             on_click: None,
@@ -554,6 +556,13 @@ impl Button {
     /// none`, as in `.cds--modal-footer .cds--btn`).
     pub fn full_width(mut self, full_width: bool) -> Self {
         self.full_width = full_width;
+        self
+    }
+
+    /// Show the label as a Carbon tooltip when icon-only (default true; turn
+    /// it off when the caller wraps the button in its own `Tooltip`).
+    pub fn tooltip(mut self, tooltip: bool) -> Self {
+        self.tooltip = tooltip;
         self
     }
 
@@ -793,15 +802,6 @@ impl RenderOnce for Button {
                 (None, _) => button,
             };
         }
-        if self.icon_only {
-            button = button.tooltip({
-                let label = label.clone();
-                move |window, cx| {
-                    gpui_kit::component::tooltip::Tooltip::new(label.clone()).build(window, cx)
-                }
-            });
-        }
-
         // Focus: inset 1px `focus`, then 1px `focus-inset` (box-shadow has no
         // inset form in GPUI, so two absolutely positioned outlines).
         let focus_layers: Vec<AnyElement> = [
@@ -822,7 +822,14 @@ impl RenderOnce for Button {
                 .into_any_element()
         })
         .collect();
-        button.children(focus_layers).into_any_element()
+        let button = button.children(focus_layers).into_any_element();
+        if self.icon_only && self.tooltip {
+            // `.cds--icon-tooltip`: the label as a Carbon tooltip above.
+            return super::tooltip::Tooltip::new((id, "tooltip"), button)
+                .content(label)
+                .into_any_element();
+        }
+        button
     }
 }
 

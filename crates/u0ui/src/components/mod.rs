@@ -5,12 +5,14 @@ pub mod button;
 pub mod button_group;
 pub mod dialog;
 pub mod drawer;
+pub mod floating;
 pub mod form;
 pub mod input;
 pub mod label;
 pub mod overlay;
 pub mod sheet;
 pub mod toggle;
+pub mod tooltip;
 
 pub use alert_dialog::AlertDialog;
 pub use button::{Button, ButtonKind, ButtonSize, ButtonVariant};
@@ -19,8 +21,10 @@ pub use button_group::{
 };
 pub use dialog::{Dialog, DialogSize};
 pub use drawer::Drawer;
+pub use floating::Align;
 pub use form::{FieldSize, Validation};
 pub use input::{Input, InputState};
 pub use label::Label;
 pub use sheet::{Sheet, SheetSide};
 pub use toggle::{Toggle, ToggleVariant};
+pub use tooltip::Tooltip;
