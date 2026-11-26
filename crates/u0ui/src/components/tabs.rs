@@ -388,8 +388,11 @@ impl RenderOnce for Tabs {
             let value = trigger.value.clone();
             let on_change = self.on_value_change.clone();
             let internal = internal.clone();
-            // The divider is hidden on the first tab and next to the selected one.
-            let previous_selected = index > 0 && state.selected;
+            // The divider (`box-shadow: -1px 0 0 0 border-strong` on every tab
+            // after the first) gives way on the selected tab to its top line
+            // (`--selected { box-shadow: inset 0 2px … }`) and is dropped on
+            // the tab after it (`--selected + .cds--tabs__nav-item { box-shadow: none }`).
+            let no_divider = state.selected || selected_index.is_some_and(|s| s + 1 == index);
             let tab = gpui_kit::base::Tab::new(tab_id.clone())
                 .selected(state.selected)
                 .disabled(trigger.disabled)
@@ -465,7 +468,7 @@ impl RenderOnce for Tabs {
                         .bg(indicator),
                 })
                 .when(
-                    variant == TabsVariant::Contained && index > 0 && !previous_selected,
+                    variant == TabsVariant::Contained && index > 0 && !no_divider,
                     |this| {
                         this.child(
                             div()

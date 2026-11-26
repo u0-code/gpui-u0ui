@@ -43,11 +43,11 @@ impl Render for TabsPage {
             }
         };
 
-        // `components/Tabs/preview.html` (`cu-stack`).
+        // `components/Tabs/preview.html` (`.cu-stack { gap: var(--spacing-06) }`).
         let reference = div()
             .flex()
             .flex_col()
-            .gap(tokens::SPACING_05)
+            .gap(tokens::SPACING_06)
             .child(controls::section("Reference preview"))
             .child(
                 Tabs::new("ref-tabs")
