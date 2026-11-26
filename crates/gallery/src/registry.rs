@@ -150,6 +150,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::input::build,
     },
     PageDef {
+        id: "textarea",
+        title: "Textarea",
+        group: "Forms",
+        description: readme!("Textarea"),
+        build: pages::textarea::build,
+    },
+    PageDef {
         id: "label",
         title: "Label",
         group: "Forms",
