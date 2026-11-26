@@ -54,11 +54,14 @@ const MOTIONS: [ReducedMotion; 3] = [
 type Action = Box<dyn Fn(&mut Window, &mut App)>;
 
 /// A 48px global action (`.cds--header__action`): a ghost lg icon-only
-/// button drawn in the header's theme.
+/// button drawn in the header's theme. Its tooltip hangs below the header
+/// (`HeaderGlobalAction` `tooltipAlignment`), `align`ed so it stays inside
+/// the window at the header's ends.
 fn action(
     id: &'static str,
     label: &'static str,
     icon: &'static str,
+    align: Align,
     on_click: Option<Action>,
 ) -> impl IntoElement {
     theme::zone(SHELL, move |_, _| {
@@ -66,7 +69,8 @@ fn action(
             .variant(ButtonVariant::Ghost)
             .size(ButtonSize::Lg)
             .icon(Icon::named(icon))
-            .icon_only(true);
+            .icon_only(true)
+            .tooltip_align(align);
         if let Some(on_click) = on_click {
             button = button.on_click(move |_, window, cx| on_click(window, cx));
         }
@@ -110,6 +114,12 @@ fn setting(
         .child(group)
 }
 
+/// A header panel's content width: the popover's 22rem
+/// (`.cu-popover-content { max-width }`) less its 1rem padding on each side.
+/// The popover shrink-wraps its content, and a content switcher's equal
+/// segments would otherwise truncate their labels.
+const PANEL_WIDTH: f32 = 20.;
+
 fn panel_title(text: &'static str) -> impl IntoElement {
     div()
         .type_style(TypeStyle::HeadingCompact01)
@@ -120,22 +130,26 @@ fn panel_title(text: &'static str) -> impl IntoElement {
 /// The theme panel: the four Carbon themes.
 fn theme_panel() -> impl IntoElement {
     let names: Vec<&'static str> = CarbonTheme::ALL.iter().map(|t| theme_name(*t)).collect();
-    Popover::new("theme-panel", action("theme", "Theme", "contrast", None))
-        .align(Align::BottomRight)
-        .child(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_05)
-                .child(panel_title("Theme"))
-                .child(setting(
-                    "theme-switch",
-                    "Carbon theme",
-                    &names,
-                    theme_name(theme::current()),
-                    |i, _, cx| theme::set_theme(cx, CarbonTheme::ALL[i]),
-                )),
-        )
+    Popover::new(
+        "theme-panel",
+        action("theme", "Theme", "contrast", Align::BottomRight, None),
+    )
+    .align(Align::BottomRight)
+    .child(
+        div()
+            .w(rems(PANEL_WIDTH))
+            .flex()
+            .flex_col()
+            .gap(tokens::SPACING_05)
+            .child(panel_title("Theme"))
+            .child(setting(
+                "theme-switch",
+                "Carbon theme",
+                &names,
+                theme_name(theme::current()),
+                |i, _, cx| theme::set_theme(cx, CarbonTheme::ALL[i]),
+            )),
+    )
 }
 
 /// The display panel: density and reduced motion.
@@ -144,11 +158,18 @@ fn settings_panel(gallery: Entity<Gallery>, motion: ReducedMotion) -> impl IntoE
     let motions: Vec<&'static str> = MOTIONS.iter().map(|m| motion_name(*m)).collect();
     Popover::new(
         "settings-panel",
-        action("settings", "Display settings", "tune", None),
+        action(
+            "settings",
+            "Display settings",
+            "tune",
+            Align::BottomRight,
+            None,
+        ),
     )
     .align(Align::BottomRight)
     .child(
         div()
+            .w(rems(PANEL_WIDTH))
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
@@ -232,6 +253,7 @@ pub fn render(gallery: &Gallery, narrow: bool, cx: &mut Context<Gallery>) -> Any
                     "Open menu"
                 },
                 if gallery.nav_open { "close" } else { "menu" },
+                Align::BottomLeft,
                 Some(nav_toggle),
             ))
         })
@@ -243,7 +265,13 @@ pub fn render(gallery: &Gallery, narrow: bool, cx: &mut Context<Gallery>) -> Any
                 .overflow_hidden()
                 .child(theme::zone(SHELL, move |_, _| menu.into_any_element())),
         )
-        .child(action("search", "Search (⌘K)", "search", Some(search)))
+        .child(action(
+            "search",
+            "Search (⌘K)",
+            "search",
+            Align::Bottom,
+            Some(search),
+        ))
         .child(theme_panel())
         .child(settings_panel(entity.clone(), gallery.motion))
         .into_any_element()
