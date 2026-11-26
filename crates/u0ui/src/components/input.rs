@@ -31,7 +31,7 @@ use crate::{
 use gpui_kit::{
     App, CursorStyle, ElementId, Entity, Focusable as _, Hsla, InteractiveElement, IntoElement,
     MouseButton, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
-    Window,
+    TextAlign, Window,
     component::{Sizable as _, Size, input::Input as KitInput},
     div,
     prelude::FluentBuilder as _,
@@ -262,6 +262,9 @@ impl RenderOnce for Input {
         let focus = state.read(cx).focus_handle(cx);
         let focused = focus.is_focused(window);
         let empty = state.read(cx).value().is_empty();
+        // Under `dir="rtl"` the start edge is the right one.
+        let direction = super::direction::use_direction();
+        let rtl = direction.is_rtl();
         // Carbon drops invalid/warn on disabled and read-only fields.
         let validation = if self.disabled || self.readonly {
             Validation::None
@@ -325,17 +328,25 @@ impl RenderOnce for Input {
             .min_w_0()
             .text_size(rem(14.))
             .line_height(rem(18.))
+            // Kit's input reads the element's text alignment for the typed text.
+            .map(|this| match text_align(direction) {
+                TextAlign::Right => this.text_right(),
+                _ => this.text_left(),
+            })
             .text_color(look.text);
 
+        // `padding-inline: 1rem <end>`, mirrored under `dir="rtl"`.
+        let (pad_left, pad_right) = super::direction::inline_sides(direction, 16., pad_end);
         let placeholder = self.placeholder.clone().filter(|_| empty).map(|text| {
             div()
                 .absolute()
-                .left(rem(16.))
-                .right(rem(pad_end))
+                .left(rem(pad_left))
+                .right(rem(pad_right))
                 .top_0()
                 .bottom_0()
                 .flex()
                 .items_center()
+                .when(rtl, |d| d.justify_end())
                 .overflow_hidden()
                 .whitespace_nowrap()
                 .text_color(look.placeholder)
@@ -346,11 +357,12 @@ impl RenderOnce for Input {
             // `.cds--text-input__invalid-icon { inset-inline-end: 1rem }`; in a
             // password field it sits left of the toggle (`inset-inline-end:
             // var(--layout-size-height-local)`).
+            let inset = rem(if self.password { height } else { 16. });
             div()
                 .absolute()
                 .top_0()
                 .bottom_0()
-                .right(rem(if self.password { height } else { 16. }))
+                .map(|d| if rtl { d.left(inset) } else { d.right(inset) })
                 .flex()
                 .items_center()
                 .child(icon)
@@ -369,7 +381,7 @@ impl RenderOnce for Input {
                 .disabled(self.disabled)
                 .absolute()
                 .top_0()
-                .right_0()
+                .map(|d| if rtl { d.left_0() } else { d.right_0() })
                 .size(rem(height))
                 .flex()
                 .items_center()
@@ -421,8 +433,8 @@ impl RenderOnce for Input {
             .items_center()
             .w_full()
             .h(rem(height))
-            .pl(rem(16.))
-            .pr(rem(pad_end))
+            .pl(rem(pad_left))
+            .pr(rem(pad_right))
             .bg(background)
             .pb(gpui_kit::px(form::FIELD_RULE))
             .type_style(TypeStyle::BodyCompact01)
@@ -455,9 +467,26 @@ impl RenderOnce for Input {
     }
 }
 
+/// The editor's text alignment: `text-align: start` (right under `dir="rtl"`).
+pub fn text_align(direction: super::direction::Direction) -> TextAlign {
+    if direction.is_rtl() {
+        TextAlign::Right
+    } else {
+        TextAlign::Left
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rtl_mirrors_alignment_and_paddings() {
+        use super::super::direction::{Direction, inline_sides};
+        assert_eq!(text_align(Direction::Ltr), TextAlign::Left);
+        assert_eq!(text_align(Direction::Rtl), TextAlign::Right);
+        assert_eq!(inline_sides(Direction::Rtl, 16., 40.), (40., 16.));
+    }
     use crate::tokens::CarbonTheme;
 
     fn hex(c: Hsla) -> String {

@@ -148,9 +148,18 @@ impl RenderOnce for Breadcrumb {
             BreadcrumbSize::Md => TypeStyle::BodyCompact01,
         };
         let count = self.items.len();
+        // Under `dir="rtl"` items run right to left and each separator follows
+        // its item on the left (Carbon's logical margins mirror).
+        let rtl = super::direction::is_rtl();
         let mut row = div()
             .flex()
-            .flex_row()
+            .map(|d| {
+                if rtl {
+                    d.flex_row_reverse()
+                } else {
+                    d.flex_row()
+                }
+            })
             .flex_wrap()
             .items_center()
             .type_style(style);
@@ -216,17 +225,29 @@ impl RenderOnce for Breadcrumb {
             row = row.child(
                 div()
                     .flex()
-                    .flex_row()
+                    .map(|d| {
+                        if rtl {
+                            d.flex_row_reverse()
+                        } else {
+                            d.flex_row()
+                        }
+                    })
                     .items_center()
-                    .when(!last, |this| this.mr(rem(gap)))
+                    .when(!last, |this| {
+                        if rtl {
+                            this.ml(rem(gap))
+                        } else {
+                            this.mr(rem(gap))
+                        }
+                    })
                     .child(label)
                     .when(!(last && self.no_trailing_slash), |this| {
-                        this.child(
-                            div()
-                                .ml(rem(gap))
-                                .text_color(color(ColorRole::TextPrimary))
-                                .child("/"),
-                        )
+                        let slash = div().text_color(color(ColorRole::TextPrimary)).child("/");
+                        this.child(if rtl {
+                            slash.mr(rem(gap))
+                        } else {
+                            slash.ml(rem(gap))
+                        })
                     }),
             );
         }

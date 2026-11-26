@@ -54,8 +54,10 @@ impl Label {
 
 impl RenderOnce for Label {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
-        let label =
-            form::label(self.text.clone(), self.disabled).when(self.no_margin, |this| this.mb_0());
+        let label = form::label(self.text.clone(), self.disabled)
+            .when(self.no_margin, |this| this.mb_0())
+            // `text-align: start` under `dir="rtl"`.
+            .when(super::direction::is_rtl(), |this| this.text_right());
         match self.target.filter(|_| !self.disabled) {
             Some(target) => label
                 .id(gpui_kit::ElementId::Name(self.text))

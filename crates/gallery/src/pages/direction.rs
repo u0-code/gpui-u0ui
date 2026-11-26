@@ -1,11 +1,12 @@
 //! Layout › Direction: the reference RTL breadcrumb and input inside a
-//! `DirectionProvider`, a live readout of `use_direction()`, and an honest note
-//! of what GPUI does and does not change.
+//! `DirectionProvider` (mirrored: breadcrumb right to left, label and input
+//! at the right edge with right-aligned text), a live readout of
+//! `use_direction()`, and a note of which components mirror.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
-    AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render, RenderOnce,
-    Styled, Window, div, rems,
+    AnyElement, AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render,
+    RenderOnce, Styled, Window, div, rems,
 };
 use u0ui::components::direction::{Direction, DirectionProvider, use_direction};
 use u0ui::components::{Breadcrumb, BreadcrumbItem, Input, InputState};
@@ -42,23 +43,26 @@ impl RenderOnce for Readout {
     }
 }
 
-/// `preview.html`: the Arabic breadcrumb, then a 300px-wide input 12px below.
-fn content(id: &'static str, state: &Entity<InputState>) -> impl IntoElement {
-    div()
-        .flex()
-        .flex_col()
-        .child(
-            Breadcrumb::new(id)
-                .item(BreadcrumbItem::new("الرئيسية"))
-                .item(BreadcrumbItem::new("الإعدادات").current(true)),
-        )
-        .child(
-            div().mt(rems(0.75)).max_w(rems(18.75)).child(
+/// `preview.html`: the Arabic breadcrumb, then a 300px-wide input 12px below,
+/// both direct children of the provider (the reference's `<div dir>`).
+fn content(id: &'static str, state: &Entity<InputState>) -> [AnyElement; 2] {
+    [
+        Breadcrumb::new(id)
+            .item(BreadcrumbItem::new("الرئيسية"))
+            .item(BreadcrumbItem::new("الإعدادات").current(true))
+            .into_any_element(),
+        // `style: { marginTop: 12, maxWidth: 300 }` (a block: full width up to 300).
+        div()
+            .mt(rems(0.75))
+            .w_full()
+            .max_w(rems(18.75))
+            .child(
                 Input::new((id, 1usize), state)
                     .label("الاسم")
                     .placeholder("اكتب اسمك"),
-            ),
-        )
+            )
+            .into_any_element(),
+    ]
 }
 
 fn note(lines: &[&'static str]) -> impl IntoElement {
@@ -77,7 +81,7 @@ impl Render for DirectionPage {
         let direction = Direction::ALL[self.direction];
 
         let reference = DirectionProvider::new(Direction::Rtl)
-            .child(content("dir-ref", &self.reference))
+            .children(content("dir-ref", &self.reference))
             .child(div().mt(tokens::SPACING_04).child(Readout));
 
         let live = div()
@@ -86,18 +90,20 @@ impl Render for DirectionPage {
             .gap(tokens::SPACING_04)
             .child(
                 DirectionProvider::new(direction)
-                    .child(content("dir-live", &self.live))
+                    .children(content("dir-live", &self.live))
                     .child(div().mt(tokens::SPACING_04).child(Readout)),
             )
             .child(div().child(Readout));
 
         let honest = note(&[
-            "Changes: use_direction() returns the provided value to every component \
-             rendered inside the provider, so a component can mirror itself.",
-            "Does not change: GPUI lays out left to right only. Rows are not reversed \
-             (the breadcrumb still reads left to right), text stays left-aligned, \
-             and mixed-direction text gets no paragraph-level bidi reordering. \
-             A single Arabic run is still shaped right to left by the platform.",
+            "Mirrors under rtl: the provider (children at the right edge, text \
+             right-aligned), Breadcrumb (items right to left), form items, Label \
+             and Field (labels and messages right-aligned, horizontal rows \
+             reversed) and Input (text and placeholder right-aligned, paddings and \
+             end icons swapped). Other components read use_direction() to mirror.",
+            "GPUI applies no paragraph-level bidi: mixed-direction text keeps its \
+             left-to-right run order. A single Arabic run is shaped right to left \
+             by the platform.",
         ]);
 
         let names = Direction::ALL.map(|d| d.name());
@@ -116,6 +122,6 @@ impl Render for DirectionPage {
             .hint("the last readout is outside the provider")
             .config(config)
             .example(controls::block("Reference preview (rtl)", reference))
-            .example(controls::block("In GPUI", honest))
+            .example(controls::block("Which components mirror", honest))
     }
 }

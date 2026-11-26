@@ -296,9 +296,16 @@ pub fn field_outline(focused: bool, validation: &Validation) -> Option<Hsla> {
     }
 }
 
-/// A `.cds--form-item`: a column, items at the start, full width.
+/// A `.cds--form-item`: a column, items at the start, full width. Under a
+/// right-to-left [`super::direction::DirectionProvider`] the start is the
+/// right edge and text aligns right (label, helper, messages).
 pub fn form_item() -> Div {
-    div().flex().flex_col().items_start().w_full().min_w_0()
+    let item = div().flex().flex_col().w_full().min_w_0();
+    if super::direction::is_rtl() {
+        item.items_end().text_right()
+    } else {
+        item.items_start()
+    }
 }
 
 /// A `.cds--form-item` with an optional label above `control` and the message

@@ -193,9 +193,16 @@ impl RenderOnce for Field {
             // `.cds--form-item { display: flex; flex-direction: column; align-items: flex-start }`.
             FieldOrientation::Vertical => form::form_item().children(self.children),
             // `.cu-field--horizontal { flex-direction: row; align-items: center; gap: var(--spacing-05) }`.
+            // Under `dir="rtl"` the row runs right to left.
             FieldOrientation::Horizontal => div()
                 .flex()
-                .flex_row()
+                .map(|d| {
+                    if super::direction::is_rtl() {
+                        d.flex_row_reverse()
+                    } else {
+                        d.flex_row()
+                    }
+                })
                 .items_center()
                 .gap(tokens::SPACING_05)
                 .w_full()

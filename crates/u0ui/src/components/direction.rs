@@ -6,16 +6,30 @@
 //! (flex rows run right to left, `start`/`end` swap, text aligns right) and the
 //! Unicode bidi algorithm orders mixed-direction text.
 //!
-//! **What GPUI can and cannot do.** GPUI lays out left to right only: it has no
-//! `dir` attribute, no logical (`start`/`end`) properties, and a flex row never
-//! reverses by itself. So this provider does **not** mirror anything. It is a
-//! context value: while its subtree renders, [`use_direction`] (alias
-//! [`current`]) returns the provided direction, so a component that wants to
-//! mirror can read it and flip its own geometry. Text inside one run is shaped
-//! by the platform (Core Text on macOS), which draws a purely right-to-left run
-//! in the right order, but GPUI applies no paragraph-level bidi: mixed runs keep
-//! their left-to-right sequence and text aligns left. No u0ui component mirrors
-//! today.
+//! **Mirroring.** GPUI lays out left to right only: it has no `dir`
+//! attribute and no logical (`start`/`end`) properties. So the provider is a
+//! context value ([`use_direction`], alias [`current`]) that components read
+//! while rendering to mirror themselves, as Carbon's logical properties do
+//! under `dir="rtl"`. Components that honor it:
+//!
+//! - [`DirectionProvider`] itself: in RTL its children line up at the right
+//!   edge (`align-items: flex-end`) with right-aligned text, so a
+//!   `max-width` block sits at the start edge like a `dir="rtl"` block
+//!   (children that should fill the width set `w_full`).
+//! - [`super::breadcrumb::Breadcrumb`]: items run right to left, each
+//!   separator after its item (to its left).
+//! - Form items ([`super::form::form_item`]: [`super::input::Input`],
+//!   [`super::textarea::Textarea`], selects and every labeled control),
+//!   [`super::label::Label`] and [`super::field::Field`]: label, helper and
+//!   messages align right; a horizontal field's row reverses.
+//! - [`super::input::Input`]: typed text and the placeholder align right, the
+//!   start/end paddings swap and the status icon / password toggle move to
+//!   the left end.
+//!
+//! Text inside one run is shaped by the platform (Core Text on macOS), which
+//! draws a purely right-to-left run in the right order, but GPUI applies no
+//! paragraph-level bidi: mixed runs keep their left-to-right sequence. Other
+//! components do not mirror yet.
 //!
 //! **Scope of the value.** The provider sets the value while its children are
 //! *rendered* (GPUI renders `RenderOnce` components and views during layout,
@@ -30,7 +44,7 @@
 //! ```
 use gpui_kit::{
     AnyElement, App, Bounds, Element, ElementId, GlobalElementId, InspectorElementId, IntoElement,
-    LayoutId, ParentElement, Pixels, Styled as _, Window, div,
+    LayoutId, ParentElement, Pixels, Styled as _, Window, div, prelude::FluentBuilder as _,
 };
 use std::cell::RefCell;
 
@@ -78,6 +92,21 @@ pub fn current() -> Direction {
     use_direction()
 }
 
+/// Whether the innermost provider rendering now is right to left.
+pub fn is_rtl() -> bool {
+    use_direction().is_rtl()
+}
+
+/// `(start, end)` mapped to physical `(left, right)` for `direction`: CSS
+/// logical inline properties (`padding-inline-start`, `inset-inline-end`, …).
+pub fn inline_sides<T>(direction: Direction, start: T, end: T) -> (T, T) {
+    if direction.is_rtl() {
+        (end, start)
+    } else {
+        (start, end)
+    }
+}
+
 /// Run `f` with `direction` provided (what the provider does around its
 /// children's layout). Public so custom elements and tests can provide too.
 pub fn with_direction<R>(direction: Direction, f: impl FnOnce() -> R) -> R {
@@ -94,8 +123,8 @@ pub fn with_direction<R>(direction: Direction, f: impl FnOnce() -> R) -> R {
     f()
 }
 
-/// Provides a direction to its subtree. See the module docs: it does not
-/// mirror the layout. (The reference also exports it as `Direction`; in Rust
+/// Provides a direction to its subtree (`<div dir=…>`). See the module docs
+/// for what mirrors. (The reference also exports it as `Direction`; in Rust
 /// that name is the [`Direction`] value enum.)
 pub struct DirectionProvider {
     direction: Direction,
@@ -124,10 +153,12 @@ impl IntoElement for DirectionProvider {
     fn into_element(self) -> Self::Element {
         ProviderElement {
             direction: self.direction,
-            // `<div dir=…>`: a block holding the children.
+            // `<div dir=…>`: a block holding the children; in RTL they start
+            // at the right edge and text aligns right (`text-align: start`).
             child: div()
                 .flex()
                 .flex_col()
+                .when(self.direction.is_rtl(), |d| d.items_end().text_right())
                 .children(self.children)
                 .into_any_element(),
         }
@@ -209,5 +240,10 @@ mod tests {
         assert_eq!(use_direction(), Direction::Ltr);
         assert_eq!(Direction::Rtl.name(), "rtl");
         assert!(Direction::Rtl.is_rtl());
+        with_direction(Direction::Rtl, || assert!(is_rtl()));
+        assert!(!is_rtl());
+        // `padding-inline-start: 16px; padding-inline-end: 40px`.
+        assert_eq!(inline_sides(Direction::Ltr, 16, 40), (16, 40));
+        assert_eq!(inline_sides(Direction::Rtl, 16, 40), (40, 16));
     }
 }
