@@ -270,6 +270,13 @@ impl Motion {
 ///
 /// The first frame adopts `target`; later changes animate per `motion` from the
 /// value showing at that instant. Call while rendering.
+///
+/// A finished transition returns `target` itself. Base samples the curve at
+/// progress 1 and interpolates, and a Carbon bezier evaluated in `f32` can land
+/// a hair short of 1 (expressive standard/exit give `0.99999994`), so a fade
+/// from 1 to 0 would otherwise settle at `6e-8`: never 0, so a closing surface
+/// that unmounts at 0 stayed mounted (invisible) and its scrim kept eating
+/// every click.
 pub fn animate<T>(
     id: impl Into<TransitionId>,
     target: T,
@@ -280,7 +287,17 @@ pub fn animate<T>(
 where
     T: Interpolate + PartialEq + 'static,
 {
-    base::transition(id, target, motion.transition(), window, cx)
+    let sampled = base::transition_with_status(id, target.clone(), motion.transition(), window, cx);
+    settle(sampled, target)
+}
+
+/// The value to paint for a sampled transition: exactly `target` once it is
+/// no longer running (see [`animate`]).
+fn settle<T>(sampled: base::MotionValue<T>, target: T) -> T {
+    match sampled.status {
+        base::MotionStatus::Idle | base::MotionStatus::Finished => target,
+        base::MotionStatus::Delayed | base::MotionStatus::Running => sampled.value,
+    }
 }
 
 /// A color that interpolates like CSS (premultiplied sRGB), so fading from
@@ -378,6 +395,27 @@ pub fn set_reduced_motion(cx: &mut App, preference: ReducedMotion) {
 mod tests {
     use super::*;
     use gpui_kit::base::animation::Lerp as _;
+
+    #[test]
+    fn a_finished_transition_lands_exactly_on_its_target() {
+        // Base's own easing for the expressive curves stops short of 1 in f32,
+        // which left a 0 → 1 → 0 presence at a tiny positive value.
+        let sampled = base::MotionValue {
+            value: 1. - Curve::ExpressiveExit.easing().sample(1.),
+            status: base::MotionStatus::Finished,
+        };
+        assert_eq!(settle(sampled, 0f32), 0.);
+        let idle = base::MotionValue {
+            value: 0.25f32,
+            status: base::MotionStatus::Idle,
+        };
+        assert_eq!(settle(idle, 0.5), 0.5);
+        let running = base::MotionValue {
+            value: 0.25f32,
+            status: base::MotionStatus::Running,
+        };
+        assert_eq!(settle(running, 1.), 0.25);
+    }
 
     #[test]
     fn curves_hit_their_endpoints_and_are_monotonic() {

@@ -14,6 +14,8 @@ gpui-material-symbols.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
+# Headless UI tests (`#[gpui_kit::test]`, `gpui_kit::test`).
+gpui-kit = { workspace = true, features = ["test-support"] }
 
 [build-dependencies]
 serde_json.workspace = true

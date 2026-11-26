@@ -155,9 +155,14 @@ pub(crate) fn surface_focus(
             state.shown = false;
             state.previous.take()
         });
-        if let Some(previous) = previous {
-            window.defer(cx, move |window, cx| previous.focus(window, cx));
-        }
+        let surface = state.read(cx).focus.clone();
+        window.defer(cx, move |window, cx| match previous {
+            Some(previous) => previous.focus(window, cx),
+            // Nothing had focus before: do not leave it on a surface that is
+            // going away, where keys would hit its (closed) dialog context.
+            None if surface.contains_focused(window, cx) => window.blur(cx),
+            None => {}
+        });
     }
     state.read(cx).focus.clone()
 }
