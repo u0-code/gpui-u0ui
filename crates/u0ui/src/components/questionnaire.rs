@@ -17,7 +17,10 @@
 //!   `text-secondary`; the control; the error row (`margin-top: spacing-03`,
 //!   4px gap, 16px `ErrorFilled` in `support-error`, 12px `text-error`);
 //!   actions at the end, 1px apart: ghost `md` Previous / Skip, primary `md`
-//!   Next / Submit. Controls sit on `layer-01`, so fields use layer two.
+//!   Next / Submit. `.cu-quiz` paints `layer-01` but is not a Carbon
+//!   `<Layer>`, so contextual tokens keep their root values: the progress
+//!   track is `border-subtle-00` and the textarea `field-01`
+//!   ([`CONTROL_LAYER`]).
 //! - **Copy**: every string comes from the caller ([`QuestionnaireTexts`]).
 use super::button::{Button, ButtonSize, ButtonVariant};
 use super::checkbox::Checkbox;
@@ -33,7 +36,8 @@ use crate::{
 };
 use gpui_kit::{
     AnyElement, App, AppContext as _, ElementId, Entity, IntoElement, ParentElement, RenderOnce,
-    SharedString, Styled, Window, div, prelude::FluentBuilder as _, px,
+    SharedString, Styled, Subscription, Window, component::input::InputEvent, div,
+    prelude::FluentBuilder as _, px,
 };
 use std::{collections::HashMap, rc::Rc};
 
@@ -172,12 +176,26 @@ pub fn shows_skip(index: usize, count: usize, required: bool) -> bool {
     !required && index + 1 < count
 }
 
+/// The level the progress bar and the textarea are drawn at: root (One), since
+/// `.cu-quiz` creates no Carbon layer (`--border-subtle` stays
+/// `border-subtle-00`, `--field` stays `field-01`).
+pub const CONTROL_LAYER: LayerLevel = LayerLevel::One;
+
 #[derive(Default)]
 struct QuizState {
     index: usize,
     answers: HashMap<SharedString, Answer>,
     error: bool,
     texts: HashMap<SharedString, Entity<TextareaState>>,
+    _text_changes: Vec<Subscription>,
+}
+
+impl QuizState {
+    /// Any answer change clears the error, as the reference's `set()` calls
+    /// `setErr('')` (free text included: every keystroke).
+    fn answer_changed(&mut self) {
+        self.error = false;
+    }
 }
 
 type SubmitHandler = Rc<dyn Fn(&HashMap<SharedString, Answer>, &mut Window, &mut App)>;
@@ -249,22 +267,28 @@ impl RenderOnce for Questionnaire {
         // Free text lives in an editor kept per question.
         if item.kind == QuestionKind::Text && !state.read(cx).texts.contains_key(&name) {
             let editor = cx.new(|cx| TextareaState::new(window, cx));
-            state.update(cx, |s, _| {
+            state.update(cx, |s, cx| {
+                let changes = cx.subscribe(&editor, |s: &mut QuizState, _, event, cx| {
+                    if matches!(event, InputEvent::Change) {
+                        s.answer_changed();
+                        cx.notify();
+                    }
+                });
+                s._text_changes.push(changes);
                 s.texts.insert(name.clone(), editor);
             });
         }
         let answers = collect(&state, cx);
         let current = answers.get(&name).cloned();
-        let answered = Answer::is_answered(current.as_ref());
-        // The error clears once the question is answered (`set` clears `err`).
-        let show_error = state.read(cx).error && !answered;
+        // Every answer change clears the error (`set` clears `err`).
+        let show_error = state.read(cx).error;
 
         let set_answer = {
             let state = state.clone();
             let name = name.clone();
             move |answer: Answer, cx: &mut App| {
                 state.update(cx, |s, cx| {
-                    s.error = false;
+                    s.answer_changed();
                     s.answers.insert(name.clone(), answer);
                     cx.notify();
                 })
@@ -325,7 +349,7 @@ impl RenderOnce for Questionnaire {
                         .label(item.title.clone())
                         .hide_label(true)
                         .rows(3)
-                        .layer(LayerLevel::Two)
+                        .layer(CONTROL_LAYER)
                         .into_any_element(),
                     None => div().into_any_element(),
                 }
@@ -390,7 +414,7 @@ impl RenderOnce for Questionnaire {
                     .label((texts.progress)(index + 1, count))
                     .value(progress_value(index, count))
                     .size(ProgressSize::Small)
-                    .layer(LayerLevel::Two),
+                    .layer(CONTROL_LAYER),
             )
             .child(
                 div()
@@ -490,6 +514,22 @@ mod tests {
         assert!(!shows_skip(2, 3, false));
         assert!((progress_value(0, 3) - 100. / 3.).abs() < 1e-4);
         assert_eq!(progress_value(2, 3), 100.);
+    }
+
+    #[test]
+    fn controls_use_root_tokens_and_changes_clear_the_error() {
+        crate::theme::tests_set(crate::tokens::CarbonTheme::White);
+        // `.cds--progress-bar__track { background: var(--border-subtle) }` at root.
+        assert_eq!(
+            crate::components::separator::line_color(CONTROL_LAYER),
+            color(ColorRole::BorderSubtle00)
+        );
+        let mut s = QuizState {
+            error: true,
+            ..Default::default()
+        };
+        s.answer_changed();
+        assert!(!s.error);
     }
 
     #[test]
