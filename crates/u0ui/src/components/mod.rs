@@ -62,6 +62,7 @@ pub mod textarea;
 pub mod toggle;
 pub mod toggle_group;
 pub mod tooltip;
+pub mod typography;
 
 pub use accordion::{Accordion, AccordionAlign, AccordionItem, AccordionSize};
 pub use alert_dialog::AlertDialog;
@@ -131,3 +132,4 @@ pub use textarea::{Textarea, TextareaState};
 pub use toggle::{Toggle, ToggleVariant};
 pub use toggle_group::{ToggleGroup, ToggleGroupItem, ToggleGroupType};
 pub use tooltip::Tooltip;
+pub use typography::{Inline, TypeBlock, Typography};

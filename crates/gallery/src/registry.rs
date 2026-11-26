@@ -79,8 +79,8 @@ pub static PAGES: &[PageDef] = &[
         build: pages::colors::build,
     },
     PageDef {
-        id: "typography",
-        title: "Typography",
+        id: "type-styles",
+        title: "Type styles",
         group: "Foundations",
         description: Description::Text(
             "IBM Plex type styles: productive, code and CJK sets from tokens.json.",
@@ -512,6 +512,13 @@ pub static PAGES: &[PageDef] = &[
         group: "Data display",
         description: readme!("CodeBlock"),
         build: pages::code_block::build,
+    },
+    PageDef {
+        id: "typography",
+        title: "Typography",
+        group: "Data display",
+        description: readme!("Typography"),
+        build: pages::typeset::build,
     },
 ];
 
