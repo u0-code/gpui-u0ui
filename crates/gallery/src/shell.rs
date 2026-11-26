@@ -273,7 +273,7 @@ impl Render for Gallery {
                                                 div()
                                                     .type_style(TypeStyle::Body01)
                                                     .text_color(color(ColorRole::TextSecondary))
-                                                    .child(page.description.text()),
+                                                    .child(page.description),
                                             ),
                                     )
                                     .child(view),
