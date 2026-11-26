@@ -14,5 +14,6 @@ pub mod motion;
 pub mod popover;
 pub mod sheet;
 pub mod toggle;
+pub mod toggle_group;
 pub mod tooltip;
 pub mod typography;

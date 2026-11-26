@@ -13,6 +13,7 @@ pub mod overlay;
 pub mod popover;
 pub mod sheet;
 pub mod toggle;
+pub mod toggle_group;
 pub mod tooltip;
 
 pub use alert_dialog::AlertDialog;
@@ -29,4 +30,5 @@ pub use label::Label;
 pub use popover::Popover;
 pub use sheet::{Sheet, SheetSide};
 pub use toggle::{Toggle, ToggleVariant};
+pub use toggle_group::{ToggleGroup, ToggleGroupItem, ToggleGroupType};
 pub use tooltip::Tooltip;
