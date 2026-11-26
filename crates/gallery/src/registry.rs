@@ -185,6 +185,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::input_group::build,
     },
     PageDef {
+        id: "field",
+        title: "Field",
+        group: "Forms",
+        description: readme!("Field"),
+        build: pages::field::build,
+    },
+    PageDef {
         id: "switch",
         title: "Switch",
         group: "Forms",
