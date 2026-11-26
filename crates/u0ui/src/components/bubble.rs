@@ -270,14 +270,17 @@ impl RenderOnce for Bubble {
             });
         gpui_kit::Refineable::refine(bubble.style(), &self.style);
         // `max-width: min(36rem, 85%)`: the 85% lives on a wrapper that takes
-        // the bubble's `align-self`.
+        // the bubble's `align-self`. The bubble stretches across the wrapper
+        // (up to its 36rem), so the pair sizes like one CSS box: shrunk to
+        // its content in a flex column, filling the width in a block (a
+        // `MessageScrollerItem`), where `align-self` does nothing.
         div()
             .flex()
             .flex_col()
             .min_w_0()
             .map(|this| match self.align {
-                BubbleAlign::Start => this.self_start().items_start(),
-                BubbleAlign::End => this.self_end().items_end(),
+                BubbleAlign::Start => this.self_start(),
+                BubbleAlign::End => this.self_end(),
             })
             .map(|this| {
                 if self.fill_message {

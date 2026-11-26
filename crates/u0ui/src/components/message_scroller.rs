@@ -57,8 +57,10 @@ pub fn jump_offset(from: f32, to: f32, elapsed: f32, duration: f32) -> Option<f3
     Some(from + (to - from) * t)
 }
 
-/// One transcript entry (`MessageScrollerItem`, `messageId`): a column, so a
-/// bubble inside can align itself.
+/// One transcript entry (`MessageScrollerItem`, `messageId`): a plain block
+/// (`.cu-scroller-item` has no CSS rule). A bubble in it fills the width up
+/// to its `max-width: min(36rem, 85%)`, left-aligned: its `align-self` has no
+/// effect in a block, so items do not alternate sides.
 #[derive(IntoElement)]
 pub struct MessageScrollerItem {
     id: ElementId,
@@ -83,7 +85,7 @@ impl ParentElement for MessageScrollerItem {
 
 impl RenderOnce for MessageScrollerItem {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
-        div().id(self.id).flex().flex_col().children(self.children)
+        div().id(self.id).block().children(self.children)
     }
 }
 
