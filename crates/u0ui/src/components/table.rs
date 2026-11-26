@@ -18,8 +18,10 @@
 //! - **Columns** ([`ColumnWidth`], set on the [`TableHead`]): by default sized
 //!   from content like an HTML table's automatic layout. GPUI has no table
 //!   layout, so [`Table`] measures each auto column's widest cell (max-content
-//!   width, plus padding) while painting and lays the columns out in proportion
-//!   to those widths from the next frame on; content does not wrap. A column
+//!   width, plus padding) while laying out and lays the columns out in
+//!   proportion to those widths; content does not wrap. A frame laid out with
+//!   widths that the measurement then changes is not shown ([`paints_frame`]):
+//!   the table appears with its measured columns, with no visible jump. A column
 //!   can instead take a flex weight or a fixed width. Every row splits the
 //!   width identically ([`WEIGHT_BASIS`]), so header and body cells align.
 //! - **Density**: `[data-density="compact"] .cds--data-table tbody tr, … thead tr
@@ -43,7 +45,8 @@ use crate::{
     typography::TypeStyled as _,
 };
 use gpui_kit::{
-    AnyElement, App, Div, ElementId, Hsla, InteractiveElement as _, IntoElement, ParentElement,
+    AnyElement, App, Bounds, ContentMask, Div, Element, ElementId, GlobalElementId, Hsla,
+    InspectorElementId, InteractiveElement as _, IntoElement, LayoutId, ParentElement, Pixels,
     RenderOnce, SharedString, Stateful, StatefulInteractiveElement as _, Styled, Window, canvas,
     div, prelude::FluentBuilder as _, px, rems,
 };
@@ -341,6 +344,8 @@ pub(crate) fn cell_box(width: ColumnWidth, align: CellAlign) -> Div {
 struct ColumnMeasure {
     settled: RefCell<Vec<f32>>,
     frame: RefCell<Vec<f32>>,
+    /// This frame was laid out with stale widths (set by [`Self::finish`]).
+    stale: std::cell::Cell<bool>,
 }
 
 impl ColumnMeasure {
@@ -367,7 +372,78 @@ impl ColumnMeasure {
         if changed {
             *self.settled.borrow_mut() = frame;
         }
+        self.stale.set(changed);
         changed
+    }
+}
+
+/// Whether a frame is painted: not when its columns were laid out with
+/// widths that this frame's measurement changed (it is laid out again at
+/// once, so the table shows up a frame later with its final columns).
+pub fn paints_frame(stale: bool) -> bool {
+    !stale
+}
+
+/// Lays out and prepaints the table as usual (the cells measure themselves
+/// in prepaint), then paints it only when the columns were already settled
+/// ([`paints_frame`]); a stale frame is painted under an empty content mask.
+struct Measured {
+    child: AnyElement,
+    measure: Rc<ColumnMeasure>,
+}
+
+impl Element for Measured {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, ()) {
+        (self.child.request_layout(window, cx), ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        self.child.prepaint(window, cx);
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        if paints_frame(self.measure.stale.get()) {
+            self.child.paint(window, cx);
+        } else {
+            let hidden = ContentMask {
+                bounds: Bounds::default(),
+            };
+            window.with_content_mask(Some(hidden), |window| self.child.paint(window, cx));
+        }
     }
 }
 
@@ -1006,12 +1082,14 @@ impl RenderOnce for Table {
             }
         }
 
-        // Painted after every cell: adopt this frame's measurements and lay
+        // Prepainted after every cell: adopt this frame's measurements and lay
         // out again when they changed (content does not depend on the column
-        // widths, so this settles after one extra frame).
+        // widths, so this settles after one extra frame, which is not shown).
+        let finish = measure.clone();
         let table = table.child(
             canvas(
                 move |_, window, _| {
+                    let measure = &finish;
                     if measure.finish() {
                         window.on_next_frame(|window, _| window.refresh());
                     }
@@ -1022,14 +1100,19 @@ impl RenderOnce for Table {
             .h(px(0.)),
         );
         let table = table.when_some(self.caption, |t, c| t.child(caption(c.text)));
-        if self.title.is_some() || self.description.is_some() {
+        let table = if self.title.is_some() || self.description.is_some() {
             container()
                 .child(container_header(self.title, self.description, level))
                 .child(table)
                 .into_any_element()
         } else {
             table.into_any_element()
+        };
+        Measured {
+            child: table,
+            measure,
         }
+        .into_any_element()
     }
 }
 
@@ -1057,6 +1140,24 @@ mod tests {
         m.report(1, 60.);
         assert!(!m.finish(), "subpixel jitter does not relayout");
         assert!(widths_changed(&[120., 60.], &[120., 61.]));
+    }
+
+    #[test]
+    fn a_frame_laid_out_with_stale_widths_is_not_painted() {
+        let m = ColumnMeasure::default();
+        // First frame: laid out with equal shares, then measured.
+        m.report(0, 200.);
+        m.report(1, 60.);
+        assert!(m.finish());
+        assert!(
+            !paints_frame(m.stale.get()),
+            "the equal-width frame flashes"
+        );
+        // Next frame: laid out with the measured widths, which hold.
+        m.report(0, 200.);
+        m.report(1, 60.);
+        assert!(!m.finish());
+        assert!(paints_frame(m.stale.get()));
     }
 
     #[test]
