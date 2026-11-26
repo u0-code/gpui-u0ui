@@ -266,13 +266,27 @@ pub(crate) fn anchored(
     offset: f32,
 ) -> AnyElement {
     let placement = Placement::of(align, caret_color.is_some(), offset);
+    let side = align.side();
+    let horizontal = matches!(side, Side::Top | Side::Bottom);
+    // The trigger's center along the surface's cross axis, for the shift.
+    let center = std::rc::Rc::new(std::cell::Cell::new(None));
     let popup = gpui_kit::base::Popup::new(id, trigger)
         .anchor(placement.anchor)
-        .offset(px(placement.gap));
+        .offset(px(placement.gap))
+        .on_position({
+            let center = center.clone();
+            move |_, trigger| {
+                let c = if horizontal {
+                    trigger.center().x
+                } else {
+                    trigger.center().y
+                };
+                center.set(Some(f32::from(c)));
+            }
+        });
     let Some(surface) = surface else {
         return popup.into_any_element();
     };
-    let side = align.side();
     let surface = surface
         .relative()
         .when_caret(placement.caret_at.zip(caret_color), side);
@@ -287,7 +301,7 @@ pub(crate) fn anchored(
         ),
     };
     popup
-        .content(Translate::new(surface, fraction, shift))
+        .content(Translate::new(surface, fraction, shift).along_trigger(horizontal, center))
         .into_any_element()
 }
 

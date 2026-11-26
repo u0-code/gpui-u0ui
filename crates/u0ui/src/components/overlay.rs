@@ -378,6 +378,18 @@ pub(crate) struct Translate {
     child: AnyElement,
     fraction: Point<f32>,
     offset: Point<Pixels>,
+    /// See [`Translate::along_trigger`].
+    cross: Option<(bool, Rc<Cell<Option<f32>>>)>,
+}
+
+/// Where a surface centered on `center` along one axis starts once shifted by
+/// `fraction` of its `size` plus `px` (a Carbon `*-start`/`*-end` alignment),
+/// kept [`WINDOW_MARGIN`] inside a `viewport` that long.
+pub fn cross_origin(center: f32, size: f32, fraction: f32, px: f32, viewport: f32) -> f32 {
+    let desired = center - size / 2. + fraction * size + px;
+    desired
+        .min(viewport - WINDOW_MARGIN - size)
+        .max(WINDOW_MARGIN)
 }
 
 impl Translate {
@@ -387,7 +399,20 @@ impl Translate {
             child: child.into_any_element(),
             fraction,
             offset,
+            cross: None,
         }
+    }
+
+    /// Place the child along one axis (`horizontal`) from the trigger's
+    /// `center` on it (recorded by the popup before this prepaints) rather
+    /// than from where the popup host put it. The host clamps the surface
+    /// into the window *before* the translation, so a shifted `*-end`
+    /// surface near the window edge was moved twice and its caret missed the
+    /// trigger; here the shift is applied first and the clamp after
+    /// ([`cross_origin`]).
+    pub fn along_trigger(mut self, horizontal: bool, center: Rc<Cell<Option<f32>>>) -> Self {
+        self.cross = Some((horizontal, center));
+        self
     }
 
     /// `translateY(y)` in px.
@@ -427,10 +452,34 @@ impl Element for Translate {
         window: &mut Window,
         cx: &mut App,
     ) {
-        let offset = point(
+        let mut offset = point(
             bounds.size.width * self.fraction.x + self.offset.x,
             bounds.size.height * self.fraction.y + self.offset.y,
         );
+        if let Some((horizontal, center)) = &self.cross
+            && let Some(center) = center.get()
+        {
+            let viewport = window.viewport_size();
+            if *horizontal {
+                let origin = cross_origin(
+                    center,
+                    f32::from(bounds.size.width),
+                    self.fraction.x,
+                    f32::from(self.offset.x),
+                    f32::from(viewport.width),
+                );
+                offset.x = px(origin) - bounds.origin.x;
+            } else {
+                let origin = cross_origin(
+                    center,
+                    f32::from(bounds.size.height),
+                    self.fraction.y,
+                    f32::from(self.offset.y),
+                    f32::from(viewport.height),
+                );
+                offset.y = px(origin) - bounds.origin.y;
+            }
+        }
         window.with_element_offset(offset, |window| self.child.prepaint(window, cx));
     }
 
@@ -467,6 +516,21 @@ mod tests {
             (drop.offset.y, drop.blur_radius, drop.color.a),
             (px(2.), px(2.), 0.2)
         );
+    }
+
+    #[test]
+    fn end_aligned_surfaces_shift_before_clamping() {
+        // The header's Theme button centered at 1390 in a 1440 window: a
+        // 336px `bottom-right` popover ends 20px past the center (caret over
+        // the button) until that would cross the window margin.
+        assert_eq!(cross_origin(1390., 336., -0.5, 20., 1440.), 1074.);
+        assert_eq!(cross_origin(1430., 336., -0.5, 20., 1440.), 1096.);
+        assert_eq!(cross_origin(1300., 336., -0.5, 20., 1440.), 984.);
+        // Centered surfaces are only clamped.
+        assert_eq!(cross_origin(100., 336., 0., 0., 1440.), 8.);
+        assert_eq!(cross_origin(720., 336., 0., 0., 1440.), 552.);
+        // `*-start`: starts 20px before the center.
+        assert_eq!(cross_origin(400., 200., 0.5, -20., 1440.), 380.);
     }
 
     #[test]
