@@ -142,6 +142,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Dialog"),
         build: pages::dialog::build,
     },
+    PageDef {
+        id: "alert-dialog",
+        title: "AlertDialog",
+        group: "Overlays",
+        description: readme!("AlertDialog"),
+        build: pages::alert_dialog::build,
+    },
 ];
 
 /// Look a page up by id.
