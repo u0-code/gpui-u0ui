@@ -113,7 +113,10 @@ fn anatomy(specimen: AnyElement, parts: &[&'static str]) -> AnyElement {
         )
         .child(
             div()
-                .w(rems(18.))
+                .flex_basis(rems(18.))
+                .flex_grow(1.)
+                .max_w(rems(24.))
+                .min_w(rems(12.))
                 .flex()
                 .flex_col()
                 .gap(tokens::SPACING_04)
@@ -137,11 +140,17 @@ fn anatomy(specimen: AnyElement, parts: &[&'static str]) -> AnyElement {
                                 .child(format!("{}", i + 1)),
                         )
                         .child(
+                            // Wraps inside the legend column instead of running
+                            // past it.
                             div()
+                                .flex_1()
+                                .min_w_0()
                                 .pt(px(3.))
                                 .type_style(TypeStyle::BodyCompact01)
-                                .text_color(theme::color(ColorRole::TextPrimary))
-                                .child(*part),
+                                .child(crate::controls::prose(
+                                    part,
+                                    theme::color(ColorRole::TextPrimary),
+                                )),
                         )
                 })),
         )
@@ -165,13 +174,9 @@ fn section(
                 .child(title),
         )
         .when_some(note, |this, note| {
-            this.child(
-                div()
-                    .max_w(rems(40.))
-                    .type_style(TypeStyle::Body01)
-                    .text_color(theme::color(ColorRole::TextSecondary))
-                    .child(note),
-            )
+            this.child(div().max_w(rems(40.)).type_style(TypeStyle::Body01).child(
+                crate::controls::prose(note, theme::color(ColorRole::TextSecondary)),
+            ))
         })
         .child(content)
 }
@@ -466,10 +471,22 @@ pub fn checkbox(_: &mut Window, _: &mut App) -> AnyElement {
                     text("Box inset from the row top"),
                     px_text(checkbox::BOX_INSET),
                 ],
+                vec![
+                    text("Box inset from the row start"),
+                    px_text(checkbox::BOX_INSET),
+                ],
                 vec![text("Label start"), px_text(checkbox::LABEL_START)],
+                vec![
+                    text("Focus outline (width / offset)"),
+                    text(format!(
+                        "2px / {}px",
+                        -checkbox::focus_ring_inset(false) - 2.
+                    )),
+                ],
             ],
         ),
-        "From `.cds--checkbox-label::before` and the label's padding.",
+        "From `.cds--checkbox-label::before` (`margin-inline-start: 0.1875rem`), the label's \
+         padding and `:focus + .cds--checkbox-label::before { outline-offset: 1px }`.",
         table(
             "spec-checkbox-colors",
             &["State", "Fill", "Border", "Mark", "Label"],
@@ -495,6 +512,7 @@ pub fn switch(_: &mut Window, _: &mut App) -> AnyElement {
                 text(format!("{} × {}px", g.width, g.height)),
                 px_text(g.knob),
                 px_text(g.inset),
+                px_text(SwitchGeometry::of(*size, true).inset),
                 px_text(g.travel),
             ]
         })
@@ -532,10 +550,18 @@ pub fn switch(_: &mut Window, _: &mut App) -> AnyElement {
         ),
         table(
             "spec-switch-sizes",
-            &["Size", "Track", "Knob", "Inset", "Travel"],
+            &[
+                "Size",
+                "Track",
+                "Knob",
+                "Inset",
+                "Read-only inset",
+                "Travel",
+            ],
             sizes,
         ),
-        "From `.cds--toggle__switch` and its `::before` knob.",
+        "From `.cds--toggle__switch` and its `::before` knob; read-only moves the knob to a \
+         2px inset (`.cds--toggle--readonly .cds--toggle__switch::before`).",
         table(
             "spec-switch-colors",
             &["State", "Track", "Track border", "Knob", "Check (sm)"],

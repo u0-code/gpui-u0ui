@@ -140,9 +140,11 @@ impl Overview {
                             .child(
                                 div()
                                     .type_style(TypeStyle::BodyCompact01)
-                                    .text_color(color(ColorRole::TextSecondary))
                                     .line_clamp(2)
-                                    .child(page.description),
+                                    .child(crate::controls::prose(
+                                        page.description,
+                                        color(ColorRole::TextSecondary),
+                                    )),
                             ),
                     ),
             );

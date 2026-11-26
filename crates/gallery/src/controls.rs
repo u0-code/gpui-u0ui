@@ -2,7 +2,10 @@
 //! [`Switch`] per flag, a content switcher ([`ToggleGroup`]) for a short
 //! choice and a [`Select`] for a long one, each under a `label-01` label.
 //! The panel is a `layer-01` surface, so fields paint layer two.
-use gpui_kit::{App, ElementId, IntoElement, ParentElement, SharedString, Styled, Window, div};
+use gpui_kit::{
+    App, ElementId, Hsla, IntoElement, ParentElement, SharedString, Styled, StyledText, TextRun,
+    Window, div,
+};
 use std::rc::Rc;
 use u0ui::components::switch::{Switch, SwitchSize};
 use u0ui::components::toggle::ToggleSize;
@@ -113,6 +116,54 @@ pub fn block(title: impl Into<SharedString>, content: impl IntoElement) -> gpui_
         .child(content)
 }
 
+/// Split `text` at its backticks: `(span, is_code)` pairs, empty spans
+/// dropped. An unpaired backtick stays literal.
+pub fn code_spans(text: &str) -> Vec<(&str, bool)> {
+    let ticks = text.matches('`').count();
+    // An unpaired last backtick does not open a span.
+    let paired = ticks - ticks % 2;
+    let mut spans = Vec::new();
+    let (mut code, mut start, mut seen) = (false, 0, 0);
+    for (i, ch) in text.char_indices() {
+        if ch == '`' && seen < paired {
+            spans.push((&text[start..i], code));
+            code = !code;
+            start = i + 1;
+            seen += 1;
+        }
+    }
+    spans.push((&text[start..], code));
+    spans.retain(|(span, _)| !span.is_empty());
+    spans
+}
+
+/// Prose whose `` `code` `` spans render as inline code (IBM Plex Mono on
+/// `layer-01`, `.cu-typeset code`) instead of literal backticks, in `color`;
+/// the font size comes from the parent's type style.
+pub fn prose(text: &str, color: Hsla) -> StyledText {
+    let mut out = String::new();
+    let mut runs = Vec::new();
+    for (span, code) in code_spans(text) {
+        out.push_str(span);
+        runs.push(TextRun {
+            len: span.len(),
+            font: u0ui::typography::font(
+                if code {
+                    tokens::FontFamilyKey::Mono
+                } else {
+                    tokens::FontFamilyKey::Sans
+                },
+                400,
+            ),
+            color,
+            background_color: code.then(|| theme::color(ColorRole::Layer01)),
+            underline: None,
+            strikethrough: None,
+        });
+    }
+    StyledText::new(out).with_runs(runs)
+}
+
 /// A control callback that updates the page entity with `f` and re-renders:
 /// `controls::toggle(.., controls::setter(&entity, |this, on| this.flag = on))`.
 pub fn setter<T: 'static, V: 'static>(
@@ -131,6 +182,28 @@ pub fn setter<T: 'static, V: 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn backticks_become_code_spans() {
+        assert_eq!(
+            code_spans("Native `<select>` dropdown."),
+            vec![
+                ("Native ", false),
+                ("<select>", true),
+                (" dropdown.", false)
+            ]
+        );
+        assert_eq!(
+            code_spans("`a` and `b`"),
+            vec![("a", true), (" and ", false), ("b", true)]
+        );
+        assert_eq!(code_spans("plain"), vec![("plain", false)]);
+        // An unpaired backtick stays literal.
+        assert_eq!(
+            code_spans("x `a` y ` z"),
+            vec![("x ", false), ("a", true), (" y ` z", false)]
+        );
+    }
 
     #[test]
     fn short_choices_switch_long_ones_select() {

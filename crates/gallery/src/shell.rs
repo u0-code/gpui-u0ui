@@ -345,13 +345,9 @@ impl Gallery {
                             .text_color(color(ColorRole::TextPrimary))
                             .child(page.title),
                     )
-                    .child(
-                        div()
-                            .max_w(rems(40.))
-                            .type_style(TypeStyle::Body02)
-                            .text_color(color(ColorRole::TextSecondary))
-                            .child(page.description),
-                    ),
+                    .child(div().max_w(rems(40.)).type_style(TypeStyle::Body02).child(
+                        crate::controls::prose(page.description, color(ColorRole::TextSecondary)),
+                    )),
             )
             .children(tabs)
             .child(body)
