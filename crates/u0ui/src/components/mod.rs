@@ -10,6 +10,7 @@ pub mod button;
 pub mod button_group;
 pub mod calendar;
 pub mod card;
+pub mod carousel;
 pub mod chart;
 pub mod checkbox;
 pub mod collapsible;
@@ -67,6 +68,9 @@ pub use button_group::{
 pub use calendar::{Calendar, CalendarDate, CalendarLocale, CalendarMode, Selection};
 pub use card::{
     Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, CardVariant,
+};
+pub use carousel::{
+    Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselOrientation, CarouselPrevious,
 };
 pub use checkbox::{Checkbox, CheckboxState};
 pub use collapsible::Collapsible;

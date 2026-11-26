@@ -10,6 +10,7 @@ pub mod button;
 pub mod button_group;
 pub mod calendar;
 pub mod card;
+pub mod carousel;
 pub mod chart;
 pub mod checkbox;
 pub mod collapsible;
