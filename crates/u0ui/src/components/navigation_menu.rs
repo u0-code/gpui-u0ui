@@ -226,8 +226,16 @@ fn header_item(
         .track_focus(&focus)
         .accessibility_label(label.clone())
         .relative()
-        .h(rem(HEADER_HEIGHT))
-        .when(in_menu, |this| this.w_full())
+        // `.cds--header__menu-item { block-size: 100% }` of the header's
+        // content box (3rem minus its 1px bottom border), so the current bar
+        // sits fully above that border; submenu items are 3rem.
+        .map(|this| {
+            if in_menu {
+                this.h(rem(HEADER_HEIGHT)).w_full()
+            } else {
+                this.h_full()
+            }
+        })
         .flex()
         .flex_row()
         .items_center()
