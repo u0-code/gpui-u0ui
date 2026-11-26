@@ -345,6 +345,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("NavigationMenu"),
         build: pages::navigation_menu::build,
     },
+    PageDef {
+        id: "sidebar",
+        title: "Sidebar",
+        group: "Navigation",
+        description: readme!("Sidebar"),
+        build: pages::sidebar::build,
+    },
 ];
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {

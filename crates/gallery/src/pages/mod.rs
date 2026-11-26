@@ -31,6 +31,7 @@ pub mod popover;
 pub mod radio_group;
 pub mod select;
 pub mod sheet;
+pub mod sidebar;
 pub mod switch;
 pub mod tabs;
 pub mod textarea;
