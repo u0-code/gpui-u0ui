@@ -13,8 +13,17 @@
 //!   bottom line and a clear button; the list scrolls past 18rem; headings
 //!   are label-01 `text-secondary` (0.75rem 1rem 0.25rem); items are
 //!   `size-md` (2.5rem) rows with a 16px `icon-secondary` icon, label, and a
-//!   mono 12px shortcut; highlighted rows take `layer-hover-01` and a 2px inset
-//!   `focus` outline when keyboard-driven.
+//!   mono 12px shortcut.
+//! - **Item states** (`.cu-command-item:hover, :focus-visible { background:
+//!   layer-hover-01 }`, `:focus-visible { box-shadow: inset 0 0 0 2px focus }`):
+//!   a row takes `layer-hover-01` only while the pointer is over it or while it
+//!   is the keyboard item (↑/↓ from the focused field). The keyboard item
+//!   stands in for the reference's focused `<button>`, so it also gets the
+//!   ring and the field drops its focus outline meanwhile: in the reference
+//!   DOM focus is in either the search input or an item, never both, so the
+//!   CSS never draws the two outlines at once. Typing clears the keyboard item
+//!   and the field's outline returns; once focus leaves the palette no row
+//!   stays highlighted.
 //!
 //! ```ignore
 //! Command::new("palette")
@@ -331,6 +340,8 @@ impl RenderOnce for Command {
         let look = CommandLook::current();
         // Focus lives in the search field; the list is driven from it.
         let input_focused = input.read(cx).focus_handle(cx).contains_focused(window, cx);
+        // An item is "focused" (see the module docs): the field's outline steps aside.
+        let keyboard_item = input_focused && keyboard && active.is_some();
 
         let on_key = {
             let state = state.clone();
@@ -460,7 +471,7 @@ impl RenderOnce for Command {
                         ),
                 )
             })
-            .when(input_focused, |this| {
+            .when(input_focused && !keyboard_item, |this| {
                 // `.cds--search-input:focus { outline: 2px solid var(--focus);
                 // outline-offset: -2px }`.
                 this.child(
@@ -519,7 +530,11 @@ impl RenderOnce for Command {
                         let item = group.items[i].clone();
                         let index = flat_index;
                         flat_index += 1;
-                        let highlighted = active == Some(index) && !item.disabled;
+                        let is_active = active == Some(index) && !item.disabled;
+                        // The keyboard item (the reference's `:focus-visible` button)
+                        // or the row under the pointer (`:hover`).
+                        let focus_visible = is_active && keyboard && input_focused;
+                        let highlighted = is_active && (focus_visible || !keyboard);
                         let row_id = ElementId::NamedChild(
                             std::sync::Arc::new(id.clone()),
                             SharedString::from(format!("item-{p}-{i}")),
@@ -563,13 +578,16 @@ impl RenderOnce for Command {
                                 })
                                 .when(!item.disabled, |this| {
                                     this.on_hover(move |hovered, _, cx| {
-                                        if *hovered {
-                                            state_hover.update(cx, |s, cx| {
+                                        state_hover.update(cx, |s, cx| {
+                                            if *hovered {
                                                 s.active = Some(index);
                                                 s.keyboard = false;
-                                                cx.notify();
-                                            })
-                                        }
+                                            } else if s.active == Some(index) && !s.keyboard {
+                                                // `:hover` ends with the pointer.
+                                                s.active = None;
+                                            }
+                                            cx.notify();
+                                        })
                                     })
                                     .on_click(
                                         move |_, window, cx| {
@@ -597,7 +615,7 @@ impl RenderOnce for Command {
                                             .child(shortcut),
                                     )
                                 })
-                                .when(highlighted && keyboard && input_focused, |this| {
+                                .when(focus_visible, |this| {
                                     // `.cu-command-item:focus-visible { box-shadow: inset 0 0 0 2px var(--focus) }`.
                                     this.child(
                                         div()
