@@ -1,11 +1,8 @@
-//! Gallery-only stand-ins for form controls that live in another component
-//! batch (Input, Checkbox), so overlay demos can show the reference content.
-//! They wrap Kit's own controls (themed by the Carbon bridge) in Carbon field
-//! chrome; replace them with the u0ui components once those land.
+//! Small helpers for overlay demos that embed form controls. The checkbox is
+//! a gallery-only stand-in until the u0ui Checkbox lands (another batch).
 use gpui_kit::{
     App, AppContext as _, Entity, IntoElement, ParentElement, SharedString, Styled, Window,
-    component::input::{Input, InputState},
-    div, rems,
+    component::input::InputState, div, rems,
 };
 use u0ui::prelude::*;
 
@@ -15,35 +12,16 @@ pub fn input_state(value: &str, window: &mut Window, cx: &mut App) -> Entity<Inp
     cx.new(|cx| InputState::new(window, cx).default_value(value))
 }
 
-/// A Carbon text input (`.cds--text-input`): label-01 label, `field` fill at
-/// `level`, 1px `border-strong` bottom rule, density height.
+/// The u0ui text input (`.cds--text-input`) with a label, on `level`.
 pub fn text_field(
+    id: &'static str,
     label: impl Into<SharedString>,
     state: &Entity<InputState>,
     level: LayerLevel,
 ) -> impl IntoElement {
-    div()
-        .flex()
-        .flex_col()
-        .gap(tokens::SPACING_03)
-        .child(
-            div()
-                .type_style(TypeStyle::Label01)
-                .text_color(color(ColorRole::TextSecondary))
-                .child(label.into()),
-        )
-        .child(
-            div()
-                .h(density::current().field().rems())
-                .px(tokens::SPACING_05)
-                .flex()
-                .items_center()
-                .bg(color(level.field()))
-                .border_b_1()
-                .border_color(color(level.border_strong()))
-                .type_style(TypeStyle::BodyCompact01)
-                .child(Input::new(state).appearance(false).w_full()),
-        )
+    u0ui::components::Input::new(id, state)
+        .label(label)
+        .layer(level)
 }
 
 #[allow(dead_code)]

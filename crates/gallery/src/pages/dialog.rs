@@ -95,6 +95,7 @@ impl Render for DialogPage {
                     })
                     .initial_focus(&self.name.read(cx).focus_handle(cx))
                     .child(stand_in::text_field(
+                        "ref-name",
                         "Project name",
                         &self.name,
                         LayerLevel::Two,
@@ -136,6 +137,7 @@ impl Render for DialogPage {
                             .on_primary(log("Primary"))
                             .on_secondary(log("Secondary"))
                             .child(stand_in::text_field(
+                                "live-name",
                                 "Project name",
                                 &self.live_name,
                                 LayerLevel::Two,

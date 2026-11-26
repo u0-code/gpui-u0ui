@@ -149,8 +149,14 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("AlertDialog"),
         build: pages::alert_dialog::build,
     },
+    PageDef {
+        id: "sheet",
+        title: "Sheet",
+        group: "Overlays",
+        description: readme!("Sheet"),
+        build: pages::sheet::build,
+    },
 ];
-
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {
     PAGES.iter().position(|p| p.id == id)
