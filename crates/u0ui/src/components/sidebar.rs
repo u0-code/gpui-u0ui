@@ -9,7 +9,7 @@
 //!   `expanded`). [`SidebarProvider`] owns the open state (controlled or not)
 //!   and puts a [`SidebarTrigger`] (a ghost `md` icon button) at the top of
 //!   the inset.
-//! - **Appearance**: 16rem on `background`, items from 1rem down; links 2rem tall, `text-secondary` 14/20 with
+//! - **Appearance**: 16rem on `background` with no edge line, items from 1rem down; links 2rem tall, `text-secondary` 14/20 with
 //!   a 16px `icon-secondary` icon 1.5rem before the text, hover
 //!   `background-hover` + `text-primary`, the current link
 //!   `background-selected` + 600 + a 3px `border-interactive` bar; menu
@@ -150,6 +150,13 @@ pub fn item_colors(current: bool, hovered: bool) -> (Hsla, Hsla, Hsla) {
             color(IconSecondary),
         )
     }
+}
+
+/// The nav panel's fill. `.cds--side-nav__navigation` is `background` with
+/// no border on any edge (no `.cds--side-nav*` rule sets one), so the panel
+/// meets the page without a line.
+pub fn nav_background() -> Hsla {
+    color(ColorRole::Background)
 }
 
 /// A Carbon side navigation. See the module docs.
@@ -456,9 +463,7 @@ impl RenderOnce for Sidebar {
                 .left(rem(-offset))
                 .w(rem(WIDTH))
                 .h_full()
-                .bg(color(ColorRole::Background))
-                .border_r_1()
-                .border_color(color(ColorRole::BorderSubtle01))
+                .bg(nav_background())
                 .child(
                     div()
                         .size_full()
@@ -646,6 +651,17 @@ mod tests {
         let (bg, text, _) = item_colors(true, false);
         assert_eq!(bg, color(ColorRole::BackgroundSelected));
         assert_eq!(hex(text), "#161616");
+    }
+
+    #[test]
+    fn nav_panel_is_background_without_border() {
+        crate::theme::tests_set(CarbonTheme::White);
+        assert_eq!(hex(nav_background()), "#ffffff");
+        // The panel itself draws no edge; the only lines are header/footer rules.
+        let src = include_str!("sidebar.rs");
+        let panel = src.split("slot.child(").nth(1).unwrap();
+        let panel = panel.split(".when_some(self.header").next().unwrap();
+        assert!(!panel.contains("border_r"));
     }
 
     #[test]
