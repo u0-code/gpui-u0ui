@@ -443,6 +443,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Spinner"),
         build: pages::spinner::build,
     },
+    PageDef {
+        id: "direction",
+        title: "Direction",
+        group: "Layout",
+        description: readme!("Direction"),
+        build: pages::direction::build,
+    },
 ];
 
 /// Look a page up by id.
