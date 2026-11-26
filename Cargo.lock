@@ -7349,7 +7349,6 @@ dependencies = [
  "gpui-base",
  "gpui-kit",
  "gpui-material-symbols",
- "serde_json",
 ]
 
 [[package]]

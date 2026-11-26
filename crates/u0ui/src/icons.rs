@@ -19,7 +19,7 @@ use std::{borrow::Cow, collections::HashMap};
 
 mod kit_mapping;
 
-include!(concat!(env!("OUT_DIR"), "/carbon_icons.rs"));
+include!("generated/carbon_icons.rs");
 
 /// Reference glyphs that are custom SVG paths in the reference bundle (not in
 /// the Material catalog), drawn with the nearest catalog symbol instead.
