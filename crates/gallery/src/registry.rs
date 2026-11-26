@@ -436,6 +436,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Avatar"),
         build: pages::avatar::build,
     },
+    PageDef {
+        id: "spinner",
+        title: "Spinner",
+        group: "Feedback",
+        description: readme!("Spinner"),
+        build: pages::spinner::build,
+    },
 ];
 
 /// Look a page up by id.
