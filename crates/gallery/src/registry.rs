@@ -206,6 +206,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::calendar::build,
     },
     PageDef {
+        id: "date-picker",
+        title: "DatePicker",
+        group: "Forms",
+        description: readme!("DatePicker"),
+        build: pages::date_picker::build,
+    },
+    PageDef {
         id: "input-group",
         title: "InputGroup",
         group: "Forms",
