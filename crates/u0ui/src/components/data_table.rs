@@ -572,6 +572,7 @@ fn sort_header(
     direction: SortDirection,
     active: bool,
     size: TableSize,
+    label_start: f32,
     on_click: Action,
     window: &mut Window,
     cx: &mut App,
@@ -637,7 +638,9 @@ fn sort_header(
                 d.items_center()
             }
         })
-        .pl(rem(table::CELL_PADDING_X))
+        // `.cds--table-sort { padding-inline-start: 1rem }`, or the body cells'
+        // start padding after the leading columns, so labels line up with cells.
+        .pl(rem(label_start))
         .bg(bg)
         .text_color(color(ColorRole::TextPrimary))
         .cursor(CursorStyle::PointingHand)
@@ -1066,25 +1069,23 @@ impl RenderOnce for DataTable {
                     })
                 });
                 head_cells.push(
-                    // `th.cds--table-sort__header { padding: 0 }`; after the expand
-                    // and checkbox columns `padding-inline-start: 0.5rem`.
-                    cell_box_padded(
-                        column.width,
-                        CellAlign::Start,
-                        if pl == table::CELL_PADDING_X { 0. } else { pl },
-                        0.,
-                    )
-                    .child(sort_header(
-                        child_id(&id, format!("sort-{c}")),
-                        column.header.clone(),
-                        direction,
-                        active,
-                        self.size,
-                        on_click,
-                        window,
-                        cx,
-                    ))
-                    .into_any_element(),
+                    // `th.cds--table-sort__header { padding: 0 }`. The button's start
+                    // padding is the body cells' (`.cds--table-sort { padding-inline-start:
+                    // 1rem }`, 0.5rem after the expand + checkbox columns), so labels
+                    // line up with cell text in every column.
+                    cell_box_padded(column.width, CellAlign::Start, 0., 0.)
+                        .child(sort_header(
+                            child_id(&id, format!("sort-{c}")),
+                            column.header.clone(),
+                            direction,
+                            active,
+                            self.size,
+                            pl,
+                            on_click,
+                            window,
+                            cx,
+                        ))
+                        .into_any_element(),
                 );
             } else {
                 head_cells.push(
