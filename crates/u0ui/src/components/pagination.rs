@@ -27,9 +27,9 @@ use crate::{
     typography::TypeStyled as _,
 };
 use gpui_kit::{
-    AnyElement, App, CursorStyle, ElementId, FontWeight, Hsla, InteractiveElement, IntoElement,
-    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
-    prelude::FluentBuilder as _, px,
+    AnyElement, App, Bounds, CursorStyle, ElementId, FontWeight, Hsla, InteractiveElement,
+    IntoElement, ParentElement, Pixels, RenderOnce, SharedString, StatefulInteractiveElement as _,
+    Styled, Window, canvas, div, prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -37,6 +37,16 @@ use std::rc::Rc;
 pub const BUTTON_MOTION: Motion = Motion::new(Curve::ProductiveStandard, Speed::Fast02);
 /// `.cds--pagination-nav__page::after { transition: width 110ms }`.
 pub const BAR_MOTION: Motion = Motion::new(Curve::ProductiveStandard, Speed::Fast02).spatial(true);
+
+/// `@container pagination (max-width: 42rem)`: below this width the bar
+/// keeps only the item count and the previous/next buttons.
+pub const NARROW_MAX_REM: f32 = 42.;
+
+/// Whether a bar `width_rem` wide takes the narrow layout (an unmeasured
+/// first frame, width 0, lays out wide).
+pub fn is_narrow(width_rem: f32) -> bool {
+    width_rem > 0. && width_rem <= NARROW_MAX_REM
+}
 
 /// The number of pages for `total` items `size` per page (at least 1).
 pub fn page_count(total: usize, size: usize) -> usize {
@@ -407,6 +417,27 @@ impl RenderOnce for Pagination {
         };
         let (first, last) = item_range(page, size, self.total_items);
         let text_primary = color(ColorRole::TextPrimary);
+        // The bar is its own size container (`container-name: pagination`).
+        let bounds = window.use_keyed_state((id.clone(), "bounds"), cx, |_, _| {
+            Bounds::<Pixels>::default()
+        });
+        let narrow =
+            is_narrow(f32::from(bounds.read(cx).size.width) / f32::from(window.rem_size()));
+        let measure = canvas(
+            move |b, _, cx| {
+                if *bounds.read(cx) != b {
+                    bounds.update(cx, |v, cx| {
+                        *v = b;
+                        cx.notify();
+                    });
+                }
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full();
 
         let sizes = self.page_sizes.clone();
         let size_index = sizes.iter().position(|s| *s == size).unwrap_or(0);
@@ -493,11 +524,12 @@ impl RenderOnce for Pagination {
         );
 
         div()
+            .relative()
             .w_full()
             .min_h(SIZE_MD.rems())
             .flex()
             .flex_row()
-            .flex_wrap()
+            .when(!narrow, |this| this.flex_wrap())
             .items_center()
             .justify_between()
             .bg(color(ColorRole::Layer01))
@@ -505,19 +537,23 @@ impl RenderOnce for Pagination {
             .border_color(color(ColorRole::BorderSubtle01))
             .type_style(TypeStyle::BodyCompact01)
             .text_color(text_primary)
+            .child(measure)
             .child(
-                // `.cds--pagination__left { padding: 0 1rem }`.
+                // `.cds--pagination__left { padding: 0 1rem 0 0 }`, `0 1rem`
+                // from 42rem; below it only the item count shows.
                 div()
                     .flex()
                     .flex_row()
                     .items_center()
-                    .pl(rem(16.))
-                    .child(
-                        div()
-                            .whitespace_nowrap()
-                            .child(self.text.items_per_page.clone()),
-                    )
-                    .child(size_picker)
+                    .when(!narrow, |this| {
+                        this.pl(rem(16.))
+                            .child(
+                                div()
+                                    .whitespace_nowrap()
+                                    .child(self.text.items_per_page.clone()),
+                            )
+                            .child(size_picker)
+                    })
                     .child(
                         // `span.cds--pagination__text.cds--pagination__items-count`.
                         div()
@@ -532,14 +568,15 @@ impl RenderOnce for Pagination {
                     .flex()
                     .flex_row()
                     .items_center()
-                    .child(page_picker)
-                    .child(
-                        div()
-                            .ml(px(1.))
-                            .mr(rem(16.))
-                            .whitespace_nowrap()
-                            .child((self.text.page_range)(page, pages)),
-                    )
+                    .when(!narrow, |this| {
+                        this.child(page_picker).child(
+                            div()
+                                .ml(px(1.))
+                                .mr(rem(16.))
+                                .whitespace_nowrap()
+                                .child((self.text.page_range)(page, pages)),
+                        )
+                    })
                     .child(back)
                     .child(forward),
             )
@@ -754,6 +791,14 @@ impl RenderOnce for PaginationNav {
 mod tests {
     use super::*;
     use NavSlot::*;
+
+    #[test]
+    fn narrow_below_the_42rem_container_query() {
+        assert!(is_narrow(30.));
+        assert!(is_narrow(42.));
+        assert!(!is_narrow(42.5));
+        assert!(!is_narrow(0.));
+    }
 
     #[test]
     fn ranges_follow_carbon_pagination() {
