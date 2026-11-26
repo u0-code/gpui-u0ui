@@ -354,6 +354,16 @@ impl RenderOnce for Combobox {
         let hovered = window.use_keyed_state((id.clone(), "hover"), cx, |_, _| false);
         let focus = input.read(cx).focus_handle(cx);
         let focused = focus.is_focused(window);
+        // Focus that leaves the field (a global shortcut opening a dialog,
+        // Tab) closes the menu, as Downshift's blur does, so it never floats
+        // over whatever took focus.
+        let was_focused = window.use_keyed_state((id.clone(), "was-focused"), cx, |_, _| false);
+        if *was_focused.read(cx) != focused {
+            was_focused.update(cx, |w, _| *w = focused);
+            if !focused && list.read(cx).open {
+                set_open(&list, false, None, cx);
+            }
+        }
         let query = input.read(cx).value();
         let current = (!multiple)
             .then(|| values.first())
