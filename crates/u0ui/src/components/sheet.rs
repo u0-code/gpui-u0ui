@@ -468,12 +468,24 @@ impl RenderOnce for Sheet {
                 point(fx * travel, fy * travel),
                 point(px(0.), px(0.)),
             ));
-        let scrim = div().size_full().bg(look.scrim).opacity(scrim_p);
+        // The scrim occludes the page (no hover behind it) and closes on press.
+        let set_scrim = set_open.clone();
+        let scrim = div()
+            .id((id.clone(), "scrim"))
+            .size_full()
+            .bg(look.scrim)
+            .opacity(scrim_p)
+            .occlude()
+            .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                cx.stop_propagation();
+                if open {
+                    set_scrim(false, window, cx);
+                }
+            });
 
         if self.contained {
             // `.cu-panel-overlay--contained`: the overlay fills the parent and
             // clips the panel's slide.
-            let set_scrim = set_open.clone();
             let set_escape = set_open.clone();
             let overlay = div()
                 .id((id.clone(), "overlay"))
@@ -490,20 +502,7 @@ impl RenderOnce for Sheet {
                         cx.stop_propagation();
                     }
                 })
-                .child(
-                    div()
-                        .absolute()
-                        .top_0()
-                        .left_0()
-                        .size_full()
-                        .occlude()
-                        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
-                            if open {
-                                set_scrim(false, window, cx);
-                            }
-                        })
-                        .child(scrim),
-                )
+                .child(div().absolute().top_0().left_0().size_full().child(scrim))
                 .child(panel);
             return root.child(overlay).into_any_element();
         }

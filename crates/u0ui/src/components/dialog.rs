@@ -631,7 +631,23 @@ impl RenderOnce for Dialog {
             .child(Translate::y(container, travel));
 
         let set_cancel = set_open.clone();
-        let scrim = div().size_full().bg(look.scrim).opacity(progress);
+        let set_scrim = set_open.clone();
+        let close_on_scrim = self.close_on_backdrop && !self.alert;
+        // `.cds--modal` covers the page, so the page behind gets no hover:
+        // the scrim occludes it. Occluding also hides Base's backdrop
+        // listener, so the scrim press is handled here.
+        let scrim = div()
+            .id((id.clone(), "scrim"))
+            .size_full()
+            .bg(look.scrim)
+            .opacity(progress)
+            .occlude()
+            .on_mouse_down(gpui_kit::MouseButton::Left, move |_, window, cx| {
+                cx.stop_propagation();
+                if open && close_on_scrim {
+                    set_scrim(false, window, cx);
+                }
+            });
         // Base's dialog and alert-dialog hosts share every builder; the alert
         // host carries the `alertdialog` role.
         macro_rules! host {
