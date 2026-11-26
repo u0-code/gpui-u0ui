@@ -42,9 +42,15 @@ pub fn first_sentence(readme: &str) -> String {
         .lines()
         .find(|l| !(l.starts_with('#') || l.trim().is_empty()))
         .unwrap_or("");
+    // A Latin `.`/`!` ends the sentence only before whitespace or the end, so
+    // code like `.cds--label` inside it does not.
     let end = body
         .char_indices()
-        .find(|(_, c)| matches!(c, '。' | '.' | '！' | '!'))
+        .find(|&(i, c)| match c {
+            '。' | '！' => true,
+            '.' | '!' => body[i + 1..].chars().next().is_none_or(char::is_whitespace),
+            _ => false,
+        })
         .map_or(body.len(), |(i, c)| i + c.len_utf8());
     body[..end].trim().to_string()
 }
@@ -122,6 +128,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Input"),
         build: pages::input::build,
     },
+    PageDef {
+        id: "label",
+        title: "Label",
+        group: "Forms",
+        description: readme!("Label"),
+        build: pages::label::build,
+    },
 ];
 
 /// Look a page up by id.
@@ -157,6 +170,10 @@ mod tests {
         assert_eq!(
             first_sentence("# Button\n\n触发一个操作。shadcn `Button` → Carbon"),
             "触发一个操作。"
+        );
+        assert_eq!(
+            first_sentence("# Label\n\n字段标签，样式为 `.cds--label`（`label-01`）。用"),
+            "字段标签，样式为 `.cds--label`（`label-01`）。"
         );
     }
 }

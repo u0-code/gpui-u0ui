@@ -3,7 +3,9 @@
 pub mod button;
 pub mod form;
 pub mod input;
+pub mod label;
 
 pub use button::{Button, ButtonKind, ButtonSize, ButtonVariant};
 pub use form::{FieldSize, Validation};
 pub use input::{Input, InputState};
+pub use label::Label;

@@ -4,6 +4,7 @@ pub mod button;
 pub mod colors;
 pub mod icons;
 pub mod input;
+pub mod label;
 pub mod layout;
 pub mod motion;
 pub mod typography;
