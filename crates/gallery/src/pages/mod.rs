@@ -34,6 +34,7 @@ pub mod input_otp;
 pub mod kbd;
 pub mod label;
 pub mod layout;
+pub mod marker;
 pub mod menubar;
 pub mod message;
 pub mod motion;

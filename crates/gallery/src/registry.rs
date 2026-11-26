@@ -499,6 +499,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Message"),
         build: pages::message::build,
     },
+    PageDef {
+        id: "marker",
+        title: "Marker",
+        group: "Chat & AI",
+        description: readme!("Marker"),
+        build: pages::marker::build,
+    },
 ];
 
 /// Look a page up by id.

@@ -34,6 +34,7 @@ pub mod input_otp;
 pub mod kbd;
 pub mod label;
 pub mod list_box;
+pub mod marker;
 pub mod menu;
 pub mod menubar;
 pub mod message;
@@ -99,6 +100,7 @@ pub use input_group::{
 pub use input_otp::InputOtp;
 pub use kbd::{Kbd, KbdGroup};
 pub use label::Label;
+pub use marker::{Marker, MarkerContent, MarkerIcon, MarkerVariant};
 pub use menu::{MenuItem, MenuSize};
 pub use menubar::Menubar;
 pub use message::{
