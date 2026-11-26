@@ -33,6 +33,7 @@ pub mod hover_card;
 pub mod input;
 pub mod input_group;
 pub mod input_otp;
+pub mod item;
 pub mod kbd;
 pub mod label;
 pub mod list_box;
@@ -106,6 +107,10 @@ pub use input_group::{
     InputGroup, InputGroupAddon, InputGroupInput, InputGroupText, InputGroupTextarea,
 };
 pub use input_otp::InputOtp;
+pub use item::{
+    Item, ItemActions, ItemContent, ItemDescription, ItemFooter, ItemGroup, ItemHeader, ItemMedia,
+    ItemMediaVariant, ItemSeparator, ItemSize, ItemTitle, ItemVariant,
+};
 pub use kbd::{Kbd, KbdGroup};
 pub use label::Label;
 pub use marker::{Marker, MarkerContent, MarkerIcon, MarkerVariant};
