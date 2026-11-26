@@ -1090,9 +1090,24 @@ pub(crate) fn anchored_menu(
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
-    let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), trigger).anchor(Anchor::TopLeft);
+    // Below the trigger, or above it when the menu only fits there (Carbon
+    // menus `autoAlign`), never over it ([`super::overlay::DropSide`]).
+    let anchor = super::overlay::drop_anchor((id.clone(), "drop"), window, cx);
+    let trigger = div()
+        .relative()
+        .child(trigger)
+        .child(anchor.measure_trigger());
+    let side = anchor.place_measured(window);
+    let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), trigger).anchor(side.anchor());
     match menu_surface(id, spec, window, cx) {
-        Some(surface) => popup.content(surface).into_any_element(),
+        Some(surface) => popup
+            .content(
+                div()
+                    .relative()
+                    .child(surface)
+                    .child(anchor.measure_surface()),
+            )
+            .into_any_element(),
         None => popup.into_any_element(),
     }
 }

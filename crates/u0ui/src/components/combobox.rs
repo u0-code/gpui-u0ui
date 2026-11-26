@@ -417,13 +417,13 @@ impl RenderOnce for Combobox {
                 }
             }
         }
-        let (open, highlighted, hover_row, width) = {
+        let (open, highlighted, hover_row, anchor) = {
             let s = list.read(cx);
             (
                 s.open && !self.disabled,
                 s.highlighted,
                 s.hovered,
-                s.width.clone(),
+                s.anchor.clone(),
             )
         };
         let progress = motion::animate(
@@ -752,7 +752,7 @@ impl RenderOnce for Combobox {
                     set_open(&list, true, open_highlight, cx);
                 })
             })
-            .child(list_box::measure_width(width.clone()))
+            .child(anchor.measure_trigger())
             .children(tag)
             .child(editor)
             .children(status)
@@ -761,8 +761,9 @@ impl RenderOnce for Combobox {
             .child(form::bottom_rule(look.border))
             .child(form::inset_outline(2., outline));
 
+        let (side, room) = anchor.place(list_box::menu_height(&items, &shown, row), window);
         let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), field)
-            .anchor(gpui_kit::Anchor::TopLeft)
+            .anchor(side.anchor())
             .w_full()
             .when(open || progress > 0., |this| {
                 let selected: Vec<bool> = items.iter().map(|i| values.contains(&i.value)).collect();
@@ -775,7 +776,8 @@ impl RenderOnce for Combobox {
                         highlighted,
                         hovered: hover_row,
                         row_height: row,
-                        width: width.get(),
+                        width: anchor.width(),
+                        max_height: room,
                         level: self.level,
                         checkboxes: multiple,
                         empty: None,

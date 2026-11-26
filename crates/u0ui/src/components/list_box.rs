@@ -13,10 +13,14 @@
 //!   (`transition: max-height 110ms cubic-bezier(0.2, 0, 0.38, 0.9)`); spatial,
 //!   so reduced motion cuts it. The chevron turns 180° over 70ms.
 //! - **Placement** is Kit's [`gpui_kit::base::Popup`] (deferred top layer,
-//!   window-edge clamping), anchored to the field's bottom-left.
+//!   window-edge clamping). The menu attaches to the field's bottom edge
+//!   (`direction="bottom"`); when it does not fit below but does above, it
+//!   flips onto the field's top edge (`autoAlign`), and when it fits on
+//!   neither side it takes the roomier one and scrolls within it, so it never
+//!   covers its field ([`super::overlay::DropSide`]).
 use super::checkbox::{CheckboxLook, CheckboxLookState, CheckboxState, checkbox_box};
 use super::form::rem;
-use super::overlay;
+use super::overlay::{self, DropAnchor};
 use crate::{
     density::Density,
     icons::{CarbonIcon, Icon, IconSize},
@@ -27,10 +31,10 @@ use crate::{
 };
 use gpui_kit::{
     AnyElement, App, ElementId, Hsla, InteractiveElement as _, IntoElement, MouseButton,
-    ParentElement, SharedString, StatefulInteractiveElement as _, Styled, Window, canvas, div,
+    ParentElement, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
     prelude::FluentBuilder as _, px,
 };
-use std::{cell::Cell, rc::Rc, time::Instant};
+use std::{rc::Rc, time::Instant};
 
 /// `.cds--list-box__menu { transition: max-height 110ms cubic-bezier(0.2, 0, 0.38, 0.9) }`.
 pub const MENU_MOTION: Motion = Motion::new(Curve::ProductiveStandard, Speed::Fast02).spatial(true);
@@ -102,6 +106,14 @@ pub fn row_height(field_height: f32, density: Density) -> f32 {
         Density::Compact => tokens::DENSITY_ROW_MD.px_value(),
         Density::Comfortable => field_height,
     }
+}
+
+/// The open menu's full height in px: one row per shown item and per group
+/// heading (one row for the empty text), at most [`MAX_VISIBLE_ROWS`].
+pub fn menu_height(items: &[ListItem], shown: &[usize], row_height: f32) -> f32 {
+    let groups = shown.iter().filter(|&&i| items[i].group.is_some()).count();
+    let rows = (shown.len().max(1) + groups) as f32;
+    rows.min(MAX_VISIBLE_ROWS) * row_height
 }
 
 /// The state an option look is computed for.
@@ -211,6 +223,7 @@ pub fn type_ahead(items: &[ListItem], prefix: &str, from: Option<usize>) -> Opti
 }
 
 /// Per-instance list-box state kept across frames.
+#[derive(Default)]
 pub(crate) struct ListState {
     /// The menu is open.
     pub open: bool,
@@ -221,21 +234,9 @@ pub(crate) struct ListState {
     /// Type-ahead buffer and the time of its last key.
     pub typed: String,
     pub typed_at: Option<Instant>,
-    /// The field's measured width in px (the menu matches it).
-    pub width: Rc<Cell<f32>>,
-}
-
-impl Default for ListState {
-    fn default() -> Self {
-        Self {
-            open: false,
-            highlighted: None,
-            hovered: None,
-            typed: String::new(),
-            typed_at: None,
-            width: Rc::new(Cell::new(0.)),
-        }
-    }
+    /// The field's measured bounds (the menu matches its width and picks
+    /// its side from them).
+    pub anchor: DropAnchor,
 }
 
 impl ListState {
@@ -252,18 +253,6 @@ impl ListState {
         self.typed_at = Some(now);
         self.typed.clone()
     }
-}
-
-/// A zero-size canvas that records its parent's width into `width`.
-pub(crate) fn measure_width(width: Rc<Cell<f32>>) -> impl IntoElement {
-    canvas(
-        move |bounds, _, _| width.set(f32::from(bounds.size.width)),
-        |_, _, _, _| {},
-    )
-    .absolute()
-    .top_0()
-    .left_0()
-    .size_full()
 }
 
 /// The chevron (`.cds--list-box__menu-icon`), turning 180° when open.
@@ -307,6 +296,8 @@ pub(crate) struct Menu<'a> {
     pub hovered: Option<usize>,
     pub row_height: f32,
     pub width: f32,
+    /// The room on the side the menu opens on: it scrolls within it.
+    pub max_height: f32,
     pub level: LayerLevel,
     /// Draw a checkbox per row (multi-select).
     pub checkboxes: bool,
@@ -328,6 +319,7 @@ pub(crate) fn menu(menu: Menu<'_>, progress: f32) -> AnyElement {
         hovered,
         row_height,
         width,
+        max_height,
         level,
         checkboxes,
         empty,
@@ -344,9 +336,7 @@ pub(crate) fn menu(menu: Menu<'_>, progress: f32) -> AnyElement {
             disabled: items[i].disabled,
         })
         .collect();
-    let groups = shown.iter().filter(|&&i| items[i].group.is_some()).count();
-    let rows = (shown.len().max(1) + groups) as f32;
-    let full = (rows.min(MAX_VISIBLE_ROWS)) * row_height;
+    let full = menu_height(items, &shown, row_height).min(max_height.max(row_height));
     let pad = (row_height - 16.) / 2. - 1.;
     let mut children: Vec<AnyElement> = Vec::new();
     for (k, &i) in shown.iter().enumerate() {
@@ -551,6 +541,22 @@ mod tests {
         assert!(rule_visible(1, &states));
         states[1].hovered = true;
         assert!(!rule_visible(1, &states) && !rule_visible(2, &states));
+    }
+
+    #[test]
+    fn menu_height_counts_rows_and_headings_up_to_five_and_a_half() {
+        let items: Vec<ListItem> = ["prod", "staging", "eu", "us", "pci", "gov", "dev"]
+            .into_iter()
+            .map(ListItem::from)
+            .collect();
+        assert_eq!(menu_height(&items, &[0, 1, 2], 32.), 96.);
+        assert_eq!(menu_height(&items, &[0, 1, 2, 3, 4], 32.), 160.);
+        assert_eq!(menu_height(&items, &(0..7).collect::<Vec<_>>(), 32.), 176.);
+        // Nothing shown: one row for the empty text.
+        assert_eq!(menu_height(&items, &[], 40.), 40.);
+        let mut grouped = items.clone();
+        grouped[0].group = Some("Environments".into());
+        assert_eq!(menu_height(&grouped, &[0, 1], 32.), 96.);
     }
 
     #[test]

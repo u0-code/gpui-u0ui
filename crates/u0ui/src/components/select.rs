@@ -351,9 +351,9 @@ impl RenderOnce for Select {
         let selected = value
             .as_ref()
             .and_then(|v| items.iter().position(|i| &i.value == v));
-        let (open, highlighted, hover_row, width) = {
+        let (open, highlighted, hover_row, anchor) = {
             let s = state.read(cx);
-            (s.open && !inert, s.highlighted, s.hovered, s.width.clone())
+            (s.open && !inert, s.highlighted, s.hovered, s.anchor.clone())
         };
         let progress = motion::animate(
             (id.clone(), "menu"),
@@ -469,7 +469,7 @@ impl RenderOnce for Select {
             } else {
                 CursorStyle::PointingHand
             })
-            .child(list_box::measure_width(width.clone()))
+            .child(anchor.measure_trigger())
             .child(
                 div()
                     .flex_1()
@@ -525,27 +525,30 @@ impl RenderOnce for Select {
             })
             .child(trigger);
 
+        let shown: Vec<usize> = (0..items.len()).collect();
+        let (side, room) = anchor.place(list_box::menu_height(&items, &shown, row), window);
         let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), trigger)
-            .anchor(gpui_kit::Anchor::TopLeft)
+            .anchor(side.anchor())
             .w_full()
             .when(open || progress > 0., |this| {
                 let selected_flags: Vec<bool> =
                     (0..items.len()).map(|i| Some(i) == selected).collect();
                 let menu_width = if inline {
-                    width.get().clamp(18. * 16., 30. * 16.)
+                    anchor.width().clamp(18. * 16., 30. * 16.)
                 } else {
-                    width.get()
+                    anchor.width()
                 };
                 this.content(list_box::menu(
                     Menu {
                         id: id.clone(),
                         items: &items,
-                        shown: (0..items.len()).collect(),
+                        shown,
                         selected: &selected_flags,
                         highlighted,
                         hovered: hover_row,
                         row_height: row,
                         width: menu_width,
+                        max_height: room,
                         level: self.level,
                         checkboxes: false,
                         empty: None,

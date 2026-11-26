@@ -12,11 +12,11 @@ use crate::motion::{self, Motion};
 use crate::theme::color;
 use crate::tokens::ColorRole;
 use gpui_kit::{
-    AnyElement, App, Bounds, BoxShadow, Element, ElementId, Entity, FocusHandle, GlobalElementId,
-    InspectorElementId, InteractiveElement, IntoElement, KeyDownEvent, LayoutId, MouseButton,
-    ParentElement, Pixels, Point, Rems, Styled, Window, div, point, px,
+    Anchor, AnyElement, App, Bounds, BoxShadow, Element, ElementId, Entity, FocusHandle,
+    GlobalElementId, InspectorElementId, InteractiveElement, IntoElement, KeyDownEvent, LayoutId,
+    MouseButton, ParentElement, Pixels, Point, Rems, Size, Styled, Window, canvas, div, point, px,
 };
-use std::rc::Rc;
+use std::{cell::Cell, rc::Rc};
 
 /// `px` at 100% zoom as rems (Carbon's rem is 16px).
 pub(crate) fn rem(px_value: f32) -> Rems {
@@ -228,6 +228,148 @@ pub(crate) fn trigger_wrapper(
         .child(trigger)
 }
 
+/// The gap Base's `Popup` keeps from the window edges (`WINDOW_MARGIN`).
+pub const WINDOW_MARGIN: f32 = 8.;
+
+/// Which side of its trigger a dropdown surface (list-box menu, date-picker
+/// calendar, dropdown menu) opens on.
+///
+/// Carbon's list boxes and menus open below the field (`direction="bottom"`,
+/// the menu attached at the field's bottom edge); with `autoAlign` they flip
+/// above when there is no room below but there is above. Base's `Popup` only
+/// clamps a surface into the window, which slides it up over its own trigger
+/// near the bottom edge; choosing the side first keeps the trigger visible.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DropSide {
+    /// Hanging from the trigger's bottom edge.
+    #[default]
+    Below,
+    /// Standing on the trigger's top edge.
+    Above,
+}
+
+impl DropSide {
+    /// The side for a surface `height` px tall under a trigger spanning
+    /// `top..bottom` in a viewport `viewport` px tall: below when it fits,
+    /// else above when it fits there, else the roomier side.
+    pub fn choose(top: f32, bottom: f32, height: f32, viewport: f32) -> Self {
+        let below = Self::Below.room(top, bottom, viewport);
+        let above = Self::Above.room(top, bottom, viewport);
+        if height <= below || (height > above && below >= above) {
+            Self::Below
+        } else {
+            Self::Above
+        }
+    }
+
+    /// The height available on this side, keeping [`WINDOW_MARGIN`] from the
+    /// window edge.
+    pub fn room(self, top: f32, bottom: f32, viewport: f32) -> f32 {
+        match self {
+            Self::Below => viewport - WINDOW_MARGIN - bottom,
+            Self::Above => top - WINDOW_MARGIN,
+        }
+        .max(0.)
+    }
+
+    /// The Base anchor for a surface hanging from the trigger's start edge.
+    pub fn anchor(self) -> Anchor {
+        match self {
+            Self::Below => Anchor::TopLeft,
+            Self::Above => Anchor::BottomLeft,
+        }
+    }
+}
+
+/// Per-instance dropdown placement state: the trigger's window bounds and
+/// the surface's size, both recorded while painting, and the side the
+/// surface was last placed on.
+#[derive(Clone, Default)]
+pub(crate) struct DropAnchor {
+    trigger: Rc<Cell<Bounds<Pixels>>>,
+    surface: Rc<Cell<Size<Pixels>>>,
+    side: Rc<Cell<DropSide>>,
+}
+
+/// The [`DropAnchor`] keyed by `id`.
+pub(crate) fn drop_anchor(
+    id: impl Into<ElementId>,
+    window: &mut Window,
+    cx: &mut App,
+) -> DropAnchor {
+    window
+        .use_keyed_state(id.into(), cx, |_, _| DropAnchor::default())
+        .read(cx)
+        .clone()
+}
+
+impl DropAnchor {
+    /// The trigger's last measured width in px.
+    pub fn width(&self) -> f32 {
+        f32::from(self.trigger.get().size.width)
+    }
+
+    /// A zero-size canvas that records the bounds of its (`relative`) parent,
+    /// the trigger.
+    pub fn measure_trigger(&self) -> impl IntoElement + use<> {
+        let trigger = self.trigger.clone();
+        canvas(move |bounds, _, _| trigger.set(bounds), |_, _, _, _| {})
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
+    }
+
+    /// The side for a surface `height` px tall and the room there, from the
+    /// trigger's last bounds (the side is remembered for
+    /// [`Self::measure_surface`]).
+    pub fn place(&self, height: f32, window: &Window) -> (DropSide, f32) {
+        let trigger = self.trigger.get();
+        let (top, bottom) = (f32::from(trigger.top()), f32::from(trigger.bottom()));
+        let viewport = f32::from(window.viewport_size().height);
+        let side = DropSide::choose(top, bottom, height, viewport);
+        self.side.set(side);
+        (side, side.room(top, bottom, viewport))
+    }
+
+    /// The side for the surface's last measured size (below until it has
+    /// been measured once).
+    pub fn place_measured(&self, window: &Window) -> DropSide {
+        self.place(f32::from(self.surface.get().height), window).0
+    }
+
+    /// A canvas filling its (`relative`) parent, the surface, that records
+    /// the surface's size and asks for another frame when the side chosen
+    /// for it no longer fits (its first open, or its size changed).
+    pub fn measure_surface(&self) -> impl IntoElement + use<> {
+        let (trigger, surface, side) = (
+            self.trigger.clone(),
+            self.surface.clone(),
+            self.side.clone(),
+        );
+        canvas(
+            move |bounds, window, _| {
+                surface.set(bounds.size);
+                let t = trigger.get();
+                let want = DropSide::choose(
+                    f32::from(t.top()),
+                    f32::from(t.bottom()),
+                    f32::from(bounds.size.height),
+                    f32::from(window.viewport_size().height),
+                );
+                if want != side.get() {
+                    window.request_animation_frame();
+                }
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full()
+    }
+}
+
 /// Translates its child by a fraction of the child's own size plus a fixed
 /// offset, like CSS `transform: translate(…)`: layout is unchanged; paint, hit
 /// testing and accessibility follow the offset (`window.with_element_offset`,
@@ -325,5 +467,24 @@ mod tests {
             (drop.offset.y, drop.blur_radius, drop.color.a),
             (px(2.), px(2.), 0.2)
         );
+    }
+
+    #[test]
+    fn drop_side_opens_below_and_flips_above_without_covering_the_trigger() {
+        // A 32px field at 400..432 in a 900px window: 160px fits below.
+        assert_eq!(DropSide::choose(400., 432., 160., 900.), DropSide::Below);
+        assert_eq!(DropSide::Below.room(400., 432., 900.), 460.);
+        // Near the bottom (the Tags combobox at 804..836): flip above.
+        assert_eq!(DropSide::choose(804., 836., 160., 900.), DropSide::Above);
+        assert_eq!(DropSide::Above.room(804., 836., 900.), 796.);
+        // Exactly fitting below stays below (8px window margin).
+        assert_eq!(DropSide::choose(700., 732., 160., 900.), DropSide::Below);
+        assert_eq!(DropSide::choose(700., 733., 160., 900.), DropSide::Above);
+        // Fits on neither side: the roomier one; the caller caps the height to its room.
+        assert_eq!(DropSide::choose(100., 132., 800., 900.), DropSide::Below);
+        assert_eq!(DropSide::choose(700., 732., 800., 900.), DropSide::Above);
+        assert_eq!(DropSide::Below.room(100., 900., 900.), 0.);
+        assert_eq!(DropSide::Below.anchor(), Anchor::TopLeft);
+        assert_eq!(DropSide::Above.anchor(), Anchor::BottomLeft);
     }
 }

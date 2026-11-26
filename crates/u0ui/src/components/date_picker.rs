@@ -6,7 +6,9 @@
 //!   or pressing a field (or the calendar icon) opens the calendar panel from
 //!   [`super::calendar`] under the fields; picking a date (both ends for
 //!   `range`) closes it, as do Escape and a press outside. The panel is placed
-//!   by Kit's [`gpui_kit::base::Popup`].
+//!   by Kit's [`gpui_kit::base::Popup`] under the fields, or above them when
+//!   it only fits there (flatpickr's `position: "auto"`), never over them
+//!   ([`super::overlay::DropSide`]).
 //! - **Appearance**: Carbon date inputs in IBM Plex Mono (`code-02`) on the
 //!   field (`field` fill, `border-strong` rule, 2px `focus` outline, invalid
 //!   2px `support-error`), 16px calendar icon 1rem from the end
@@ -367,6 +369,7 @@ impl RenderOnce for DatePicker {
         let open = fields.read(cx).open && has_calendar && !inert;
         let opened = fields.read(cx).opened;
         let slide = !motion::reduced_motion(cx);
+        let anchor = super::overlay::drop_anchor((id.clone(), "drop"), window, cx);
 
         let validation = if inert {
             Validation::None
@@ -534,15 +537,21 @@ impl RenderOnce for DatePicker {
                 .child(input)
         };
 
-        let mut row = div().flex().flex_row().items_end();
+        let mut row = div()
+            .relative()
+            .flex()
+            .flex_row()
+            .items_end()
+            .child(anchor.measure_trigger());
         row = row.child(field(0, window, cx));
         if range {
             // `.cds--date-picker--range > .cds--date-picker-container:first-child { margin-inline-end: 0.0625rem }`.
             row = row.child(div().w(px(1.))).child(field(1, window, cx));
         }
 
+        let side = anchor.place_measured(window);
         let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), row)
-            .anchor(gpui_kit::Anchor::TopLeft)
+            .anchor(side.anchor())
             .when(open, |this| {
                 let commit = commit.clone();
                 let pick_fields = fields.clone();
@@ -580,7 +589,8 @@ impl RenderOnce for DatePicker {
                 // `.flatpickr-calendar.open { box-shadow: 0 2px 6px var(--shadow) }`.
                 .shadow(super::overlay::floating_shadow())
                 .on_mouse_down_out(move |_, _, cx| set_open(&close_fields, false, cx));
-                this.content(div().relative().child(panel).with_animation(
+                let measure = anchor.measure_surface();
+                this.content(div().relative().child(panel).child(measure).with_animation(
                     (id.clone(), format!("open-{opened}")),
                     PANEL_MOTION.animation(),
                     move |this, t| {
