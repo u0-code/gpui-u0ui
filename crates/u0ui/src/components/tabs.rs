@@ -17,9 +17,18 @@
 //!   Disabled: `text-disabled` (contained: `button-disabled` fill,
 //!   `text-on-color-disabled`). Keyboard focus: a 2px inset `focus` outline.
 //!   The panel is padded 1rem (`.cds--tab-content`), on `layer` when contained.
+//! - **Panel**: once any `content` is given, the selected tab always gets a
+//!   panel (Carbon renders a `TabPanel` per tab, empty when it has no
+//!   content), so a tab without content shows an empty padded panel. The
+//!   panel is a tab stop (`TabPanel tabIndex=0`) with a 2px inset `focus`
+//!   outline while focused (`.cds--tab-content:focus`).
+//! - **Panel gap**: Carbon's `Tabs` renders no wrapper, so the tab list and
+//!   the panel are siblings of the surrounding layout and take its gap (the
+//!   reference previews sit in `.cu-stack { gap: spacing-06 }`).
+//!   [`Tabs::panel_gap`] reproduces that gap; it is 0 by default.
 //! - **Motion**: `transition: color 70ms, border 70ms, background-color 70ms`
 //!   (productive standard) on every tab.
-use super::overlay::rem;
+use super::{form::inset_outline, overlay::rem};
 use crate::{
     icons::{Icon, IconSize},
     motion::{self, Curve, Motion, Speed},
@@ -28,8 +37,8 @@ use crate::{
     typography::TypeStyled as _,
 };
 use gpui_kit::{
-    AnyElement, App, CursorStyle, ElementId, Hsla, InteractiveElement, IntoElement, ParentElement,
-    RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
+    AbsoluteLength, AnyElement, App, CursorStyle, ElementId, Hsla, InteractiveElement, IntoElement,
+    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
     prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
@@ -182,6 +191,41 @@ impl TabLook {
     }
 }
 
+/// The tab panel (`.cds--tab-content`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PanelLook {
+    /// `.cds--tab-content { padding: layout-density-padding-inline-local }` (1rem).
+    pub padding: f32,
+    /// `.cds--tabs--contained ~ .cds--tab-content { background: var(--layer) }`;
+    /// transparent for line tabs.
+    pub background: Hsla,
+    /// `.cds--tab-content:focus { outline: 2px solid var(--focus); outline-offset: -2px }`.
+    pub focus: Hsla,
+    /// The focus outline width.
+    pub focus_width: f32,
+}
+
+impl PanelLook {
+    /// The panel of `variant` tabs on the active theme.
+    pub fn of(variant: TabsVariant) -> Self {
+        Self {
+            padding: 16.,
+            background: match variant {
+                TabsVariant::Line => Hsla::transparent_black(),
+                TabsVariant::Contained => color(ColorRole::Layer01),
+            },
+            focus: color(ColorRole::Focus),
+            focus_width: 2.,
+        }
+    }
+}
+
+/// Whether a panel is drawn: Carbon renders `TabPanels` only when some
+/// content exists, and then one `TabPanel` per tab (empty without content).
+pub fn shows_panel(content_count: usize) -> bool {
+    content_count > 0
+}
+
 /// One tab (`TabsTrigger value`).
 pub struct TabsTrigger {
     value: SharedString,
@@ -229,6 +273,7 @@ pub struct Tabs {
     contents: Vec<(SharedString, AnyElement)>,
     label: SharedString,
     activation: TabsActivation,
+    panel_gap: AbsoluteLength,
 }
 
 impl Tabs {
@@ -245,6 +290,7 @@ impl Tabs {
             contents: Vec::new(),
             label: SharedString::default(),
             activation: TabsActivation::Automatic,
+            panel_gap: rem(0.).into(),
         }
     }
 
@@ -297,6 +343,14 @@ impl Tabs {
     /// Automatic (default) or manual activation.
     pub fn activation(mut self, activation: TabsActivation) -> Self {
         self.activation = activation;
+        self
+    }
+
+    /// The gap between the tab list and the panel: the gap of the layout the
+    /// tabs sit in, since Carbon's `Tabs` renders the list and the panel as
+    /// siblings of that layout (see the module docs). Default 0.
+    pub fn panel_gap(mut self, gap: impl Into<AbsoluteLength>) -> Self {
+        self.panel_gap = gap.into();
         self
     }
 
@@ -484,32 +538,44 @@ impl RenderOnce for Tabs {
             list = list.child(tab);
         }
 
-        let panel = self
+        let show_panel = shows_panel(self.contents.len());
+        let content = self
             .contents
             .into_iter()
             .find(|(value, _)| *value == selected)
             .map(|(_, content)| content);
+        let panel = show_panel.then(|| {
+            let look = PanelLook::of(variant);
+            let focus = window
+                .use_keyed_state((id.clone(), "panel-focus"), cx, |_, cx| cx.focus_handle())
+                .read(cx)
+                .clone();
+            let focused = focus.is_focused(window);
+            div()
+                .id((id.clone(), "panel"))
+                // `TabPanel tabIndex=0`.
+                .track_focus(&focus.tab_stop(true))
+                .relative()
+                .p(rem(look.padding))
+                .type_style(TypeStyle::Body01)
+                .text_color(color(ColorRole::TextPrimary))
+                .bg(look.background)
+                .children(content)
+                .when(focused, |this| {
+                    this.child(inset_outline(look.focus_width, look.focus))
+                })
+        });
         div()
             .flex()
             .flex_col()
+            .gap(self.panel_gap)
             .w_full()
             .child(
                 div()
                     .when_some(automatic, |this, on_key| this.capture_key_down(on_key))
                     .child(list),
             )
-            .when_some(panel, |this, panel| {
-                this.child(
-                    div()
-                        .p(rem(16.))
-                        .type_style(TypeStyle::Body01)
-                        .text_color(color(ColorRole::TextPrimary))
-                        .when(variant == TabsVariant::Contained, |this| {
-                            this.bg(color(ColorRole::Layer01))
-                        })
-                        .child(panel),
-                )
-            })
+            .children(panel)
     }
 }
 
@@ -566,6 +632,26 @@ mod tests {
         assert_eq!(hex(selected.indicator), "#0f62fe");
         assert_eq!(TabsVariant::Line.height(), 40.);
         assert_eq!(TabsVariant::Contained.height(), 48.);
+    }
+
+    #[test]
+    fn panel_follows_tab_content_css() {
+        crate::theme::tests_set(CarbonTheme::White);
+        let line = PanelLook::of(TabsVariant::Line);
+        assert_eq!((line.padding, line.background.a), (16., 0.));
+        assert_eq!((hex(line.focus), line.focus_width), ("#0f62fe".into(), 2.));
+        let contained = PanelLook::of(TabsVariant::Contained);
+        assert_eq!(hex(contained.background), "#f4f4f4");
+        // An empty panel still shows once any tab has content.
+        assert!(!shows_panel(0));
+        assert!(shows_panel(1));
+        assert_eq!(Tabs::new("t").panel_gap, rem(0.).into());
+        assert_eq!(
+            Tabs::new("t")
+                .panel_gap(crate::tokens::SPACING_06)
+                .panel_gap,
+            rem(24.).into()
+        );
     }
 
     #[test]

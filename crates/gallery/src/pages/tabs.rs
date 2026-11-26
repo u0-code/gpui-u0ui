@@ -44,7 +44,8 @@ impl Render for TabsPage {
             }
         };
 
-        // `components/Tabs/preview.html` (`.cu-stack { gap: var(--spacing-06) }`).
+        // `components/Tabs/preview.html` (`.cu-stack { gap: var(--spacing-06) }`);
+        // Carbon's `Tabs` has no wrapper, so the list and panel take that gap too.
         let reference = div()
             .flex()
             .flex_col()
@@ -52,6 +53,7 @@ impl Render for TabsPage {
             .child(controls::section("Reference preview"))
             .child(
                 Tabs::new("ref-tabs")
+                    .panel_gap(tokens::SPACING_06)
                     .default_value("ov")
                     .trigger(TabsTrigger::new("ov", "Overview"))
                     .trigger(TabsTrigger::new("met", "Metrics"))
@@ -63,6 +65,7 @@ impl Render for TabsPage {
             )
             .child(
                 Tabs::new("ref-contained")
+                    .panel_gap(tokens::SPACING_06)
                     .default_value("a")
                     .variant(TabsVariant::Contained)
                     .trigger(TabsTrigger::new("a", "Contained"))
