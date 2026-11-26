@@ -5,6 +5,7 @@ pub mod alert_dialog;
 pub mod breadcrumb;
 pub mod button;
 pub mod button_group;
+pub mod calendar;
 pub mod checkbox;
 pub mod collapsible;
 pub mod combobox;
@@ -48,6 +49,7 @@ pub use button::{Button, ButtonKind, ButtonSize, ButtonVariant};
 pub use button_group::{
     ButtonGroup, ButtonGroupOrientation, ButtonGroupSeparator, ButtonGroupText,
 };
+pub use calendar::{Calendar, CalendarDate, CalendarLocale, CalendarMode, Selection};
 pub use checkbox::{Checkbox, CheckboxState};
 pub use collapsible::Collapsible;
 pub use combobox::Combobox;

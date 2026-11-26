@@ -199,6 +199,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::combobox::build,
     },
     PageDef {
+        id: "calendar",
+        title: "Calendar",
+        group: "Forms",
+        description: readme!("Calendar"),
+        build: pages::calendar::build,
+    },
+    PageDef {
         id: "input-group",
         title: "InputGroup",
         group: "Forms",
