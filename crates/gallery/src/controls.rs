@@ -197,3 +197,28 @@ pub fn page_body(
             )
         })
 }
+
+/// A titled page section: a [`section`] heading over `content`, 16px apart.
+pub fn block(title: impl Into<SharedString>, content: impl IntoElement) -> gpui_kit::Div {
+    div()
+        .flex()
+        .flex_col()
+        .gap(tokens::SPACING_05)
+        .child(section(title))
+        .child(content)
+}
+
+/// A control callback that updates the page entity with `f` and re-renders:
+/// `controls::toggle(.., controls::setter(&entity, |this, on| this.flag = on))`.
+pub fn setter<T: 'static, V: 'static>(
+    entity: &gpui_kit::Entity<T>,
+    f: impl Fn(&mut T, V) + 'static,
+) -> impl Fn(V, &mut Window, &mut App) + 'static {
+    let entity = entity.clone();
+    move |value, _, cx| {
+        entity.update(cx, |this, cx| {
+            f(this, value);
+            cx.notify();
+        })
+    }
+}

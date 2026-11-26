@@ -374,14 +374,33 @@ pub static PAGES: &[PageDef] = &[
         build: pages::sidebar::build,
     },
 ];
+
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {
     PAGES.iter().position(|p| p.id == id)
 }
 
-/// The navigation groups, in first-use order.
+/// The reference artifact's group order (`components/index.d.ts` sections).
+pub const GROUP_ORDER: &[&str] = &[
+    "Foundations",
+    "Actions",
+    "Forms",
+    "Data display",
+    "Feedback",
+    "Navigation",
+    "Overlays",
+    "Layout",
+    "Chat & AI",
+];
+
+/// The navigation groups: the artifact's groups in its order, then any other
+/// group in first-use order.
 pub fn groups() -> Vec<&'static str> {
-    let mut groups = Vec::new();
+    let mut groups: Vec<&'static str> = GROUP_ORDER
+        .iter()
+        .copied()
+        .filter(|g| PAGES.iter().any(|p| p.group == *g))
+        .collect();
     for page in PAGES {
         if !groups.contains(&page.group) {
             groups.push(page.group);
