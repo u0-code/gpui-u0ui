@@ -1,0 +1,15 @@
+[package]
+name = "u0ui-codegen"
+description = "Generates u0ui's committed sources (tokens, icons, gallery descriptions) from the Carbon UI design reference"
+version.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "u0ui-codegen"
+path = "src/main.rs"
+
+[dependencies]
+serde_json.workspace = true
