@@ -464,6 +464,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Skeleton"),
         build: pages::skeleton::build,
     },
+    PageDef {
+        id: "progress",
+        title: "Progress",
+        group: "Feedback",
+        description: readme!("Progress"),
+        build: pages::progress::build,
+    },
 ];
 
 /// Look a page up by id.

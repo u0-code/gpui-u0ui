@@ -39,6 +39,7 @@ pub mod navigation_menu;
 pub mod overlay;
 pub mod pagination;
 pub mod popover;
+pub mod progress;
 pub mod radio_group;
 pub mod resizable;
 pub mod scroll_area;
@@ -99,6 +100,7 @@ pub use native_select::NativeSelect;
 pub use navigation_menu::{NavItem, NavigationMenu};
 pub use pagination::{Pagination, PaginationNav, PaginationText};
 pub use popover::Popover;
+pub use progress::{Progress, ProgressSize, ProgressStatus, ProgressType};
 pub use radio_group::{RadioGroup, RadioGroupItem, RadioOrientation};
 pub use resizable::{
     Resizable, ResizableHandle, ResizableOrientation, ResizablePanel, ResizablePanelGroup,
