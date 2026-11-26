@@ -157,6 +157,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::label::build,
     },
     PageDef {
+        id: "switch",
+        title: "Switch",
+        group: "Forms",
+        description: readme!("Switch"),
+        build: pages::switch::build,
+    },
+    PageDef {
         id: "dialog",
         title: "Dialog",
         group: "Overlays",

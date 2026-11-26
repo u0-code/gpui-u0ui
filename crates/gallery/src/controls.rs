@@ -1,13 +1,13 @@
-//! Gallery chrome controls drawn with Carbon tokens: a content switcher
-//! (`.cds--content-switcher`, size sm), a small toggle (`.cds--toggle--sm`) and
-//! labeled fields for the config panel. These are gallery-only; the real
-//! ContentSwitcher/Toggle components will replace them when they land in u0ui.
+//! Gallery chrome controls: a content switcher (`.cds--content-switcher`,
+//! size sm) drawn here because the always-dark header paints it in a fixed
+//! theme, the config-panel switch (u0ui's [`Switch`]) and labeled fields.
 use gpui_kit::{
     App, ClickEvent, CursorStyle, ElementId, Hsla, InteractiveElement, IntoElement, ParentElement,
-    SharedString, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder as _, px,
+    SharedString, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder as _,
     rems,
 };
 use std::rc::Rc;
+use u0ui::components::switch::{Switch, SwitchSize};
 use u0ui::prelude::*;
 
 /// Which theme a control paints in: the active one (`None`), or a fixed one
@@ -75,7 +75,8 @@ pub fn switcher(
         }))
 }
 
-/// A small Carbon toggle with a label (`.cds--toggle__appearance--sm`: 32×16 track).
+/// A config-panel switch: u0ui's small [`Switch`] whose state text is the
+/// option name (`.cds--toggle__appearance--sm`: 32×16 track).
 pub fn toggle(
     id: impl Into<ElementId>,
     label: impl Into<SharedString>,
@@ -83,43 +84,12 @@ pub fn toggle(
     on_change: impl Fn(bool, &mut Window, &mut App) + 'static,
 ) -> impl IntoElement {
     let label = label.into();
-    div()
-        .id(id)
-        .flex()
-        .flex_row()
-        .items_center()
-        .gap(rems(0.5))
-        .cursor(CursorStyle::PointingHand)
-        .on_click(move |_, window, cx| on_change(!on, window, cx))
-        .child(
-            div()
-                .w(rems(2.))
-                .h(rems(1.))
-                .flex_shrink_0()
-                .rounded(rems(1.))
-                // `toggle-off` / `support-success` track, `icon-on-color` knob.
-                .bg(color(if on {
-                    ColorRole::SupportSuccess
-                } else {
-                    ColorRole::ToggleOff
-                }))
-                .relative()
-                .child(
-                    div()
-                        .absolute()
-                        .top(px(3.))
-                        .left(if on { rems(1.1875) } else { rems(0.1875) })
-                        .size(px(10.))
-                        .rounded_full()
-                        .bg(color(ColorRole::IconOnColor)),
-                ),
-        )
-        .child(
-            div()
-                .type_style(TypeStyle::BodyCompact01)
-                .text_color(color(ColorRole::TextPrimary))
-                .child(label),
-        )
+    Switch::new(id)
+        .size(SwitchSize::Sm)
+        .checked(on)
+        .label_on(label.clone())
+        .label_off(label)
+        .on_checked_change(on_change)
 }
 
 /// A labeled control in the config panel (`label-01` in `text-secondary`, 8px gap).

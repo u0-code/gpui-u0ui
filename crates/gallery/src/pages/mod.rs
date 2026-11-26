@@ -13,6 +13,7 @@ pub mod layout;
 pub mod motion;
 pub mod popover;
 pub mod sheet;
+pub mod switch;
 pub mod toggle;
 pub mod toggle_group;
 pub mod tooltip;
