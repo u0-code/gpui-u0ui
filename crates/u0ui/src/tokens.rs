@@ -1,0 +1,357 @@
+//! Carbon design tokens, generated at build time from `design/reference/tokens.json`.
+//!
+//! - Colors: [`ColorRole`] (one variant per token) and four per-theme tables,
+//!   read through [`crate::theme::color`] or [`ColorRole::in_theme`].
+//! - Type: [`TypeStyle`] → [`TypeSpec`] (size, line height, weight, letter spacing,
+//!   family); apply with [`crate::typography::TypeStyled::type_style`].
+//! - Lengths: `SPACING_01..13`, `SIZE_*`, `ICON_SIZE_*`, `DENSITY_*`, window
+//!   sizes and `BORDER_RADIUS_*` as [`TokenLength`]s, plus `*_TOKENS` tables.
+//!
+//! Never hand-type a token value in a component: name the generated constant.
+use gpui_kit::{AbsoluteLength, DefiniteLength, Hsla, Pixels, Rems, Rgba, px, rems};
+
+include!(concat!(env!("OUT_DIR"), "/tokens.rs"));
+
+/// The four Carbon v11 themes, in `tokens.json` order.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum CarbonTheme {
+    /// `white`: the default light theme.
+    #[default]
+    White,
+    /// `g10`: Gray 10, light.
+    G10,
+    /// `g90`: Gray 90, dark.
+    G90,
+    /// `g100`: Gray 100, dark.
+    G100,
+}
+
+impl CarbonTheme {
+    /// Every theme, in `tokens.json` order.
+    pub const ALL: [CarbonTheme; 4] = [Self::White, Self::G10, Self::G90, Self::G100];
+
+    /// The theme id used by `tokens.json` and the CLI (`white`, `g10`, `g90`, `g100`).
+    pub const fn id(self) -> &'static str {
+        match self {
+            Self::White => "white",
+            Self::G10 => "g10",
+            Self::G90 => "g90",
+            Self::G100 => "g100",
+        }
+    }
+
+    /// Human-readable name.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::White => "White",
+            Self::G10 => "Gray 10",
+            Self::G90 => "Gray 90",
+            Self::G100 => "Gray 100",
+        }
+    }
+
+    /// Parse a theme id (`white`, `g10`, `g90`, `g100`), case-insensitively.
+    pub fn from_id(id: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|theme| theme.id().eq_ignore_ascii_case(id))
+    }
+
+    /// Whether this is one of the dark themes (G90, G100).
+    pub const fn is_dark(self) -> bool {
+        matches!(self, Self::G90 | Self::G100)
+    }
+}
+
+impl ColorRole {
+    /// This role's color in `theme`, independent of the active theme.
+    pub fn in_theme(self, theme: CarbonTheme) -> Hsla {
+        self.rgba_in(theme).into()
+    }
+
+    /// This role's exact sRGB value in `theme` (alpha preserved).
+    pub const fn rgba_in(self, theme: CarbonTheme) -> Rgba {
+        COLOR_TABLES[theme as usize][self as usize]
+    }
+}
+
+/// A Carbon font family key (`type.families` in `tokens.json`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum FontFamilyKey {
+    /// IBM Plex Sans → PingFang SC → Hiragino Sans GB → Noto Sans CJK SC.
+    Sans,
+    /// IBM Plex Mono → PingFang SC → Noto Sans Mono CJK SC.
+    Mono,
+    /// IBM Plex Serif (not bundled; falls back to the system serif).
+    Serif,
+    /// IBM Plex Sans Condensed (not bundled).
+    SansCondensed,
+}
+
+impl FontFamilyKey {
+    /// The family stack from `tokens.json`, primary family first.
+    pub const fn stack(self) -> &'static [&'static str] {
+        match self {
+            Self::Sans => FAMILY_SANS,
+            Self::Mono => FAMILY_MONO,
+            Self::Serif => FAMILY_SERIF,
+            Self::SansCondensed => FAMILY_SANS_CONDENSED,
+        }
+    }
+
+    /// The primary family name, e.g. `"IBM Plex Sans"`.
+    pub const fn primary(self) -> &'static str {
+        self.stack()[0]
+    }
+}
+
+/// A line height as `tokens.json` states it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LineHeight {
+    /// Unitless CSS multiplier of the font size (Carbon's usual form).
+    Multiplier(f32),
+    /// Absolute pixels.
+    Px(f32),
+    /// Rems.
+    Rem(f32),
+}
+
+/// A resolved Carbon type style.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TypeSpec {
+    /// Token name, e.g. `body-compact-01`.
+    pub name: &'static str,
+    /// Group in `tokens.json` (`Productive`, `Code`, `CJK`).
+    pub group: &'static str,
+    /// Font size in rems (1rem = 16px at 100% zoom).
+    pub font_size_rem: f32,
+    /// Line height.
+    pub line_height: LineHeight,
+    /// CSS font weight (300, 400, 600).
+    pub weight: u16,
+    /// CSS letter spacing in px. GPUI has no tracking control yet, so this is
+    /// recorded but not applied (see `crate::typography`).
+    pub letter_spacing_px: f32,
+    /// Font family.
+    pub family: FontFamilyKey,
+}
+
+impl TypeSpec {
+    /// The font size as rems.
+    pub fn font_size(&self) -> Rems {
+        rems(self.font_size_rem)
+    }
+
+    /// The font size in px at 100% zoom (16px rem).
+    pub fn font_size_px(&self) -> f32 {
+        self.font_size_rem * REM_PX
+    }
+
+    /// The line height as a GPUI length: a multiplier stays relative to the font
+    /// size, so text zoom reflows with it.
+    pub fn line_height(&self) -> DefiniteLength {
+        match self.line_height {
+            LineHeight::Multiplier(m) => gpui_kit::relative(m),
+            LineHeight::Px(v) => px(v).into(),
+            LineHeight::Rem(v) => rems(v).into(),
+        }
+    }
+
+    /// The line height in px at 100% zoom, rounded like a browser rounds it
+    /// (e.g. body-compact-01: 14 × 1.28572 = 18px).
+    pub fn line_height_px(&self) -> f32 {
+        let raw = match self.line_height {
+            LineHeight::Multiplier(m) => m * self.font_size_px(),
+            LineHeight::Px(v) => v,
+            LineHeight::Rem(v) => v * REM_PX,
+        };
+        (raw * 100.).round() / 100.
+    }
+}
+
+impl TypeStyle {
+    /// The token name, e.g. `"body-compact-01"`.
+    pub const fn name(self) -> &'static str {
+        self.spec().name
+    }
+}
+
+/// Pixels per rem at 100% zoom. Carbon's rem is the browser default 16px; the
+/// Kit theme bridge sets the window rem size to this.
+pub const REM_PX: f32 = 16.;
+
+/// A length token: rems for anything that scales with text zoom, px otherwise.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TokenLength {
+    /// Rems (1rem = [`REM_PX`] at 100%).
+    Rem(f32),
+    /// Absolute pixels.
+    Px(f32),
+}
+
+impl TokenLength {
+    /// The value in px at 100% zoom.
+    pub const fn px_value(self) -> f32 {
+        match self {
+            Self::Rem(v) => v * REM_PX,
+            Self::Px(v) => v,
+        }
+    }
+
+    /// As a GPUI absolute length (rems stay rems).
+    pub fn length(self) -> AbsoluteLength {
+        match self {
+            Self::Rem(v) => rems(v).into(),
+            Self::Px(v) => px(v).into(),
+        }
+    }
+
+    /// As rems (px values are converted at 16px/rem).
+    pub fn rems(self) -> Rems {
+        match self {
+            Self::Rem(v) => rems(v),
+            Self::Px(v) => rems(v / REM_PX),
+        }
+    }
+
+    /// As pixels at 100% zoom; prefer [`Self::length`] in layout.
+    pub fn pixels(self) -> Pixels {
+        px(self.px_value())
+    }
+}
+
+impl From<TokenLength> for AbsoluteLength {
+    fn from(value: TokenLength) -> Self {
+        value.length()
+    }
+}
+
+impl From<TokenLength> for DefiniteLength {
+    fn from(value: TokenLength) -> Self {
+        DefiniteLength::Absolute(value.length())
+    }
+}
+
+impl From<TokenLength> for gpui_kit::Length {
+    fn from(value: TokenLength) -> Self {
+        gpui_kit::Length::Definite(value.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hex(role: ColorRole, theme: CarbonTheme) -> String {
+        let c = role.rgba_in(theme);
+        let b = |v: f32| (v * 255.).round() as u8;
+        if c.a < 1. {
+            format!("rgba({}, {}, {}, {})", b(c.r), b(c.g), b(c.b), c.a)
+        } else {
+            format!("#{:02x}{:02x}{:02x}", b(c.r), b(c.g), b(c.b))
+        }
+    }
+
+    /// Spot values copied from `design/reference/tokens.json`.
+    #[test]
+    fn spot_values_match_tokens_json() {
+        use CarbonTheme::*;
+        use ColorRole::*;
+        let cases: &[(ColorRole, [&str; 4])] = &[
+            (Background, ["#ffffff", "#f4f4f4", "#262626", "#161616"]),
+            (Interactive, ["#0f62fe", "#0f62fe", "#4589ff", "#4589ff"]),
+            (ButtonPrimary, ["#0f62fe", "#0f62fe", "#0f62fe", "#0f62fe"]),
+            (Focus, ["#0f62fe", "#0f62fe", "#ffffff", "#ffffff"]),
+            (Layer01, ["#f4f4f4", "#ffffff", "#393939", "#262626"]),
+            (Field01, ["#f4f4f4", "#ffffff", "#393939", "#262626"]),
+            (SupportError, ["#da1e28", "#da1e28", "#ff8389", "#fa4d56"]),
+            (
+                BackgroundHover,
+                [
+                    "rgba(141, 141, 141, 0.12)",
+                    "rgba(141, 141, 141, 0.12)",
+                    "rgba(141, 141, 141, 0.16)",
+                    "rgba(141, 141, 141, 0.16)",
+                ],
+            ),
+        ];
+        for (role, expected) in cases {
+            for (theme, want) in [White, G10, G90, G100].into_iter().zip(expected) {
+                assert_eq!(
+                    &hex(*role, theme),
+                    want,
+                    "{} in {}",
+                    role.name(),
+                    theme.id()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn json_values_round_trip_for_every_role() {
+        let json: serde_json::Value =
+            serde_json::from_str(include_str!("../../../design/reference/tokens.json")).unwrap();
+        let tokens = json["color"]["tokens"].as_array().unwrap();
+        assert_eq!(tokens.len(), ColorRole::COUNT);
+        for (token, role) in tokens.iter().zip(ColorRole::ALL) {
+            assert_eq!(token["name"].as_str().unwrap(), role.name());
+            assert_eq!(ColorRole::from_name(role.name()), Some(role));
+            if let Some(values) = token["value"].as_object() {
+                for theme in CarbonTheme::ALL {
+                    let want = values[theme.id()].as_str().unwrap();
+                    if want.starts_with('#') {
+                        assert_eq!(hex(role, theme), want, "{}", role.name());
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn aliases_resolve_to_their_target() {
+        for theme in CarbonTheme::ALL {
+            assert_eq!(
+                ColorRole::StateFocus.rgba_in(theme),
+                ColorRole::Focus.rgba_in(theme)
+            );
+            assert_eq!(
+                ColorRole::StateCurrentIndicator.rgba_in(theme),
+                ColorRole::BorderInteractive.rgba_in(theme)
+            );
+        }
+    }
+
+    #[test]
+    fn type_and_length_tokens() {
+        let body = TypeStyle::BodyCompact01.spec();
+        assert_eq!(body.name, "body-compact-01");
+        assert_eq!(body.font_size_px(), 14.);
+        assert_eq!(body.line_height_px().round(), 18.);
+        assert_eq!(body.letter_spacing_px, 0.16);
+        assert_eq!(body.weight, 400);
+        let label = TypeStyle::Label01.spec();
+        assert_eq!(
+            (label.font_size_px(), label.line_height_px().round()),
+            (12., 16.)
+        );
+        assert_eq!(TypeStyle::Code02.spec().family, FontFamilyKey::Mono);
+        assert_eq!(TypeStyle::Heading07.spec().weight, 300);
+        assert_eq!(SPACING_05.px_value(), 16.);
+        assert_eq!(SPACING_13.px_value(), 160.);
+        assert_eq!(SIZE_LG.px_value(), 48.);
+        assert_eq!(DENSITY_FIELD_MD.px_value(), 32.);
+        assert_eq!(BORDER_RADIUS_16.px_value(), 16.);
+        assert_eq!(WINDOW_MIN_WIDTH, TokenLength::Px(800.));
+        assert_eq!(FontFamilyKey::Sans.primary(), "IBM Plex Sans");
+        assert_eq!(
+            FontFamilyKey::Sans.stack(),
+            [
+                "IBM Plex Sans",
+                "PingFang SC",
+                "Hiragino Sans GB",
+                "Noto Sans CJK SC"
+            ]
+        );
+    }
+}
