@@ -122,6 +122,10 @@ type KeyHandler = Rc<dyn Fn(&KeyDownEvent, &mut Window, &mut App)>;
 /// Open or close a header menu, optionally focusing an item.
 type SetMenu = Rc<dyn Fn(bool, Option<usize>, &mut Window, &mut App)>;
 
+/// How far the menu shadow reaches past the menu's sides and bottom (4px
+/// offset + 8px blur), so the clip that keeps it off the title spares it.
+const MENU_SHADOW_REACH: f32 = 12.;
+
 /// The header menu's shadow: `box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.5)`.
 pub fn menu_shadow() -> Vec<BoxShadow> {
     vec![BoxShadow::new(px(0.), px(4.), hsla(0., 0., 0., 0.5)).blur_radius(px(8.))]
@@ -467,6 +471,17 @@ impl RenderOnce for NavigationMenu {
                     cx,
                 ));
             }
+            // The open title sits above its menu (`[aria-expanded=true]`
+            // z-index 8002 over the menu's 8001), so the menu's shadow never
+            // falls on the title: clip the part above the menu's top edge.
+            let pad = rem(MENU_SHADOW_REACH);
+            let menu = div()
+                .overflow_hidden()
+                .ml(rem(-MENU_SHADOW_REACH))
+                .pl(pad)
+                .pr(pad)
+                .pb(pad)
+                .child(menu);
             nav = nav.child(popup.content(menu));
         }
 
