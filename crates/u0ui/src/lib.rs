@@ -1,22 +1,75 @@
 //! Carbon UI for GPUI: IBM Carbon v11 visuals, shadcn/ui component API,
 //! Material Symbols Sharp icons. Kit owns behavior; this crate owns appearance.
+//!
+//! Layers (each depends only on those above it):
+//!
+//! | Module | Role |
+//! | --- | --- |
+//! | [`tokens`] | Generated from `design/reference/tokens.json`: [`ColorRole`], [`TypeStyle`], spacing/size/radius |
+//! | [`theme`] | Active [`CarbonTheme`], [`theme::color`], [`LayerLevel`], Kit theme bridge |
+//! | [`typography`] | Bundled IBM Plex, [`TypeStyled::type_style`] |
+//! | [`motion`] | Carbon curves and durations, reduced motion, state-change animation helpers |
+//! | [`icons`] | Material Symbols Sharp [`Icon`], [`CarbonIcon`], asset source, Kit icon mapping |
+//! | [`density`] | [`Density`] (compact desktop default / comfortable) |
+//!
+//! ```no_run
+//! use gpui_kit::*;
+//! use u0ui::prelude::*;
+//!
+//! struct App;
+//! impl Render for App {
+//!     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+//!         div()
+//!             .bg(color(ColorRole::Background))
+//!             .child(Icon::carbon(CarbonIcon::Add))
+//!     }
+//! }
+//!
+//! fn main() {
+//!     gpui_kit::application().with_assets(u0ui::Assets::new()).run(|cx| {
+//!         gpui_kit::init(cx);
+//!         u0ui::init(cx);
+//!         gpui_kit::open_window(WindowOptions::default(), cx, |_, cx| cx.new(|_| App)).unwrap();
+//!     });
+//! }
+//! ```
 #![warn(missing_docs)]
 
+pub mod density;
 pub mod icons;
 pub mod motion;
 pub mod theme;
 pub mod tokens;
 pub mod typography;
 
+pub use density::Density;
 pub use icons::{Assets, CarbonIcon, Icon, IconSize};
 pub use theme::LayerLevel;
 pub use tokens::{CarbonTheme, ColorRole, TypeStyle};
 pub use typography::TypeStyled;
 
-/// Initialize u0ui after `gpui_kit::init`: registers IBM Plex, installs the
-/// theme and Kit bridge, maps Kit icons to Material Symbols Sharp.
+/// Everything a component or page usually needs.
+pub mod prelude {
+    pub use crate::density::{self, Density};
+    pub use crate::icons::{CarbonIcon, Icon, IconSize};
+    pub use crate::motion::{self, Curve, Motion, Speed};
+    pub use crate::theme::{self, LayerLevel, color};
+    pub use crate::tokens::{self, CarbonTheme, ColorRole, TypeStyle};
+    pub use crate::typography::TypeStyled as _;
+}
+
+/// Initialize u0ui. Call once after `gpui_kit::init(cx)` and before opening a
+/// window: registers the IBM Plex fonts, installs the active theme (White
+/// unless [`theme::ActiveTheme`] was set) and projects it into Kit's theme, and
+/// maps Kit's default icons to Material Symbols Sharp.
+///
+/// The application must also serve icon assets:
+/// `gpui_kit::application().with_assets(u0ui::Assets::new())`.
 pub fn init(cx: &mut gpui_kit::App) {
     typography::register_fonts(cx);
     theme::init(cx);
     icons::init(cx);
+    if cx.try_global::<density::ActiveDensity>().is_none() {
+        cx.set_global(density::ActiveDensity(density::current()));
+    }
 }
