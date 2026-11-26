@@ -14,7 +14,8 @@
 //!   (case-insensitive, trimmed; [`row_matches`]) and resets to page 1;
 //!   select-all toggles the filtered rows (deselects them if any is selected)
 //!   and is indeterminate while only some are; rows expand with a chevron.
-//!   The search text is Kit's `InputState` (editing, IME, clipboard).
+//!   The search text is Kit's `InputState` (editing, IME, clipboard); Escape
+//!   clears it, as Carbon `Search` does ([`search_state`]).
 //! - **Sort header** (`.cds--table-sort`): the whole `th` is a button,
 //!   `layer-accent`, hover and active `layer-selected-hover`, a 2px inset
 //!   `focus` outline; the unsorted `ArrowsVertical` icon shows only on hover or
@@ -797,6 +798,12 @@ fn batch_button(
         })
 }
 
+/// The toolbar search's text state: Kit's `InputState`, cleared by Escape as
+/// Carbon `Search` does (`onKeyDown`: Escape clears the input).
+pub fn search_state(window: &mut Window, cx: &mut gpui_kit::Context<InputState>) -> InputState {
+    InputState::new(window, cx).clean_on_escape()
+}
+
 #[allow(clippy::too_many_arguments)]
 /// The persistent toolbar search (`.cds--search.cds--toolbar-search-container-persistent`).
 fn toolbar_search(
@@ -953,9 +960,7 @@ impl RenderOnce for DataTable {
             page_size: prop_page_size,
             ..Default::default()
         });
-        let input = window.use_keyed_state((id.clone(), "search"), cx, |window, cx| {
-            InputState::new(window, cx)
-        });
+        let input = window.use_keyed_state((id.clone(), "search"), cx, search_state);
         let query: SharedString = if self.search {
             input.read(cx).value()
         } else {
