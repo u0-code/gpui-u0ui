@@ -541,6 +541,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("MessageScroller"),
         build: pages::message_scroller::build,
     },
+    PageDef {
+        id: "attachment",
+        title: "Attachment",
+        group: "Chat & AI",
+        description: readme!("Attachment"),
+        build: pages::attachment::build,
+    },
 ];
 
 /// Look a page up by id.

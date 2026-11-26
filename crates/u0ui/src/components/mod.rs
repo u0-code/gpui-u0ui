@@ -3,6 +3,7 @@
 pub mod accordion;
 pub mod alert_dialog;
 pub mod aspect_ratio;
+pub mod attachment;
 pub mod avatar;
 pub mod badge;
 pub mod breadcrumb;
@@ -71,6 +72,7 @@ pub mod typography;
 pub use accordion::{Accordion, AccordionAlign, AccordionItem, AccordionSize};
 pub use alert_dialog::AlertDialog;
 pub use aspect_ratio::AspectRatio;
+pub use attachment::{Attachment, AttachmentGroup, AttachmentState};
 pub use avatar::{Avatar, AvatarColor, AvatarFallback, AvatarGroup, AvatarSize};
 pub use badge::{Badge, BadgeSize, BadgeVariant, TagType};
 pub use breadcrumb::{Breadcrumb, BreadcrumbItem, BreadcrumbSize};
