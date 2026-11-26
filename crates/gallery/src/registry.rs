@@ -115,6 +115,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Button"),
         build: pages::button::build,
     },
+    PageDef {
+        id: "input",
+        title: "Input",
+        group: "Forms",
+        description: readme!("Input"),
+        build: pages::input::build,
+    },
 ];
 
 /// Look a page up by id.
