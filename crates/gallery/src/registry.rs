@@ -157,6 +157,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::label::build,
     },
     PageDef {
+        id: "checkbox",
+        title: "Checkbox",
+        group: "Forms",
+        description: readme!("Checkbox"),
+        build: pages::checkbox::build,
+    },
+    PageDef {
         id: "switch",
         title: "Switch",
         group: "Forms",

@@ -3,6 +3,7 @@
 pub mod alert_dialog;
 pub mod button;
 pub mod button_group;
+pub mod checkbox;
 pub mod dialog;
 pub mod drawer;
 pub mod floating;
@@ -22,6 +23,7 @@ pub use button::{Button, ButtonKind, ButtonSize, ButtonVariant};
 pub use button_group::{
     ButtonGroup, ButtonGroupOrientation, ButtonGroupSeparator, ButtonGroupText,
 };
+pub use checkbox::{Checkbox, CheckboxState};
 pub use dialog::{Dialog, DialogSize};
 pub use drawer::Drawer;
 pub use floating::Align;
