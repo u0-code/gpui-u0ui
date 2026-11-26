@@ -1,17 +1,103 @@
+//! u0ui Gallery: every component, live, in all four Carbon themes.
+//!
+//! ```text
+//! cargo run -p u0ui-gallery -- [--page <id>] [--theme <white|g10|g90|g100>]
+//! ```
+mod controls;
+mod pages;
+mod registry;
+mod shell;
+
 use gpui_kit::*;
+use u0ui::CarbonTheme;
 
-struct Gallery;
+const USAGE: &str =
+    "usage: gallery [--page <id>] [--theme <white|g10|g90|g100>] [--density <compact|comfortable>]";
 
-impl Render for Gallery {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div().size_full().child("u0ui gallery")
-    }
+/// Parsed command line.
+#[derive(Default)]
+struct Args {
+    page: Option<String>,
+    theme: Option<CarbonTheme>,
+    density: Option<u0ui::Density>,
 }
 
-fn main() {
-    gpui_kit::application().run(|cx| {
-        gpui_kit::init(cx);
-        gpui_kit::open_window(WindowOptions::default(), cx, |_, cx| cx.new(|_| Gallery))
-            .expect("failed to open window");
-    });
+fn parse_args() -> anyhow::Result<Args> {
+    let mut args = Args::default();
+    let mut it = std::env::args().skip(1);
+    while let Some(arg) = it.next() {
+        let mut value = |name: &str| {
+            it.next()
+                .ok_or_else(|| anyhow::anyhow!("{name} needs a value\n{USAGE}"))
+        };
+        match arg.as_str() {
+            "--page" => {
+                let id = value("--page")?;
+                if registry::find(&id).is_none() {
+                    let ids: Vec<_> = registry::PAGES.iter().map(|p| p.id).collect();
+                    anyhow::bail!("unknown page {id:?}; pages: {}", ids.join(", "));
+                }
+                args.page = Some(id);
+            }
+            "--theme" => {
+                let id = value("--theme")?;
+                args.theme = Some(
+                    CarbonTheme::from_id(&id)
+                        .ok_or_else(|| anyhow::anyhow!("unknown theme {id:?}\n{USAGE}"))?,
+                );
+            }
+            "--density" => {
+                let id = value("--density")?;
+                args.density = Some(
+                    u0ui::Density::ALL
+                        .into_iter()
+                        .find(|d| d.id() == id)
+                        .ok_or_else(|| anyhow::anyhow!("unknown density {id:?}\n{USAGE}"))?,
+                );
+            }
+            "--help" | "-h" => {
+                println!("{USAGE}");
+                std::process::exit(0);
+            }
+            other => anyhow::bail!("unexpected argument {other:?}\n{USAGE}"),
+        }
+    }
+    Ok(args)
+}
+
+fn main() -> anyhow::Result<()> {
+    let args = parse_args()?;
+    gpui_kit::application()
+        .with_assets(u0ui::Assets::new())
+        .run(move |cx: &mut App| {
+            gpui_kit::init(cx);
+            if let Some(theme) = args.theme {
+                cx.set_global(u0ui::theme::ActiveTheme(theme));
+            }
+            u0ui::init(cx);
+            if let Some(density) = args.density {
+                u0ui::density::set_density(cx, density);
+            }
+            let bounds = Bounds::centered(None, size(px(1280.), px(820.)), cx);
+            let options = WindowOptions {
+                window_bounds: Some(WindowBounds::Windowed(bounds)),
+                // `window-min-width` × `window-min-height`.
+                window_min_size: Some(size(
+                    u0ui::tokens::WINDOW_MIN_WIDTH.pixels(),
+                    u0ui::tokens::WINDOW_MIN_HEIGHT.pixels(),
+                )),
+                titlebar: Some(TitlebarOptions {
+                    title: Some("u0ui Gallery".into()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+            let page = args.page.clone();
+            gpui_kit::open_window(options, cx, move |window, cx| {
+                cx.new(|cx| shell::Gallery::new(page.as_deref(), window, cx))
+            })
+            .expect("failed to open the gallery window");
+            cx.activate(true);
+        });
+    Ok(())
 }
