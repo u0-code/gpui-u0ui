@@ -14,7 +14,8 @@
 //!   ring 1.5px outside the circle. Disabled `icon-disabled`/`text-disabled`;
 //!   read-only `icon-disabled` circle; invalid `support-error` circles plus the
 //!   error icon and message; warn the warning icon and message.
-//! - **Motion**: the dot scales in over fast-01.
+//! - **Motion**: none; the dot appears instantly (`.cds--radio-button__appearance`
+//!   has no `transition` in `bundle.css`).
 //!
 //! ```ignore
 //! RadioGroup::new("plan").legend("Plan").default_value("std")
@@ -23,7 +24,6 @@
 //! ```
 use super::form::{self, Validation, rem};
 use crate::{
-    motion::{self, Curve, Motion, Speed},
     theme::color,
     tokens::{ColorRole, TypeStyle},
     typography::TypeStyled as _,
@@ -34,9 +34,6 @@ use gpui_kit::{
     prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
-
-/// The dot's scale-in: fast-01 productive.
-pub const DOT_MOTION: Motion = Motion::new(Curve::ProductiveStandard, Speed::Fast01).spatial(true);
 
 /// `index.d.ts` `RadioGroupProps.orientation`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -372,13 +369,9 @@ impl RenderOnce for RadioGroup {
                     invalid: validation.is_invalid(),
                 });
                 let focused = focus[i].is_focused(window) && !item_disabled;
-                let dot = motion::animate(
-                    ((id.clone(), format!("dot-{i}")), "scale"),
-                    if checked { 0.5f32 } else { 0. },
-                    DOT_MOTION,
-                    window,
-                    cx,
-                );
+                // `.cds--radio-button:checked + … .cds--radio-button__appearance::before
+                // { transform: scale(0.5) }`, shown at once.
+                let dot = if checked { 0.5f32 } else { 0. };
                 let commit = commit.clone();
                 let value = item.value.clone();
                 let circle = div()

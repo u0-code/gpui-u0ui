@@ -11,7 +11,7 @@ use u0ui::prelude::*;
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
     cx.new(|_| RadioPage {
         orientation: 1,
-        value: "std".into(),
+        value: "lon".into(),
         disabled: false,
         readonly: false,
         invalid: false,
@@ -86,7 +86,7 @@ impl Render for RadioPage {
                 }
             })
             .item(RadioGroupItem::new("fra").label("Frankfurt"))
-            .item(RadioGroupItem::new("std").label("London"))
+            .item(RadioGroupItem::new("lon").label("London"))
             .item(RadioGroupItem::new("dal").label("Dallas"))
             .item(RadioGroupItem::new("syd").label("Sydney").disabled(true))
             .item(RadioGroupItem::new("tok").label("Tokyo"));
