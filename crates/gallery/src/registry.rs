@@ -317,6 +317,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Breadcrumb"),
         build: pages::breadcrumb::build,
     },
+    PageDef {
+        id: "pagination",
+        title: "Pagination",
+        group: "Navigation",
+        description: readme!("Pagination"),
+        build: pages::pagination::build,
+    },
 ];
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {
