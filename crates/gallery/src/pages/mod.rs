@@ -16,6 +16,7 @@ pub mod hover_card;
 pub mod icons;
 pub mod input;
 pub mod input_group;
+pub mod input_otp;
 pub mod label;
 pub mod layout;
 pub mod menubar;

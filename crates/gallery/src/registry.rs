@@ -192,6 +192,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::field::build,
     },
     PageDef {
+        id: "input-otp",
+        title: "InputOTP",
+        group: "Forms",
+        description: readme!("InputOTP"),
+        build: pages::input_otp::build,
+    },
+    PageDef {
         id: "switch",
         title: "Switch",
         group: "Forms",
