@@ -41,6 +41,7 @@ pub struct Collapsible {
     open: Option<bool>,
     default_open: bool,
     on_open_change: Option<OpenChange>,
+    trace: bool,
     children: Vec<AnyElement>,
 }
 
@@ -54,6 +55,7 @@ impl Collapsible {
             open: None,
             default_open: false,
             on_open_change: None,
+            trace: false,
             children: Vec::new(),
         }
     }
@@ -73,6 +75,18 @@ impl Collapsible {
     /// Called when the trigger toggles.
     pub fn on_open_change(mut self, f: impl Fn(bool, &mut Window, &mut App) + 'static) -> Self {
         self.on_open_change = Some(Rc::new(f));
+        self
+    }
+}
+
+impl Collapsible {
+    /// Restyle as a Trace disclosure (`.cu-trace .cu-collapsible-trigger
+    /// { min-height: 0; padding: 0; gap: spacing-02; font-size: 0.75rem; color:
+    /// link-primary }`, `.cu-trace .cu-collapsible-chev { fill: link-primary }`,
+    /// `.cu-trace .cu-collapsible-content { padding: spacing-03 0 0 }`). Used by
+    /// `TraceCollapsible`.
+    pub fn trace(mut self, trace: bool) -> Self {
+        self.trace = trace;
         self
     }
 }
@@ -121,7 +135,14 @@ impl RenderOnce for Collapsible {
             .use_keyed_state((id.clone(), "focus"), cx, |_, cx| cx.focus_handle())
             .read(cx)
             .clone();
-        let focused = focus.is_focused(window);
+        // `:focus-visible`: keyboard focus only.
+        let focused = focus.is_focused(window) && window.last_input_was_keyboard();
+        let trace = self.trace;
+        let (text, chevron) = if trace {
+            (color(ColorRole::LinkPrimary), color(ColorRole::LinkPrimary))
+        } else {
+            (color(ColorRole::TextPrimary), color(ColorRole::IconPrimary))
+        };
 
         let trigger = gpui_kit::base::Button::new((id.clone(), "trigger"))
             .track_focus(&focus)
@@ -130,13 +151,19 @@ impl RenderOnce for Collapsible {
             .flex()
             .flex_row()
             .items_center()
-            .gap(rem(8.))
-            .min_h(SIZE_MD.rems())
-            .pl(rem(8.))
-            .pr(rem(16.))
+            .map(|this| {
+                if trace {
+                    this.gap(rem(4.)).type_style(TypeStyle::Label01)
+                } else {
+                    this.gap(rem(8.))
+                        .min_h(SIZE_MD.rems())
+                        .pl(rem(8.))
+                        .pr(rem(16.))
+                        .type_style(TypeStyle::BodyCompact01)
+                }
+            })
             .bg(bg)
-            .text_color(color(ColorRole::TextPrimary))
-            .type_style(TypeStyle::BodyCompact01)
+            .text_color(text)
             .cursor(CursorStyle::PointingHand)
             .on_hover(move |hovered, _, cx| {
                 hover.update(cx, |h, cx| {
@@ -148,7 +175,7 @@ impl RenderOnce for Collapsible {
             .child(
                 Icon::carbon(CarbonIcon::ChevronRight)
                     .size(IconSize::S16)
-                    .color(color(ColorRole::IconPrimary))
+                    .color(chevron)
                     .rotate(gpui_kit::radians(rotation)),
             )
             .child(self.trigger.clone())
@@ -178,11 +205,11 @@ impl RenderOnce for Collapsible {
                 .content(
                     // `.cu-collapsible-content { padding: spacing-03 0 spacing-03 spacing-07 }`.
                     div()
+                        .w_full()
                         .flex()
                         .flex_col()
                         .pt(rem(8.))
-                        .pb(rem(8.))
-                        .pl(rem(32.))
+                        .when(!trace, |this| this.pb(rem(8.)).pl(rem(32.)))
                         .opacity(progress)
                         .children(self.children),
                 )
