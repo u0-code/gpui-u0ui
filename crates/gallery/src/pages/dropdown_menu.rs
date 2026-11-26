@@ -12,7 +12,7 @@ use u0ui::prelude::*;
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
     cx.new(|_| DropdownMenuPage {
         kind: 0,
-        size: 1,
+        size: 2,
         labeled: true,
         icons: false,
         disabled_item: true,

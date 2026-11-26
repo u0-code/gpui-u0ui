@@ -164,7 +164,8 @@ impl DropdownMenu {
         self
     }
 
-    /// Size (default `lg` with a label, `md` without).
+    /// Size (default `lg`, for both triggers: `index.jsx` `DropdownMenu({
+    /// size = 'lg' })` hands it to the overflow trigger too).
     pub fn size(mut self, size: DropdownMenuSize) -> Self {
         self.size = Some(size);
         self
@@ -215,11 +216,7 @@ impl RenderOnce for DropdownMenu {
         let open = openness.open;
         let set_open = openness.setter();
         let labeled = self.label.is_some();
-        let size = self.size.unwrap_or(if labeled {
-            DropdownMenuSize::Lg
-        } else {
-            DropdownMenuSize::Md
-        });
+        let size = self.size.unwrap_or_default();
         let trigger_bounds = window.use_keyed_state((id.clone(), "trigger-bounds"), cx, |_, _| {
             Bounds::<Pixels>::default()
         });
