@@ -240,6 +240,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("ContextMenu"),
         build: pages::context_menu::build,
     },
+    PageDef {
+        id: "menubar",
+        title: "Menubar",
+        group: "Navigation",
+        description: readme!("Menubar"),
+        build: pages::menubar::build,
+    },
 ];
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {

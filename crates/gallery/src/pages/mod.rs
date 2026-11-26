@@ -14,6 +14,7 @@ pub mod icons;
 pub mod input;
 pub mod label;
 pub mod layout;
+pub mod menubar;
 pub mod motion;
 pub mod popover;
 pub mod radio_group;
