@@ -4,6 +4,7 @@ pub mod alert_dialog;
 pub mod button;
 pub mod colors;
 pub mod dialog;
+pub mod drawer;
 pub mod icons;
 pub mod input;
 pub mod label;

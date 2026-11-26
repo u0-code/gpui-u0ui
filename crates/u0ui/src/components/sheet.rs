@@ -268,6 +268,11 @@ impl Sheet {
         self.handle = handle;
         self
     }
+
+    #[cfg(test)]
+    pub(crate) fn side_and_handle(&self) -> (SheetSide, bool) {
+        (self.side, self.handle)
+    }
 }
 
 impl ParentElement for Sheet {

@@ -24,7 +24,6 @@ pub fn text_field(
         .layer(level)
 }
 
-#[allow(dead_code)]
 /// A Carbon checkbox (`.cds--checkbox`): 16px box, 2px radius, 1px
 /// `icon-primary` border, filled `icon-primary` with a check when checked.
 pub fn checkbox(
@@ -62,7 +61,6 @@ pub fn checkbox(
         )
 }
 
-#[allow(dead_code)]
 trait WhenChecked {
     fn when_checked(self, checked: bool) -> Self;
 }

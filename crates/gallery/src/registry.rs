@@ -156,6 +156,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Sheet"),
         build: pages::sheet::build,
     },
+    PageDef {
+        id: "drawer",
+        title: "Drawer",
+        group: "Overlays",
+        description: readme!("Drawer"),
+        build: pages::drawer::build,
+    },
 ];
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {

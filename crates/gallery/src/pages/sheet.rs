@@ -75,7 +75,7 @@ impl Render for SheetPage {
                     .border_1()
                     .border_color(color(ColorRole::BorderSubtle01))
                     .child(
-                        div().p(tokens::SPACING_05).child(
+                        div().flex().p(tokens::SPACING_05).child(
                             Button::new("ref-sheet-reopen", "Open sheet")
                                 .variant(ButtonVariant::Tertiary)
                                 .size(ButtonSize::Sm)
@@ -198,7 +198,7 @@ impl Render for SheetPage {
                     .border_1()
                     .border_color(color(ColorRole::BorderSubtle01))
                     .child(
-                        div().p(tokens::SPACING_05).child(
+                        div().flex().p(tokens::SPACING_05).child(
                             Button::new("contained-open", "Open contained sheet")
                                 .variant(ButtonVariant::Tertiary)
                                 .size(ButtonSize::Sm)
