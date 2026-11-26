@@ -36,6 +36,7 @@ pub mod navigation_menu;
 pub mod pagination;
 pub mod popover;
 pub mod radio_group;
+pub mod scroll_area;
 pub mod select;
 pub mod separator;
 pub mod sheet;

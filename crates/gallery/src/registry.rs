@@ -415,6 +415,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Chart"),
         build: pages::chart::build,
     },
+    PageDef {
+        id: "scroll-area",
+        title: "ScrollArea",
+        group: "Layout",
+        description: readme!("ScrollArea"),
+        build: pages::scroll_area::build,
+    },
 ];
 
 /// Look a page up by id.
