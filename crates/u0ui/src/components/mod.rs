@@ -41,6 +41,7 @@ pub mod marker;
 pub mod menu;
 pub mod menubar;
 pub mod message;
+pub mod message_scroller;
 pub mod native_select;
 pub mod navigation_menu;
 pub mod overlay;
@@ -119,6 +120,7 @@ pub use menubar::Menubar;
 pub use message::{
     Message, MessageAvatar, MessageContent, MessageFooter, MessageGroup, MessageHeader,
 };
+pub use message_scroller::{MessageScroller, MessageScrollerItem};
 pub use native_select::NativeSelect;
 pub use navigation_menu::{NavItem, NavigationMenu};
 pub use pagination::{Pagination, PaginationNav, PaginationText};

@@ -40,6 +40,7 @@ pub mod layout;
 pub mod marker;
 pub mod menubar;
 pub mod message;
+pub mod message_scroller;
 pub mod motion;
 pub mod native_select;
 pub mod navigation_menu;

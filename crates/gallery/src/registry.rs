@@ -534,6 +534,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Typography"),
         build: pages::typeset::build,
     },
+    PageDef {
+        id: "message-scroller",
+        title: "MessageScroller",
+        group: "Chat & AI",
+        description: readme!("MessageScroller"),
+        build: pages::message_scroller::build,
+    },
 ];
 
 /// Look a page up by id.
