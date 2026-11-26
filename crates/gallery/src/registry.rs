@@ -374,6 +374,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::sidebar::build,
     },
     PageDef {
+        id: "aspect-ratio",
+        title: "AspectRatio",
+        group: "Data display",
+        description: readme!("AspectRatio"),
+        build: pages::aspect_ratio::build,
+    },
+    PageDef {
         id: "kbd",
         title: "Kbd",
         group: "Data display",
