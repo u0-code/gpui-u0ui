@@ -22,7 +22,9 @@
 //!   [`Button`] `secondary`, size `md`, icon-only, disabled at the ends.
 //! - **Motion**: `.cu-carousel-track { transition: transform 240ms
 //!   cubic-bezier(0.2,0,0.38,0.9) }` ([`SLIDE`], moderate-02 productive
-//!   standard). It is spatial, so reduced motion cuts to the slide.
+//!   standard). Under reduced motion the movement becomes a fade
+//!   ([`reduced_fade`]): the current slide fades out, then the new one fades
+//!   in, over the same 240ms, without moving.
 //! - **Vertical**: the reference stacks the track (`flex-direction: column`)
 //!   and translates it by `-i × 100%` of its own height, which in a browser
 //!   moves past every slide; here the viewport is one slide tall (the first
@@ -47,10 +49,37 @@ use gpui_kit::{
     ParentElement, Pixels, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
     Window, div, prelude::FluentBuilder as _, px, relative,
 };
-use std::rc::Rc;
+use std::{rc::Rc, time::Instant};
 
 /// `.cu-carousel-track { transition: transform 240ms cubic-bezier(0.2,0,0.38,0.9) }`.
 pub const SLIDE: Motion = Motion::new(Curve::ProductiveStandard, Speed::Moderate02).spatial(true);
+/// Under reduced motion, which slide shows and at what opacity `elapsed`
+/// seconds into a change: the old slide fades out over the first half of
+/// [`SLIDE`]'s 240ms, the new one fades in over the second (README: "movement
+/// becomes a fade"). `None` once the change is over.
+pub fn reduced_fade(elapsed: f32) -> Option<(bool, f32)> {
+    let duration = SLIDE.speed.duration().as_secs_f32();
+    if elapsed >= duration {
+        return None;
+    }
+    let half = duration / 2.;
+    let ease = |t: f32| SLIDE.curve.ease(t.clamp(0., 1.));
+    Some(if elapsed < half {
+        (true, 1. - ease(elapsed / half))
+    } else {
+        (false, ease((elapsed - half) / half))
+    })
+}
+
+/// A slide change being faded (reduced motion).
+#[derive(Clone, Copy, Default)]
+struct Fade {
+    /// The slide shown when no fade runs.
+    shown: usize,
+    /// The slide faded out, and when the change began.
+    from: Option<(usize, Instant)>,
+}
+
 /// `.cu-carousel-dot { height: 4px }`.
 pub const DOT_HEIGHT: f32 = 4.;
 /// `.cu-carousel-dot:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px }`.
@@ -299,6 +328,36 @@ impl RenderOnce for Carousel {
         });
         let vertical = self.orientation == CarouselOrientation::Vertical;
         let position = motion::animate((id.clone(), "slide"), index as f32, SLIDE, window, cx);
+        // Reduced motion: the slide does not move (the position cuts), it fades.
+        let fade = window.use_keyed_state((id.clone(), "fade"), cx, move |_, _| Fade {
+            shown: index,
+            from: None,
+        });
+        let reduced = motion::reduced_motion(cx);
+        let (position, track_opacity) = {
+            let now = Instant::now();
+            let f = *fade.read(cx);
+            let next = if f.shown != index {
+                Fade {
+                    shown: index,
+                    from: reduced.then_some((f.shown, now)),
+                }
+            } else {
+                f
+            };
+            if next.shown != f.shown || next.from.is_some() != f.from.is_some() {
+                fade.update(cx, |v, _| *v = next);
+            }
+            match next.from.and_then(|(from, at)| {
+                reduced_fade((now - at).as_secs_f32()).map(|step| (from, step))
+            }) {
+                Some((from, (show_from, opacity))) if reduced => {
+                    window.request_animation_frame();
+                    (if show_from { from as f32 } else { index as f32 }, opacity)
+                }
+                _ => (position, 1.),
+            }
+        };
         let slide_height =
             window.use_keyed_state((id.clone(), "slide-height"), cx, |_, _| None::<Pixels>);
         let measured = *slide_height.read(cx);
@@ -306,6 +365,7 @@ impl RenderOnce for Carousel {
         // `.cu-carousel-track`: the slides in a row (column), moved by whole slides.
         let track = div()
             .relative()
+            .opacity(track_opacity)
             .flex()
             .when(vertical, |this| this.flex_col())
             .map(|this| {
@@ -495,5 +555,16 @@ mod tests {
         assert_eq!(ends(0, 3), (true, false));
         assert_eq!(ends(2, 3), (false, true));
         assert_eq!(ends(1, 3), (false, false));
+    }
+
+    #[test]
+    fn reduced_motion_fades_instead_of_cutting() {
+        // Out, then in, over the same 240ms; no movement in between.
+        assert_eq!(reduced_fade(0.), Some((true, 1.)));
+        let (old, o) = reduced_fade(0.06).unwrap();
+        assert!(old && o > 0. && o < 1.);
+        let (old, o) = reduced_fade(0.18).unwrap();
+        assert!(!old && o > 0. && o < 1.);
+        assert_eq!(reduced_fade(0.24), None);
     }
 }
