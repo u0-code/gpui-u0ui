@@ -3,6 +3,7 @@
 pub mod accordion;
 pub mod alert_dialog;
 pub mod aspect_ratio;
+pub mod avatar;
 pub mod badge;
 pub mod breadcrumb;
 pub mod button;
@@ -54,6 +55,7 @@ pub mod tooltip;
 pub use accordion::{Accordion, AccordionAlign, AccordionItem, AccordionSize};
 pub use alert_dialog::AlertDialog;
 pub use aspect_ratio::AspectRatio;
+pub use avatar::{Avatar, AvatarColor, AvatarFallback, AvatarGroup, AvatarSize};
 pub use badge::{Badge, BadgeSize, BadgeVariant, TagType};
 pub use breadcrumb::{Breadcrumb, BreadcrumbItem, BreadcrumbSize};
 pub use button::{Button, ButtonKind, ButtonSize, ButtonVariant};

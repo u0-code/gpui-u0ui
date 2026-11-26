@@ -429,6 +429,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Resizable"),
         build: pages::resizable::build,
     },
+    PageDef {
+        id: "avatar",
+        title: "Avatar",
+        group: "Data display",
+        description: readme!("Avatar"),
+        build: pages::avatar::build,
+    },
 ];
 
 /// Look a page up by id.

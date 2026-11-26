@@ -1,0 +1,120 @@
+//! Data display › Avatar: the reference avatars (JD, AK lg, MR xl, a group
+//! with +3), a live avatar with every size and color, and the image paths
+//! (loaded image, broken image → fallback).
+use crate::controls;
+use gpui_kit::{
+    AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window, div,
+};
+use u0ui::components::avatar::{Avatar, AvatarColor, AvatarFallback, AvatarGroup, AvatarSize};
+use u0ui::prelude::*;
+
+/// Build the page.
+pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
+    cx.new(|_| AvatarPage {
+        size: 1,
+        color: 0,
+        image: 0,
+    })
+    .into()
+}
+
+struct AvatarPage {
+    size: usize,
+    color: usize,
+    image: usize,
+}
+
+const IMAGES: [&str; 3] = ["none", "image", "broken image"];
+
+fn fallback(text: &'static str, color: AvatarColor) -> Avatar {
+    Avatar::new().fallback(AvatarFallback::new(text).color(color))
+}
+
+impl Render for AvatarPage {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let entity = cx.entity();
+        // `components/Avatar/preview.html` (`cu-row`).
+        let reference = div()
+            .flex()
+            .flex_row()
+            .flex_wrap()
+            .items_center()
+            .gap(tokens::SPACING_05)
+            .child(fallback("JD", AvatarColor::Blue))
+            .child(fallback("AK", AvatarColor::Teal).size(AvatarSize::Lg))
+            .child(fallback("MR", AvatarColor::Purple).size(AvatarSize::Xl))
+            .child(
+                AvatarGroup::new()
+                    .avatar(fallback("LS", AvatarColor::Magenta))
+                    .avatar(fallback("TP", AvatarColor::Blue))
+                    .avatar(fallback("+3", AvatarColor::Gray)),
+            );
+
+        let size = AvatarSize::ALL[self.size];
+        let color = AvatarColor::ALL[self.color];
+        let mut live = fallback("JD", color).size(size);
+        match self.image {
+            // An image served by the app's asset source (a Material symbol).
+            1 => live = live.image(Icon::named("person").asset_path().to_string()),
+            2 => live = live.image("missing/avatar.png"),
+            _ => {}
+        }
+        let all = div()
+            .flex()
+            .flex_col()
+            .gap(tokens::SPACING_05)
+            .children(AvatarSize::ALL.map(|size| {
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap(tokens::SPACING_05)
+                    .children(AvatarColor::ALL.map(|c| fallback("JD", c).size(size)))
+            }));
+
+        let sizes = AvatarSize::ALL.map(|s| s.name());
+        let colors = AvatarColor::ALL.map(|c| c.name());
+        let config = div()
+            .flex()
+            .flex_col()
+            .gap(tokens::SPACING_06)
+            .child(controls::field(
+                "size",
+                controls::choices(
+                    "avatar-size",
+                    &sizes,
+                    self.size,
+                    controls::setter(&entity, |this: &mut AvatarPage, i| this.size = i),
+                ),
+            ))
+            .child(controls::field(
+                "AvatarFallback color",
+                controls::choices(
+                    "avatar-color",
+                    &colors,
+                    self.color,
+                    controls::setter(&entity, |this: &mut AvatarPage, i| this.color = i),
+                ),
+            ))
+            .child(controls::field(
+                "AvatarImage",
+                controls::choices(
+                    "avatar-image",
+                    &IMAGES,
+                    self.image,
+                    controls::setter(&entity, |this: &mut AvatarPage, i| this.image = i),
+                ),
+            ));
+
+        controls::page_body(
+            div()
+                .flex()
+                .flex_col()
+                .gap(tokens::SPACING_07)
+                .child(controls::block("Reference preview", reference))
+                .child(controls::block("Live", live))
+                .child(controls::block("Sizes × colors", all)),
+            Some(config.into_any_element()),
+        )
+    }
+}
