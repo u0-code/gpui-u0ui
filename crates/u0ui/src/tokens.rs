@@ -84,7 +84,7 @@ pub enum FontFamilyKey {
     Sans,
     /// IBM Plex Mono → PingFang SC → Noto Sans Mono CJK SC.
     Mono,
-    /// IBM Plex Serif (not bundled; falls back to the system serif).
+    /// IBM Plex Serif (bundled Light 300 and Regular 400: blockquotes).
     Serif,
     /// IBM Plex Sans Condensed (not bundled).
     SansCondensed,

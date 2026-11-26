@@ -1,10 +1,11 @@
 //! IBM Plex fonts and Carbon type styles.
 //!
 //! [`crate::init`] registers the bundled IBM Plex Sans (Light 300, Regular 400,
-//! SemiBold 600, Italic 400) and IBM Plex Mono (Regular 400, SemiBold 600), so
-//! nothing depends on what the machine has installed. Chinese/Japanese text falls
-//! back through `tokens.json`'s stack: PingFang SC → Hiragino Sans GB → Noto Sans
-//! CJK SC (mono: PingFang SC → Noto Sans Mono CJK SC).
+//! SemiBold 600, Italic 400), IBM Plex Mono (Regular 400, SemiBold 600) and IBM
+//! Plex Serif (Light 300, Regular 400; `.cu-typeset blockquote`), so nothing
+//! depends on what the machine has installed. Chinese/Japanese text falls back
+//! through `tokens.json`'s stack: PingFang SC → Hiragino Sans GB → Noto Sans CJK
+//! SC (mono: PingFang SC → Noto Sans Mono CJK SC).
 //!
 //! Apply a type style to any styled element:
 //!
@@ -47,6 +48,14 @@ pub const FONT_FILES: &[(&str, &[u8])] = &[
     (
         "IBMPlexMono-SemiBold.ttf",
         include_bytes!("../assets/fonts/IBMPlexMono-SemiBold.ttf"),
+    ),
+    (
+        "IBMPlexSerif-Light.ttf",
+        include_bytes!("../assets/fonts/IBMPlexSerif-Light.ttf"),
+    ),
+    (
+        "IBMPlexSerif-Regular.ttf",
+        include_bytes!("../assets/fonts/IBMPlexSerif-Regular.ttf"),
     ),
 ];
 
@@ -95,7 +104,7 @@ mod tests {
 
     #[test]
     fn fonts_are_bundled_and_stacks_fall_back_to_cjk() {
-        assert_eq!(FONT_FILES.len(), 6);
+        assert_eq!(FONT_FILES.len(), 8);
         for (name, bytes) in FONT_FILES {
             assert!(bytes.len() > 100_000, "{name}");
         }
@@ -103,5 +112,13 @@ mod tests {
         assert_eq!(sans.family.as_ref(), "IBM Plex Sans");
         assert_eq!(sans.weight, FontWeight(600.));
         assert!(sans.fallbacks.is_some());
+        // `.cu-typeset blockquote { font-family: var(--font-serif); font-weight: 300 }`.
+        let serif = font(FontFamilyKey::Serif, 300);
+        assert_eq!(serif.family.as_ref(), "IBM Plex Serif");
+        assert!(
+            FONT_FILES
+                .iter()
+                .any(|(n, _)| *n == "IBMPlexSerif-Light.ttf")
+        );
     }
 }

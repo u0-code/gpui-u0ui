@@ -18,9 +18,7 @@
 //!   opened with the system handler) and code (IBM Plex Mono on `layer-01`).
 //!   Deviations: GPUI text runs share one font size and have no padding, so
 //!   inline code is 16px (CSS: 14px) without its 4px side padding.
-//! - **Quote font**: the reference sets IBM Plex Serif; u0ui bundles only
-//!   Plex Sans and Mono, so quotes use the serif stack and fall back to the
-//!   system serif when Plex Serif is not installed.
+//! - **Quote font**: IBM Plex Serif Light (bundled), as the reference sets.
 use crate::{
     theme::color,
     tokens::{ColorRole, FontFamilyKey, TypeStyle},
