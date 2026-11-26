@@ -79,6 +79,114 @@ pub fn set_theme(cx: &mut App, theme: CarbonTheme) {
     cx.refresh_windows();
 }
 
+/// A region drawn in a fixed theme: Carbon's `<Theme theme="g100">` zone, e.g.
+/// the always-dark UI shell header.
+///
+/// `build` runs while the element lays out, with [`current`] and [`color`]
+/// answering for `theme`; the components it returns render (and prepaint and
+/// paint) in that theme too. Floating surfaces a component defers past the
+/// zone (menus, popovers) and Kit-drawn controls (which read Kit's theme)
+/// keep the active theme, so put only plain components in a zone.
+///
+/// ```ignore
+/// div().child(theme::zone(CarbonTheme::G100, |_, _| {
+///     NavigationMenu::new("header").brand("Gallery").into_any_element()
+/// }))
+/// ```
+pub fn zone(
+    theme: CarbonTheme,
+    build: impl FnOnce(&mut gpui_kit::Window, &mut App) -> gpui_kit::AnyElement + 'static,
+) -> ThemeZone {
+    ThemeZone {
+        theme,
+        build: Some(Box::new(build)),
+        child: None,
+    }
+}
+
+type ZoneBuild = Box<dyn FnOnce(&mut gpui_kit::Window, &mut App) -> gpui_kit::AnyElement>;
+
+/// The element made by [`zone`].
+pub struct ThemeZone {
+    theme: CarbonTheme,
+    build: Option<ZoneBuild>,
+    child: Option<gpui_kit::AnyElement>,
+}
+
+impl ThemeZone {
+    fn scoped<R>(theme: CarbonTheme, f: impl FnOnce() -> R) -> R {
+        let previous = ACTIVE.replace(theme);
+        let result = f();
+        ACTIVE.set(previous);
+        result
+    }
+}
+
+impl gpui_kit::Element for ThemeZone {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<gpui_kit::ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static core::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&gpui_kit::GlobalElementId>,
+        _: Option<&gpui_kit::InspectorElementId>,
+        window: &mut gpui_kit::Window,
+        cx: &mut App,
+    ) -> (gpui_kit::LayoutId, ()) {
+        let build = self.build.take();
+        let child = &mut self.child;
+        let id = Self::scoped(self.theme, || {
+            let mut element = match build {
+                Some(build) => build(window, cx),
+                None => gpui_kit::IntoElement::into_any_element(gpui_kit::Empty),
+            };
+            let id = element.request_layout(window, cx);
+            *child = Some(element);
+            id
+        });
+        (id, ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&gpui_kit::GlobalElementId>,
+        _: Option<&gpui_kit::InspectorElementId>,
+        _: gpui_kit::Bounds<gpui_kit::Pixels>,
+        _: &mut (),
+        window: &mut gpui_kit::Window,
+        cx: &mut App,
+    ) {
+        if let Some(child) = &mut self.child {
+            Self::scoped(self.theme, || {
+                child.prepaint(window, cx);
+            });
+        }
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&gpui_kit::GlobalElementId>,
+        _: Option<&gpui_kit::InspectorElementId>,
+        _: gpui_kit::Bounds<gpui_kit::Pixels>,
+        _: &mut (),
+        _: &mut (),
+        window: &mut gpui_kit::Window,
+        cx: &mut App,
+    ) {
+        if let Some(child) = &mut self.child {
+            Self::scoped(self.theme, || child.paint(window, cx));
+        }
+    }
+}
+
 /// Set the thread-local theme without a `cx` (unit tests of pure look functions).
 #[cfg(test)]
 pub(crate) fn tests_set(theme: CarbonTheme) {
@@ -414,6 +522,22 @@ fn sync_kit_theme(theme: CarbonTheme, cx: &mut App) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_zone_answers_for_its_theme_and_restores_the_active_one() {
+        tests_set(CarbonTheme::White);
+        let inside = ThemeZone::scoped(CarbonTheme::G100, || {
+            (current(), color(ColorRole::Background))
+        });
+        assert_eq!(
+            inside,
+            (
+                CarbonTheme::G100,
+                ColorRole::Background.in_theme(CarbonTheme::G100)
+            )
+        );
+        assert_eq!(current(), CarbonTheme::White);
+    }
 
     #[test]
     fn layer_levels_map_to_contextual_tokens() {
