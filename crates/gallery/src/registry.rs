@@ -394,6 +394,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Separator"),
         build: pages::separator::build,
     },
+    PageDef {
+        id: "badge",
+        title: "Badge",
+        group: "Data display",
+        description: readme!("Badge"),
+        build: pages::badge::build,
+    },
 ];
 
 /// Look a page up by id.
