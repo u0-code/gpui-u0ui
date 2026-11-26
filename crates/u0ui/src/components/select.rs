@@ -166,6 +166,7 @@ pub struct Select {
     disabled: bool,
     readonly: bool,
     level: LayerLevel,
+    native: bool,
     on_value_change: Option<ChangeHandler>,
 }
 
@@ -190,6 +191,7 @@ impl Select {
             disabled: false,
             readonly: false,
             level: LayerLevel::One,
+            native: false,
             on_value_change: None,
         }
     }
@@ -290,6 +292,13 @@ impl Select {
         self
     }
 
+    /// Draw the `.cds--select-input` field (no expanded state, static arrow)
+    /// for [`super::NativeSelect`].
+    pub(crate) fn native(mut self, native: bool) -> Self {
+        self.native = native;
+        self
+    }
+
     /// `onValueChange`.
     pub fn on_value_change(
         mut self,
@@ -368,7 +377,8 @@ impl RenderOnce for Select {
             self.level,
             TriggerState {
                 hovered: *hovered.read(cx),
-                open,
+                // `.cds--select-input` has no expanded state.
+                open: open && !self.native,
                 disabled: self.disabled,
                 readonly: self.readonly,
                 inline,
@@ -483,7 +493,7 @@ impl RenderOnce for Select {
                     .justify_center()
                     .child(list_box::chevron(
                         id.clone(),
-                        open,
+                        open && !self.native,
                         self.disabled || self.readonly,
                         window,
                         cx,

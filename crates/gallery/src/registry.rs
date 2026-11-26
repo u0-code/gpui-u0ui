@@ -185,6 +185,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::select::build,
     },
     PageDef {
+        id: "native-select",
+        title: "NativeSelect",
+        group: "Forms",
+        description: readme!("NativeSelect"),
+        build: pages::native_select::build,
+    },
+    PageDef {
         id: "input-group",
         title: "InputGroup",
         group: "Forms",

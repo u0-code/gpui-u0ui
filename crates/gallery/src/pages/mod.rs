@@ -23,6 +23,7 @@ pub mod label;
 pub mod layout;
 pub mod menubar;
 pub mod motion;
+pub mod native_select;
 pub mod pagination;
 pub mod popover;
 pub mod radio_group;
