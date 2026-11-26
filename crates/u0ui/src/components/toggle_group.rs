@@ -23,8 +23,6 @@
 use super::form::{self, rem};
 use super::toggle::{Toggle, ToggleSize, ToggleVariant, toggle_height};
 use crate::{
-    density::{self, Density},
-    motion::{self, Motion},
     theme::color,
     tokens::{self, ColorRole, TypeStyle},
     typography::TypeStyled as _,
@@ -180,6 +178,18 @@ impl SegmentLook {
     }
 }
 
+/// The track outline (`.cds--content-switcher { outline: 0.0625rem solid
+/// var(--border-inverse) }`), dimmed for the whole track when any segment is
+/// disabled (`:has(.cds--content-switcher-btn:disabled) { outline-color:
+/// var(--border-disabled) }`).
+pub fn track_outline(any_disabled: bool) -> Hsla {
+    color(if any_disabled {
+        ColorRole::BorderDisabled
+    } else {
+        ColorRole::BorderInverse
+    })
+}
+
 /// Whether the 1×16px divider before segment `index` shows
 /// (`.cds--content-switcher-btn::before`): hidden on the first segment and
 /// next to a selected, hovered or focused one
@@ -220,7 +230,6 @@ pub struct ToggleGroup {
     value: Option<Vec<SharedString>>,
     default_value: Option<Vec<SharedString>>,
     size: ToggleSize,
-    density: Option<Density>,
     items: Vec<ToggleGroupItem>,
     on_value_change: Option<ChangeHandler>,
 }
@@ -234,7 +243,6 @@ impl ToggleGroup {
             value: None,
             default_value: None,
             size: ToggleSize::Md,
-            density: None,
             items: Vec::new(),
             on_value_change: None,
         }
@@ -276,12 +284,6 @@ impl ToggleGroup {
         self
     }
 
-    /// Override the app density.
-    pub fn density(mut self, density: Density) -> Self {
-        self.density = Some(density);
-        self
-    }
-
     /// Append an option.
     pub fn item(mut self, item: ToggleGroupItem) -> Self {
         self.items.push(item);
@@ -298,7 +300,6 @@ struct Segments {
 impl RenderOnce for ToggleGroup {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
-        let density = self.density.unwrap_or_else(density::current);
         let default = self
             .default_value
             .clone()
@@ -347,7 +348,6 @@ impl RenderOnce for ToggleGroup {
                     let mut toggle = Toggle::new((id.clone(), item.value.clone()))
                         .variant(ToggleVariant::Outline)
                         .size(self.size)
-                        .density(density)
                         .disabled(item.disabled)
                         .pressed(on)
                         .on_pressed_change(move |pressed, window, cx| {
@@ -367,8 +367,9 @@ impl RenderOnce for ToggleGroup {
                 .into_any_element();
         }
 
-        // Single: Carbon content switcher.
-        let height = toggle_height(self.size, density);
+        // Single: Carbon content switcher, `block-size: var(--layout-size-height-local)`
+        // (32/40/48 by size; no density rule in the reference).
+        let height = toggle_height(self.size);
         let selected = self
             .items
             .iter()
@@ -387,6 +388,7 @@ impl RenderOnce for ToggleGroup {
             (s.hovered, s.focus.clone())
         };
         let disabled: Vec<bool> = self.items.iter().map(|i| i.disabled).collect();
+        let outline = track_outline(disabled.iter().any(|d| *d));
         let states: Vec<SegmentState> = (0..count)
             .map(|i| SegmentState {
                 selected: i == selected,
@@ -437,22 +439,9 @@ impl RenderOnce for ToggleGroup {
             .on_key_down(on_key)
             .children(self.items.into_iter().enumerate().map(|(i, item)| {
                 let state = states[i];
+                // No transition: `.cds--content-switcher-btn` has none in `bundle.css`.
                 let look = SegmentLook::of(state);
-                let motion = Motion::HOVER;
-                let bg = motion::animate_color(
-                    ((id.clone(), format!("seg-{i}")), "bg"),
-                    look.background,
-                    motion,
-                    window,
-                    cx,
-                );
-                let text = motion::animate_color(
-                    ((id.clone(), format!("seg-{i}")), "text"),
-                    look.text,
-                    motion,
-                    window,
-                    cx,
-                );
+                let (bg, text) = (look.background, look.text);
                 let first = i == 0;
                 let last = i + 1 == count;
                 let radius = tokens::BORDER_RADIUS_04;
@@ -474,7 +463,10 @@ impl RenderOnce for ToggleGroup {
                     .px(rem(pad_x))
                     .border_t_1()
                     .border_b_1()
-                    .border_color(look.border)
+                    // The track outline (`outline: 1px solid; outline-offset: -1px`) is
+                    // painted over each segment's own border edge, so the edge takes the
+                    // outline's color.
+                    .border_color(outline)
                     .when(first, |this| this.border_l_1().rounded_l(radius))
                     .when(last, |this| this.border_r_1().rounded_r(radius))
                     .type_style(TypeStyle::BodyCompact01)
@@ -548,9 +540,7 @@ impl RenderOnce for ToggleGroup {
                             .children(item.children),
                     )
             }))
-            // The track outline (`outline: 1px solid var(--border-inverse)`), drawn by
-            // each segment's borders; with any disabled segment the colors dim
-            // (`:has(.cds--content-switcher-btn:disabled) { outline-color: border-disabled }`).
+            // The track outline is drawn by each segment's borders (see above).
             .into_any_element()
     }
 }
@@ -599,6 +589,15 @@ mod tests {
         });
         assert_eq!(hex(disabled.background), "#c6c6c6");
         assert_eq!(hex(disabled.border), "#c6c6c6");
+    }
+
+    #[test]
+    fn track_outline_dims_when_any_segment_is_disabled() {
+        crate::theme::tests_set(CarbonTheme::White);
+        assert_eq!(hex(track_outline(false)), "#161616");
+        assert_eq!(hex(track_outline(true)), "#c6c6c6");
+        // `--layout-size-height-local`: 32/40/48 by size, whatever the density.
+        assert_eq!(ToggleSize::ALL.map(toggle_height), [32., 40., 48.]);
     }
 
     #[test]

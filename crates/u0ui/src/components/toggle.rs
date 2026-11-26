@@ -15,7 +15,6 @@
 //! ```
 use super::form::{self, rem};
 use crate::{
-    density::{self, Density},
     motion::{self, Curve, Motion, Speed},
     theme::color,
     tokens::{self, ColorRole, TypeStyle},
@@ -57,13 +56,11 @@ impl ToggleVariant {
 /// (`.cu-toggle--sm { height: var(--size-sm); min-width: var(--size-sm) }`).
 pub use super::form::FieldSize as ToggleSize;
 
-/// Toggle height under `density`: Carbon's 32/40/48, with md/lg shrinking to
-/// `density-field-md` in compact like a Carbon button.
-pub fn toggle_height(size: ToggleSize, density: Density) -> f32 {
-    match (density, size) {
-        (Density::Compact, ToggleSize::Md | ToggleSize::Lg) => tokens::DENSITY_FIELD_MD.px_value(),
-        _ => size.carbon_height(),
-    }
+/// Toggle height (and min width): Carbon's 32/40/48 in every density
+/// (`.cu-toggle { height: var(--size-md) }`, `--sm`/`--lg`); the reference's
+/// `[data-density="compact"]` rules (`src/ghost.css`) do not touch `.cu-toggle`.
+pub fn toggle_height(size: ToggleSize) -> f32 {
+    size.carbon_height()
 }
 
 /// The state a toggle look is computed for.
@@ -143,7 +140,6 @@ pub struct Toggle {
     default_pressed: bool,
     variant: ToggleVariant,
     size: ToggleSize,
-    density: Option<Density>,
     disabled: bool,
     aria_label: Option<SharedString>,
     children: Vec<AnyElement>,
@@ -159,7 +155,6 @@ impl Toggle {
             default_pressed: false,
             variant: ToggleVariant::Default,
             size: ToggleSize::Md,
-            density: None,
             disabled: false,
             aria_label: None,
             children: Vec::new(),
@@ -200,12 +195,6 @@ impl Toggle {
         self
     }
 
-    /// Override the app density.
-    pub fn density(mut self, density: Density) -> Self {
-        self.density = Some(density);
-        self
-    }
-
     /// Disabled.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
@@ -228,8 +217,7 @@ impl ParentElement for Toggle {
 impl RenderOnce for Toggle {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
-        let density = self.density.unwrap_or_else(density::current);
-        let height = toggle_height(self.size, density);
+        let height = toggle_height(self.size);
         let (pressed, store) = form::controlled(
             (id.clone(), "pressed"),
             self.pressed,
@@ -368,10 +356,9 @@ mod tests {
     }
 
     #[test]
-    fn heights_follow_size_tokens_and_density() {
-        let comfortable = ToggleSize::ALL.map(|s| toggle_height(s, Density::Comfortable));
-        assert_eq!(comfortable, [32., 40., 48.]);
-        let compact = ToggleSize::ALL.map(|s| toggle_height(s, Density::Compact));
-        assert_eq!(compact, [32., 32., 32.]);
+    fn heights_follow_size_tokens_in_every_density() {
+        // `.cu-toggle--sm/md/lg { height: var(--size-sm/md/lg) }`; no density rule.
+        let heights = ToggleSize::ALL.map(toggle_height);
+        assert_eq!(heights, [32., 40., 48.]);
     }
 }
