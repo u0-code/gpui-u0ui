@@ -7,6 +7,7 @@ pub mod checkbox;
 pub mod colors;
 pub mod dialog;
 pub mod drawer;
+pub mod hover_card;
 pub mod icons;
 pub mod input;
 pub mod label;

@@ -219,6 +219,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Popover"),
         build: pages::popover::build,
     },
+    PageDef {
+        id: "hover-card",
+        title: "HoverCard",
+        group: "Overlays",
+        description: readme!("HoverCard"),
+        build: pages::hover_card::build,
+    },
 ];
 /// Look a page up by id.
 pub fn find(id: &str) -> Option<usize> {
