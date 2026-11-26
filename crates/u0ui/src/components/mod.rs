@@ -36,6 +36,7 @@ pub mod label;
 pub mod list_box;
 pub mod menu;
 pub mod menubar;
+pub mod message;
 pub mod native_select;
 pub mod navigation_menu;
 pub mod overlay;
@@ -100,6 +101,9 @@ pub use kbd::{Kbd, KbdGroup};
 pub use label::Label;
 pub use menu::{MenuItem, MenuSize};
 pub use menubar::Menubar;
+pub use message::{
+    Message, MessageAvatar, MessageContent, MessageFooter, MessageGroup, MessageHeader,
+};
 pub use native_select::NativeSelect;
 pub use navigation_menu::{NavItem, NavigationMenu};
 pub use pagination::{Pagination, PaginationNav, PaginationText};
