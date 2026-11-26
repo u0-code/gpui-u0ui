@@ -9,8 +9,7 @@
 //!   `expanded`). [`SidebarProvider`] owns the open state (controlled or not)
 //!   and puts a [`SidebarTrigger`] (a ghost `md` icon button) at the top of
 //!   the inset.
-//! - **Appearance**: 16rem on `background` (`expanded(false)`: a 3rem icon
-//!   rail), items from 1rem down; links 2rem tall, `text-secondary` 14/20 with
+//! - **Appearance**: 16rem on `background`, items from 1rem down; links 2rem tall, `text-secondary` 14/20 with
 //!   a 16px `icon-secondary` icon 1.5rem before the text, hover
 //!   `background-hover` + `text-primary`, the current link
 //!   `background-selected` + 600 + a 3px `border-interactive` bar; menu
@@ -19,11 +18,19 @@
 //!   link; dividers 1px `border-subtle` with `0.5rem 1rem` margins; the
 //!   optional header (600, 1rem padding, bottom line) and footer (top line).
 //!   Focus: a 2px inset `focus` outline.
+//! - **`expanded(false)`**: the reference always renders Carbon's `SideNav`
+//!   with `isFixedNav` (and never `isRail`), so `expanded={false}` gets
+//!   `.cds--side-nav--collapsed { inline-size: 16rem; transform:
+//!   translateX(-16rem) }`: the nav keeps its 16rem slot in the row (a
+//!   transform does not change layout) and is moved out of it, leaving the
+//!   slot empty. There is no icon rail.
+//! - **Hidden by the trigger**: `.cu-sb--closed .cds--side-nav { display:
+//!   none }`, so the nav and its slot disappear and reappear at once.
 //! - **Motion**: colors 110ms; the menu chevron turns 180° in 110ms; a menu's
 //!   links show and hide at once (`.cds--side-nav__menu` has no height
-//!   transition); the nav's width animates over 110ms
-//!   `cubic-bezier(0.2, 0, 1, 0.9)` (`.cds--side-nav { transition: inline-size
-//!   0.11s }`) when it collapses to the rail or hides (reduced motion: a cut).
+//!   transition); toggling `expanded` slides the nav out of / into its slot
+//!   over 110ms `cubic-bezier(0.2, 0, 1, 0.9)` (`.cds--side-nav { transition:
+//!   …, transform 0.11s }`; reduced motion: a cut).
 use super::button::{Button, ButtonSize, ButtonVariant};
 use super::overlay::{self, Callback, OpenChange, rem};
 use crate::{
@@ -42,12 +49,12 @@ use std::rc::Rc;
 
 /// `transition: color 110ms, background-color 110ms` (CSS `ease` ≈ productive standard).
 pub const ITEM_MOTION: Motion = Motion::new(Curve::ProductiveStandard, Speed::Fast02);
-/// `.cds--side-nav { transition: inline-size 0.11s cubic-bezier(0.2, 0, 1, 0.9) }`.
-pub const WIDTH_MOTION: Motion = Motion::new(Curve::ProductiveExit, Speed::Fast02).spatial(true);
-/// `.cds--side-nav--expanded { inline-size: 16rem }`.
-pub const EXPANDED_WIDTH: f32 = 256.;
-/// `.cds--side-nav { inline-size: 3rem }` (the rail).
-pub const RAIL_WIDTH: f32 = 48.;
+/// `.cds--side-nav { transition: transform 0.11s cubic-bezier(0.2, 0, 1, 0.9) }`.
+pub const SLIDE_MOTION: Motion = Motion::new(Curve::ProductiveExit, Speed::Fast02).spatial(true);
+/// `.cds--side-nav--expanded, .cds--side-nav--collapsed { inline-size: 16rem }`.
+pub const WIDTH: f32 = 256.;
+/// `.cds--side-nav--collapsed { transform: translateX(-16rem) }`.
+pub const COLLAPSED_OFFSET: f32 = WIDTH;
 
 /// One side navigation entry (`index.d.ts` `NavItem`).
 #[derive(Clone)]
@@ -189,7 +196,8 @@ impl Sidebar {
         self
     }
 
-    /// Full width (default) or the 3rem icon rail.
+    /// Shown (default) or collapsed: moved out of its 16rem slot
+    /// (`.cds--side-nav--collapsed`; see the module docs).
     pub fn expanded(mut self, expanded: bool) -> Self {
         self.expanded = expanded;
         self
@@ -221,7 +229,6 @@ fn row(
     current: bool,
     heading: bool,
     indent: f32,
-    show_text: bool,
     trailing: Option<AnyElement>,
     on_click: Callback,
     window: &mut Window,
@@ -274,21 +281,19 @@ fn row(
             this.child(
                 div()
                     .flex_shrink_0()
-                    .when(show_text, |this| this.mr(rem(24.)))
+                    .mr(rem(24.))
                     .child(icon.size(IconSize::S16).color(icon_color)),
             )
         })
-        .when(show_text, |this| {
-            this.child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .overflow_hidden()
-                    .whitespace_nowrap()
-                    .text_ellipsis()
-                    .child(label),
-            )
-        })
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .overflow_hidden()
+                .whitespace_nowrap()
+                .text_ellipsis()
+                .child(label),
+        )
         .children(trailing)
         .when(current, |this| {
             // `::before { inline-size: 3px; background-color: var(--border-interactive) }`.
@@ -319,15 +324,24 @@ fn row(
 impl RenderOnce for Sidebar {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
-        let target = if !self.visible {
-            0.
-        } else if self.expanded {
-            EXPANDED_WIDTH
-        } else {
-            RAIL_WIDTH
-        };
-        let width = motion::animate((id.clone(), "width"), target, WIDTH_MOTION, window, cx);
-        let show_text = self.expanded;
+        let target = if self.expanded { 0. } else { COLLAPSED_OFFSET };
+        // Sampled even while hidden so a reveal never replays a stale slide.
+        let offset = motion::animate((id.clone(), "slide"), target, SLIDE_MOTION, window, cx);
+        // `.cds--side-nav` sits in a 16rem flex slot (`.cu-inline-sidenav { position:
+        // relative }`); `.cu-sb--closed .cds--side-nav { display: none }` drops it.
+        let slot = div()
+            .id(id.clone())
+            .flex_shrink_0()
+            .h_full()
+            .min_h(rem(320.));
+        if !self.visible {
+            return slot.into_any_element();
+        }
+        let slot = slot.relative().w(rem(WIDTH)).overflow_hidden();
+        if offset >= COLLAPSED_OFFSET {
+            // Fully out of the slot: nothing visible, nothing to focus.
+            return slot.into_any_element();
+        }
         let mut list = div()
             .id((id.clone(), "items"))
             .flex_1()
@@ -361,7 +375,6 @@ impl RenderOnce for Sidebar {
                     item.active,
                     false,
                     0.,
-                    show_text,
                     None,
                     Rc::new(move |window, cx| {
                         if let Some(f) = &on_click {
@@ -375,12 +388,12 @@ impl RenderOnce for Sidebar {
             }
             let default = item.expanded;
             let openness = overlay::openness(&item_id, None, default, None, window, cx);
-            let open = openness.open && show_text;
+            let open = openness.open;
             let set_open = openness.setter();
             let rotation = motion::chevron_rotation((item_id.clone(), "chevron"), open, window, cx);
             let child_active = item.items.iter().any(|i| i.active);
             let has_icon = item.icon.is_some();
-            let chevron = show_text.then(|| {
+            let chevron = Some(
                 div()
                     .flex_1()
                     .flex()
@@ -391,8 +404,8 @@ impl RenderOnce for Sidebar {
                             .color(color(ColorRole::IconSecondary))
                             .rotate(gpui_kit::radians(rotation)),
                     )
-                    .into_any_element()
-            });
+                    .into_any_element(),
+            );
             list = list.child(row(
                 (item_id.clone(), "heading").into(),
                 item.label.clone(),
@@ -401,7 +414,6 @@ impl RenderOnce for Sidebar {
                 (item.active || child_active) && !open,
                 true,
                 0.,
-                show_text,
                 chevron,
                 Rc::new(move |window, cx| set_open(!open, window, cx)),
                 window,
@@ -423,7 +435,6 @@ impl RenderOnce for Sidebar {
                         // `.cds--side-nav__menu .cds--side-nav__link { padding-inline-start: 2rem }`,
                         // 4.5rem under an icon.
                         if has_icon { 56. } else { 16. },
-                        true,
                         None,
                         Rc::new(move |window, cx| {
                             if let Some(f) = &on_click {
@@ -438,51 +449,48 @@ impl RenderOnce for Sidebar {
             }
         }
 
-        div()
-            .id(id.clone())
-            .flex_shrink_0()
-            .h_full()
-            .min_h(rem(320.))
-            .w(rem(width))
-            .overflow_hidden()
-            .bg(color(ColorRole::Background))
-            .border_r_1()
-            .border_color(if width > 0.5 {
-                color(ColorRole::BorderSubtle01)
-            } else {
-                Hsla::transparent_black()
-            })
-            .child(
-                div()
-                    .w(rem(target.max(width)))
-                    .h_full()
-                    .flex()
-                    .flex_col()
-                    .when_some(self.header.filter(|_| show_text), |this, header| {
-                        // `.cu-sidenav-header { padding: spacing-05; font-weight: 600; border-bottom }`.
-                        this.child(
-                            div()
-                                .flex_shrink_0()
-                                .p(rem(16.))
-                                .type_style(TypeStyle::HeadingCompact01)
-                                .text_color(color(ColorRole::TextPrimary))
-                                .border_b_1()
-                                .border_color(color(ColorRole::BorderSubtle01))
-                                .child(header),
-                        )
-                    })
-                    .child(list)
-                    .when_some(self.footer.filter(|_| show_text), |this, footer| {
-                        this.child(
-                            div()
-                                .flex_shrink_0()
-                                .p(rem(16.))
-                                .border_t_1()
-                                .border_color(color(ColorRole::BorderSubtle01))
-                                .child(footer),
-                        )
-                    }),
-            )
+        slot.child(
+            div()
+                .absolute()
+                .top_0()
+                .left(rem(-offset))
+                .w(rem(WIDTH))
+                .h_full()
+                .bg(color(ColorRole::Background))
+                .border_r_1()
+                .border_color(color(ColorRole::BorderSubtle01))
+                .child(
+                    div()
+                        .size_full()
+                        .flex()
+                        .flex_col()
+                        .when_some(self.header, |this, header| {
+                            // `.cu-sidenav-header { padding: spacing-05; font-weight: 600; border-bottom }`.
+                            this.child(
+                                div()
+                                    .flex_shrink_0()
+                                    .p(rem(16.))
+                                    .type_style(TypeStyle::HeadingCompact01)
+                                    .text_color(color(ColorRole::TextPrimary))
+                                    .border_b_1()
+                                    .border_color(color(ColorRole::BorderSubtle01))
+                                    .child(header),
+                            )
+                        })
+                        .child(list)
+                        .when_some(self.footer, |this, footer| {
+                            this.child(
+                                div()
+                                    .flex_shrink_0()
+                                    .p(rem(16.))
+                                    .border_t_1()
+                                    .border_color(color(ColorRole::BorderSubtle01))
+                                    .child(footer),
+                            )
+                        }),
+                ),
+        )
+        .into_any_element()
     }
 }
 
@@ -642,8 +650,8 @@ mod tests {
 
     #[test]
     fn widths_and_motion() {
-        assert_eq!((EXPANDED_WIDTH, RAIL_WIDTH), (256., 48.));
-        assert_eq!(WIDTH_MOTION.speed.millis(), 110);
-        assert_eq!(WIDTH_MOTION.curve.points(), (0.2, 0., 1., 0.9));
+        assert_eq!((WIDTH, COLLAPSED_OFFSET), (256., 256.));
+        assert_eq!(SLIDE_MOTION.speed.millis(), 110);
+        assert_eq!(SLIDE_MOTION.curve.points(), (0.2, 0., 1., 0.9));
     }
 }

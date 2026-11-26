@@ -150,7 +150,7 @@ impl Render for SidebarPage {
             .gap(tokens::SPACING_06)
             .child(controls::toggle(
                 "sb-expanded",
-                "expanded (off: rail)",
+                "expanded (off: collapsed out of its slot)",
                 self.expanded,
                 toggle(|this, on| this.expanded = on),
             ))
