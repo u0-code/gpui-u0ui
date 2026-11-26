@@ -484,6 +484,10 @@ struct LevelState {
     submenu: Option<usize>,
     /// Whether the open submenu should take keyboard focus.
     submenu_focus: bool,
+    /// Whether the open submenu should highlight its first item; the
+    /// submenu clears it once it has (its popup may first paint a frame
+    /// later than the request).
+    submenu_first: bool,
     typed: String,
     typed_at: Option<Instant>,
 }
@@ -542,6 +546,9 @@ pub(crate) struct Menu {
     min_width: Option<f32>,
     path: String,
     on_key: Option<KeyHook>,
+    /// A submenu opened from the keyboard highlights its first enabled item
+    /// (Carbon focuses it), then clears the request on its parent level.
+    focus_first: Option<Entity<LevelState>>,
 }
 
 impl Menu {
@@ -562,6 +569,7 @@ impl Menu {
             min_width: None,
             path: String::new(),
             on_key: None,
+            focus_first: None,
         }
     }
 
@@ -603,6 +611,7 @@ fn activate(
         Action::Submenu(_) => state.update(cx, |s, cx| {
             s.submenu = Some(index);
             s.submenu_focus = from_keyboard;
+            s.submenu_first = from_keyboard;
             cx.notify();
         }),
         Action::Select(on_select) => {
@@ -662,6 +671,14 @@ impl RenderOnce for Menu {
             Rc::new(rows)
         };
         let state = window.use_keyed_state((id.clone(), "level"), cx, |_, _| LevelState::default());
+        if let Some(parent) = &self.focus_first {
+            let first = step(&rows, None, 1);
+            state.update(cx, |s, _| {
+                s.active = first;
+                s.hovered = None;
+            });
+            parent.update(cx, |s, _| s.submenu_first = false);
+        }
         let sub_focus = window
             .use_keyed_state((id.clone(), "sub-focus"), cx, |_, cx| cx.focus_handle())
             .read(cx)
@@ -903,6 +920,7 @@ impl RenderOnce for Menu {
                                 // pointing at a submenu item opens it.
                                 s.submenu = is_submenu.then_some(index);
                                 s.submenu_focus = false;
+                                s.submenu_first = false;
                             } else if s.hovered == Some(index) {
                                 s.hovered = None;
                             }
@@ -946,6 +964,7 @@ impl RenderOnce for Menu {
                 .size(self.size)
                 .label(label.clone());
                 sub.parent = Some((self.focus.clone(), close_sub));
+                sub.focus_first = state.read(cx).submenu_first.then(|| state.clone());
                 sub.path = format!("{}{index}.", self.path);
                 let bounds = self.chain.bounds.clone();
                 let sub = div()
