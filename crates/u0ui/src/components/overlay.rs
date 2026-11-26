@@ -29,6 +29,15 @@ pub fn floating_shadow() -> Vec<BoxShadow> {
     vec![BoxShadow::new(px(0.), px(2.), color(ColorRole::Shadow)).blur_radius(px(6.))]
 }
 
+/// The popover's shadow, `.cds--popover--drop-shadow .cds--popover { filter:
+/// drop-shadow(0 0.125rem 0.125rem rgba(0, 0, 0, 0.2)) }` (Popover, HoverCard).
+/// A box shadow stands in for the filter, which GPUI lacks; the caret is
+/// left without one.
+pub fn popover_drop_shadow() -> Vec<BoxShadow> {
+    // The CSS hard-codes black at 20%; there is no token for it.
+    vec![BoxShadow::new(px(0.), px(2.), gpui_kit::hsla(0., 0., 0., 0.2)).blur_radius(px(2.))]
+}
+
 /// An open-change callback.
 pub type OpenChange = Rc<dyn Fn(bool, &mut Window, &mut App)>;
 
@@ -311,5 +320,10 @@ mod tests {
             (px(0.), px(2.), px(6.))
         );
         assert!(!shadow.inset);
+        let drop = &popover_drop_shadow()[0];
+        assert_eq!(
+            (drop.offset.y, drop.blur_radius, drop.color.a),
+            (px(2.), px(2.), 0.2)
+        );
     }
 }

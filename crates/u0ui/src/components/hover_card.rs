@@ -7,7 +7,7 @@
 //!   onto the card); Escape closes it. Kit's `component::hover_card` renders
 //!   its own rounded surface, so the surface is drawn here and positioned by
 //!   Base's `Popup` via [`super::floating`].
-//! - **Appearance**: the Popover's (`layer-01`, 2px radius, floating shadow,
+//! - **Appearance**: the Popover's (`layer-01`, 2px radius, the popover drop shadow,
 //!   `.cu-popover-content` padding), aligned `bottom-start` by default with a
 //!   4px gap (no caret).
 //!
@@ -135,7 +135,7 @@ impl RenderOnce for HoverCard {
                 .rounded(px(RADIUS))
                 .bg(look.background)
                 .text_color(look.text)
-                .shadow(overlay::floating_shadow())
+                .shadow(overlay::popover_drop_shadow())
                 .min_w(rem(CONTENT_MIN_WIDTH))
                 .max_w(rem(CONTENT_MAX_WIDTH))
                 .p(rem(16.))

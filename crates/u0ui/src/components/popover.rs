@@ -8,7 +8,8 @@
 //!   and cannot place Carbon's 12 alignments.
 //! - **Motion**: none; it shows and hides at once (see [`super::floating`]).
 //! - **Appearance**: `layer-01` surface, 2px radius
-//!   (`--popover-border-radius: 2px`), the floating shadow when `drop_shadow`,
+//!   (`--popover-border-radius: 2px`), Carbon's popover drop shadow
+//!   (`0 0.125rem 0.125rem rgba(0,0,0,.2)`) when `drop_shadow`,
 //!   a 12×6 caret and a 0.625rem offset when `caret`, content padded 1rem,
 //!   12–22rem wide, body-01.
 //!
@@ -165,7 +166,7 @@ impl RenderOnce for Popover {
                 .bg(look.background)
                 .text_color(look.text)
                 .when(self.drop_shadow, |this| {
-                    this.shadow(overlay::floating_shadow())
+                    this.shadow(overlay::popover_drop_shadow())
                 })
                 .min_w(rem(CONTENT_MIN_WIDTH))
                 .max_w(rem(CONTENT_MAX_WIDTH))
