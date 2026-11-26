@@ -57,13 +57,17 @@ pub const BUTTON_MAX_WIDTH: f32 = 196.;
 /// The separator before a button: `button-separator`, or for a disabled
 /// button `icon-on-color-disabled` side by side / `layer-selected-disabled`
 /// stacked (`.cds--btn-set .cds--btn.cds--btn--disabled`). The first button
-/// has none.
+/// has none, and it hides next to a focused button so the focus ring shows
+/// whole (`.cds--btn-set .cds--btn:not(:focus)`,
+/// `.cds--btn-set .cds--btn:focus + .cds--btn { box-shadow: inherit }`).
 pub fn separator_color(
     orientation: ButtonGroupOrientation,
     first: bool,
     disabled: bool,
+    focused: bool,
+    previous_focused: bool,
 ) -> Option<Hsla> {
-    if first {
+    if first || focused || previous_focused {
         return None;
     }
     Some(color(match (disabled, orientation) {
@@ -113,37 +117,74 @@ impl ButtonGroup {
 }
 
 impl RenderOnce for ButtonGroup {
-    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let orientation = self.orientation;
         let vertical = orientation == ButtonGroupOrientation::Vertical;
         let mut seen_button = false;
+        let mut previous_focused = false;
+        // The group hands each button the handle it reads, so both agree on
+        // focus whatever element-id scope the button renders in.
+        let mut focused = Vec::with_capacity(self.items.len());
+        let items: Vec<Item> = self
+            .items
+            .into_iter()
+            .map(|item| match item {
+                Item::Button(button) => {
+                    let handle = button.focus_handle(window, cx);
+                    focused.push(handle.is_focused(window));
+                    Item::Button(Box::new(button.track_focus(&handle)))
+                }
+                other => {
+                    focused.push(false);
+                    other
+                }
+            })
+            .collect();
         div()
             .flex()
             .when(vertical, |this| this.flex_col())
             .when(!vertical, |this| this.flex_row())
-            .children(self.items.into_iter().map(|item| match item {
-                Item::Button(button) => {
-                    let line = separator_color(orientation, !seen_button, button.is_disabled());
-                    seen_button = true;
-                    div()
-                        .relative()
-                        .min_w_0()
-                        .when(!vertical, |this| this.flex_1().max_w(rem(BUTTON_MAX_WIDTH)))
-                        .when(vertical, |this| this.w_full())
-                        .child(*button)
-                        .when_some(line, |this, line| {
-                            this.child(div().absolute().bg(line).map(|this| {
-                                if vertical {
-                                    this.top(px(-1.)).left_0().right_0().h(px(1.))
-                                } else {
-                                    this.left(px(-1.)).top_0().bottom_0().w(px(1.))
-                                }
-                            }))
-                        })
-                        .into_any_element()
-                }
-                Item::Other(element) => element,
-            }))
+            .children(
+                items
+                    .into_iter()
+                    .zip(focused)
+                    .map(|(item, focused)| match item {
+                        Item::Button(button) => {
+                            let line = separator_color(
+                                orientation,
+                                !seen_button,
+                                button.is_disabled(),
+                                focused,
+                                previous_focused,
+                            );
+                            seen_button = true;
+                            previous_focused = focused;
+                            div()
+                                .relative()
+                                .min_w_0()
+                                // `.cds--btn-set .cds--btn { inline-size: 100%; max-inline-size:
+                                // 12.25rem }` holds stacked too.
+                                .max_w(rem(BUTTON_MAX_WIDTH))
+                                .when(!vertical, |this| this.flex_1())
+                                .when(vertical, |this| this.w_full())
+                                .child(*button)
+                                .when_some(line, |this, line| {
+                                    this.child(div().absolute().bg(line).map(|this| {
+                                        if vertical {
+                                            this.top(px(-1.)).left_0().right_0().h(px(1.))
+                                        } else {
+                                            this.left(px(-1.)).top_0().bottom_0().w(px(1.))
+                                        }
+                                    }))
+                                })
+                                .into_any_element()
+                        }
+                        Item::Other(element) => {
+                            previous_focused = false;
+                            element
+                        }
+                    }),
+            )
     }
 }
 
@@ -215,15 +256,26 @@ mod tests {
         crate::theme::tests_set(CarbonTheme::White);
         let h = ButtonGroupOrientation::Horizontal;
         // `.cds--btn-set .cds--btn:first-of-type:not(:focus) { box-shadow: inherit }`.
-        assert_eq!(separator_color(h, true, false), None);
+        assert_eq!(separator_color(h, true, false, false, false), None);
         // `box-shadow: -0.0625rem 0 0 0 var(--button-separator, #e0e0e0)`.
         assert_eq!(
-            separator_color(h, false, false).map(hex).as_deref(),
+            separator_color(h, false, false, false, false)
+                .map(hex)
+                .as_deref(),
             Some("#e0e0e0")
+        );
+        // Hidden on a focused button and the one after it.
+        assert_eq!(separator_color(h, false, false, true, false), None);
+        assert_eq!(separator_color(h, false, false, false, true), None);
+        assert_eq!(
+            separator_color(ButtonGroupOrientation::Vertical, false, false, false, true),
+            None
         );
         // Disabled: `var(--icon-on-color-disabled, #8d8d8d)`.
         assert_eq!(
-            separator_color(h, false, true).map(hex).as_deref(),
+            separator_color(h, false, true, false, false)
+                .map(hex)
+                .as_deref(),
             Some("#8d8d8d")
         );
         assert_eq!(BUTTON_MAX_WIDTH, 12.25 * 16.);

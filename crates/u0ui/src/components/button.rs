@@ -587,6 +587,17 @@ impl Button {
         self
     }
 
+    /// The focus handle the button will track: the caller's
+    /// ([`Self::track_focus`]) or the one kept under its id.
+    pub fn focus_handle(&self, window: &mut Window, cx: &mut App) -> FocusHandle {
+        self.focus_handle.clone().unwrap_or_else(|| {
+            window
+                .use_keyed_state((self.id.clone(), "focus"), cx, |_, cx| cx.focus_handle())
+                .read(cx)
+                .clone()
+        })
+    }
+
     /// Whether the button is disabled.
     pub fn is_disabled(&self) -> bool {
         self.disabled
@@ -621,12 +632,7 @@ impl RenderOnce for Button {
         let id = self.id.clone();
         let pointer =
             window.use_keyed_state((id.clone(), "pointer"), cx, |_, _| Pointer::default());
-        let focus = self.focus_handle.clone().unwrap_or_else(|| {
-            window
-                .use_keyed_state((id.clone(), "focus"), cx, |_, cx| cx.focus_handle())
-                .read(cx)
-                .clone()
-        });
+        let focus = self.focus_handle(window, cx);
         let inert = self.disabled || self.loading;
         let state = {
             let p = pointer.read(cx);
