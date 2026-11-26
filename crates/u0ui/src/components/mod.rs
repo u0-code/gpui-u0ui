@@ -146,7 +146,7 @@ pub use skeleton::{Skeleton, SkeletonLength, SkeletonVariant};
 pub use slider::{Slider, SliderState};
 pub use spinner::{Spinner, SpinnerSize, SpinnerStatus};
 pub use switch::{Switch, SwitchSize};
-pub use tabs::{Tabs, TabsTrigger, TabsVariant};
+pub use tabs::{Tabs, TabsActivation, TabsTrigger, TabsVariant};
 pub use textarea::{Textarea, TextareaState};
 pub use toggle::{Toggle, ToggleVariant};
 pub use toggle_group::{ToggleGroup, ToggleGroupItem, ToggleGroupType};

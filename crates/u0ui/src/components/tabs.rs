@@ -3,8 +3,10 @@
 //!
 //! - **Behavior** is Kit's: [`gpui_kit::base::Tabs`] / [`gpui_kit::base::Tab`]
 //!   implement the ARIA tabs pattern (one tab stop, ←/→ and Home/End move
-//!   focus, Enter/Space activate, disabled tabs skipped). Selection follows
-//!   activation, controlled or not.
+//!   focus, Enter/Space activate, disabled tabs skipped). Activation is
+//!   automatic by default, as Carbon's `Tabs` (`activation="automatic"`):
+//!   ←/→/Home/End also select the tab they move to; [`TabsActivation::Manual`]
+//!   keeps Kit's focus-only arrows. Controlled or not.
 //! - **Appearance** ([`TabLook`]): `line` tabs are `size-md` tall with a 2px
 //!   bottom indicator (`border-subtle`, hover `border-strong`, selected
 //!   `border-interactive`), `text-secondary` labels that turn `text-primary`
@@ -64,6 +66,46 @@ impl TabsVariant {
             Self::Line => SIZE_MD.px_value(),
             Self::Contained => SIZE_LG.px_value(),
         }
+    }
+}
+
+/// Carbon `Tabs` `activation`: whether moving focus with the arrow keys
+/// selects the tab.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum TabsActivation {
+    /// Arrows, Home and End select the tab they move to (Carbon's default).
+    #[default]
+    Automatic,
+    /// Arrows only move focus; Enter or Space selects.
+    Manual,
+}
+
+impl TabsActivation {
+    /// Both modes.
+    pub const ALL: [TabsActivation; 2] = [Self::Automatic, Self::Manual];
+
+    /// Carbon's name.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Automatic => "automatic",
+            Self::Manual => "manual",
+        }
+    }
+}
+
+/// The tab an arrow/Home/End key moves to from `from` in automatic
+/// activation, skipping disabled tabs and wrapping (Kit's focus rule).
+pub fn automatic_target(key: &str, from: usize, disabled: &[bool]) -> Option<usize> {
+    let n = disabled.len();
+    let enabled = |i: &usize| !disabled[*i];
+    match key {
+        "home" => (0..n).find(enabled),
+        "end" => (0..n).rev().find(enabled),
+        "right" | "left" => {
+            let step = if key == "right" { 1 } else { n - 1 };
+            (1..n).map(|k| (from + k * step) % n).find(enabled)
+        }
+        _ => None,
     }
 }
 
@@ -186,6 +228,7 @@ pub struct Tabs {
     triggers: Vec<TabsTrigger>,
     contents: Vec<(SharedString, AnyElement)>,
     label: SharedString,
+    activation: TabsActivation,
 }
 
 impl Tabs {
@@ -201,6 +244,7 @@ impl Tabs {
             triggers: Vec::new(),
             contents: Vec::new(),
             label: SharedString::default(),
+            activation: TabsActivation::Automatic,
         }
     }
 
@@ -250,6 +294,12 @@ impl Tabs {
         self
     }
 
+    /// Automatic (default) or manual activation.
+    pub fn activation(mut self, activation: TabsActivation) -> Self {
+        self.activation = activation;
+        self
+    }
+
     /// The tab list's accessible name.
     pub fn label(mut self, label: impl Into<SharedString>) -> Self {
         self.label = label.into();
@@ -278,6 +328,44 @@ impl RenderOnce for Tabs {
                 |this| this.w_full(),
             );
         let count = self.triggers.len();
+        let selected_index = self.triggers.iter().position(|t| t.value == selected);
+        // Automatic activation: select where the arrow keys take focus. Kit
+        // moves focus in its own key handler; this runs in the capture phase
+        // with the same rule, from the selected tab (which has focus).
+        let automatic = (self.activation == TabsActivation::Automatic).then(|| {
+            let values: Vec<SharedString> = self.triggers.iter().map(|t| t.value.clone()).collect();
+            let disabled: Vec<bool> = self.triggers.iter().map(|t| t.disabled).collect();
+            let internal = internal.clone();
+            let on_change = self.on_value_change.clone();
+            move |event: &gpui_kit::KeyDownEvent, window: &mut Window, cx: &mut App| {
+                if event.keystroke.modifiers.modified() {
+                    return;
+                }
+                let Some(from) = selected_index else {
+                    return;
+                };
+                let rtl = gpui_kit::base::LayoutDirection::global(cx).is_rtl();
+                let key = match (event.keystroke.key.as_str(), rtl) {
+                    ("left", true) => "right",
+                    ("right", true) => "left",
+                    (key, _) => key,
+                };
+                let Some(to) = automatic_target(key, from, &disabled) else {
+                    return;
+                };
+                if to == from {
+                    return;
+                }
+                let value = values[to].clone();
+                internal.update(cx, |v, cx| {
+                    *v = value.clone();
+                    cx.notify();
+                });
+                if let Some(f) = &on_change {
+                    f(value, window, cx);
+                }
+            }
+        });
         for (index, trigger) in self.triggers.into_iter().enumerate() {
             let tab_id = ElementId::NamedChild(
                 std::sync::Arc::new(id.clone()),
@@ -402,7 +490,11 @@ impl RenderOnce for Tabs {
             .flex()
             .flex_col()
             .w_full()
-            .child(list)
+            .child(
+                div()
+                    .when_some(automatic, |this, on_key| this.capture_key_down(on_key))
+                    .child(list),
+            )
             .when_some(panel, |this, panel| {
                 this.child(
                     div()
@@ -421,6 +513,19 @@ impl RenderOnce for Tabs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn automatic_activation_moves_like_kit_focus() {
+        let disabled = [false, true, false, false];
+        assert_eq!(TabsActivation::default(), TabsActivation::Automatic);
+        assert_eq!(automatic_target("right", 0, &disabled), Some(2));
+        assert_eq!(automatic_target("right", 3, &disabled), Some(0));
+        assert_eq!(automatic_target("left", 0, &disabled), Some(3));
+        assert_eq!(automatic_target("left", 2, &disabled), Some(0));
+        assert_eq!(automatic_target("home", 3, &disabled), Some(0));
+        assert_eq!(automatic_target("end", 0, &disabled), Some(3));
+        assert_eq!(automatic_target("enter", 0, &disabled), None);
+    }
     use crate::tokens::CarbonTheme;
 
     fn hex(c: Hsla) -> String {

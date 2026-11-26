@@ -5,13 +5,14 @@ use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div,
 };
-use u0ui::components::{Tabs, TabsTrigger, TabsVariant};
+use u0ui::components::{Tabs, TabsActivation, TabsTrigger, TabsVariant};
 use u0ui::prelude::*;
 
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
     cx.new(|_| TabsPage {
         variant: 0,
+        activation: 0,
         full_width: false,
         disabled: true,
         icons: false,
@@ -22,6 +23,7 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
 
 struct TabsPage {
     variant: usize,
+    activation: usize,
     full_width: bool,
     disabled: bool,
     icons: bool,
@@ -80,11 +82,12 @@ impl Render for TabsPage {
             .flex_col()
             .gap(tokens::SPACING_05)
             .child(controls::section(
-                "Live: click, or Tab into the list then ← → Home End and Enter",
+                "Live: click, or Tab into the list then ← → Home End (and Enter when manual)",
             ))
             .child(
                 Tabs::new("live-tabs")
                     .variant(TabsVariant::ALL[self.variant])
+                    .activation(TabsActivation::ALL[self.activation])
                     .full_width(self.full_width)
                     .value(self.value.clone())
                     .on_value_change({
@@ -136,6 +139,23 @@ impl Render for TabsPage {
                         move |i, _, cx| {
                             entity.update(cx, |this, cx| {
                                 this.variant = i;
+                                cx.notify();
+                            })
+                        }
+                    },
+                ),
+            ))
+            .child(controls::field(
+                "activation",
+                controls::choices(
+                    "tabs-activation",
+                    &TabsActivation::ALL.map(|v| v.name()),
+                    self.activation,
+                    {
+                        let entity = entity.clone();
+                        move |i, _, cx| {
+                            entity.update(cx, |this, cx| {
+                                this.activation = i;
                                 cx.notify();
                             })
                         }
