@@ -23,7 +23,7 @@ struct ContextMenuPage {
 }
 
 /// The reference area: 200×180, dashed `border-strong-01` outline, centered
-/// `text-secondary` text. GPUI has no dashed border, so it is solid.
+/// `text-secondary` text.
 fn area(text: &'static str) -> impl IntoElement {
     div()
         .w(rems(200. / 16.))
@@ -32,6 +32,7 @@ fn area(text: &'static str) -> impl IntoElement {
         .items_center()
         .justify_center()
         .border_1()
+        .border_dashed()
         .border_color(color(ColorRole::BorderStrong01))
         .text_color(color(ColorRole::TextSecondary))
         .child(text)

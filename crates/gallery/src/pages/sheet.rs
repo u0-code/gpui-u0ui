@@ -111,7 +111,7 @@ impl Render for SheetPage {
                                 "ref-sheet-name",
                                 "Name",
                                 &self.name,
-                                LayerLevel::Two,
+                                LayerLevel::One,
                             )),
                     ),
             );
@@ -130,7 +130,7 @@ impl Render for SheetPage {
                 .side(side)
                 .title("Edit instance")
                 .show_close_button(self.close_button)
-                .child(stand_in::text_field(prefix, "Name", name, LayerLevel::Two));
+                .child(stand_in::text_field(prefix, "Name", name, LayerLevel::One));
             if self.description {
                 sheet = sheet.description("Changes apply after restart.");
             }

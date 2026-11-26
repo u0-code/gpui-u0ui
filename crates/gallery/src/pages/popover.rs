@@ -50,7 +50,9 @@ fn dimensions(id: &'static str, state: &Entity<InputState>) -> impl IntoElement 
             Input::new(id, state)
                 .label("Width")
                 .size(FieldSize::Sm)
-                .layer(LayerLevel::Two),
+                // `.cds--text-input` in a popover: `field-01` (the popover is not a
+                // `.cds--modal`, which would lift fields to `field-02`).
+                .layer(LayerLevel::One),
         )
 }
 
