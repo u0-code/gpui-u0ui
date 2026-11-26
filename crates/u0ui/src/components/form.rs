@@ -249,9 +249,30 @@ pub fn status_icon(validation: &Validation) -> Option<AnyElement> {
     }
 }
 
+/// A field's 1px bottom rule (`border-block-end: 1px solid var(--border-strong)`).
+pub const FIELD_RULE: f32 = 1.;
+
+/// The field's bottom rule, drawn as an absolutely positioned child along the
+/// bottom edge. The field reserves it with `.pb(px(FIELD_RULE))` instead of a
+/// GPUI border, and adds this child before its [`inset_outline`]: GPUI paints
+/// an element's own border above its children, so a real border would show
+/// through the 2px ring, while CSS paints `outline: 2px; outline-offset: -2px`
+/// over the border (`.cds--text-input:focus`, `.cu-ig:focus-within`). The
+/// parent must be `relative` and have no bottom border.
+pub fn bottom_rule(rule: Hsla) -> Div {
+    div()
+        .absolute()
+        .left_0()
+        .right_0()
+        .bottom_0()
+        .h(px(FIELD_RULE))
+        .bg(rule)
+}
+
 /// An inset outline (`outline: <width> solid <color>; outline-offset: -<width>`)
 /// drawn as an absolutely positioned border on top of its parent's content.
-/// The parent must be `relative`.
+/// The parent must be `relative`; it covers the whole border box only when the
+/// parent has no GPUI border (see [`bottom_rule`]).
 pub fn inset_outline(width: f32, outline: Hsla) -> Div {
     div()
         .absolute()

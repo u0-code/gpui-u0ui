@@ -424,8 +424,7 @@ impl RenderOnce for Input {
             .pl(rem(16.))
             .pr(rem(pad_end))
             .bg(background)
-            .border_b_1()
-            .border_color(look.border_bottom)
+            .pb(gpui_kit::px(form::FIELD_RULE))
             .type_style(TypeStyle::BodyCompact01)
             .text_color(look.text)
             .cursor(if self.disabled {
@@ -443,6 +442,7 @@ impl RenderOnce for Input {
             .children(placeholder)
             .children(icon)
             .children(toggle)
+            .child(form::bottom_rule(look.border_bottom))
             .child(form::inset_outline(2., outline));
 
         let label = self.label.clone().filter(|_| !self.hide_label);
