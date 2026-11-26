@@ -126,7 +126,11 @@ impl Render for SelectPage {
                 div()
                     .type_style(TypeStyle::Label01)
                     .text_color(color(ColorRole::TextSecondary))
-                    .child(SharedString::from(format!("value = {:?}", self.value))),
+                    // The reference's `value` is a string, "" when nothing is chosen.
+                    .child(SharedString::from(format!(
+                        "value = \"{}\"",
+                        self.value.as_deref().unwrap_or_default()
+                    ))),
             );
 
         let config = div()

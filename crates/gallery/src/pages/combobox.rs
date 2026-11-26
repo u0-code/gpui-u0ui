@@ -47,6 +47,19 @@ struct ComboboxPage {
 const FRAMEWORKS: [&str; 5] = ["React", "Angular", "Vue", "Svelte", "Web Components"];
 const TAGS: [&str; 5] = ["prod", "staging", "eu", "us", "pci"];
 
+/// The live readout: a single combobox's value is one string ("" when
+/// empty), a multiple one's an array.
+fn describe(multiple: bool, value: &[SharedString]) -> String {
+    if multiple {
+        format!("value = {value:?}")
+    } else {
+        format!(
+            "value = \"{}\"",
+            value.first().map(|v| v.as_ref()).unwrap_or_default()
+        )
+    }
+}
+
 impl Render for ComboboxPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let entity = cx.entity();
@@ -135,7 +148,7 @@ impl Render for ComboboxPage {
                 div()
                     .type_style(TypeStyle::Label01)
                     .text_color(color(ColorRole::TextSecondary))
-                    .child(SharedString::from(format!("value = {:?}", self.value))),
+                    .child(SharedString::from(describe(self.multiple, &self.value))),
             );
 
         let config = div()
@@ -197,5 +210,20 @@ impl Render for ComboboxPage {
             .hint("type to find, ↑/↓, Enter, Escape")
             .config(config)
             .example(reference)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn readout_matches_the_value_shape() {
+        assert_eq!(describe(false, &["Vue".into()]), "value = \"Vue\"");
+        assert_eq!(describe(false, &[]), "value = \"\"");
+        assert_eq!(
+            describe(true, &["prod".into(), "eu".into()]),
+            "value = [\"prod\", \"eu\"]"
+        );
     }
 }

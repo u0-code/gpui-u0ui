@@ -37,9 +37,14 @@ struct DatePickerPage {
     readonly: bool,
 }
 
-fn describe(selection: Selection) -> String {
+/// The live readout: one date for `single`/`simple`, both ends for `range`.
+fn describe(mode: DatePickerMode, selection: Selection) -> String {
     let f = |d: Option<CalendarDate>| d.map_or("—".to_string(), |d| d.format("m/d/Y"));
-    format!("start = {}, end = {}", f(selection.start), f(selection.end))
+    if mode == DatePickerMode::Range {
+        format!("start = {}, end = {}", f(selection.start), f(selection.end))
+    } else {
+        format!("value = {}", f(selection.start))
+    }
 }
 
 impl Render for DatePickerPage {
@@ -133,7 +138,7 @@ impl Render for DatePickerPage {
                 div()
                     .type_style(TypeStyle::Label01)
                     .text_color(color(ColorRole::TextSecondary))
-                    .child(SharedString::from(describe(self.value))),
+                    .child(SharedString::from(describe(mode, self.value))),
             );
 
         let config = div()
@@ -196,5 +201,28 @@ impl Render for DatePickerPage {
             .playground(live)
             .config(config)
             .example(reference)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn readout_shows_one_date_unless_range() {
+        let day = CalendarDate::new(2026, 11, 27);
+        let one = Selection {
+            start: Some(day),
+            end: None,
+        };
+        assert_eq!(describe(DatePickerMode::Single, one), "value = 11/27/2026");
+        assert_eq!(
+            describe(DatePickerMode::Single, Selection::default()),
+            "value = —"
+        );
+        assert_eq!(
+            describe(DatePickerMode::Range, one),
+            "start = 11/27/2026, end = —"
+        );
     }
 }
