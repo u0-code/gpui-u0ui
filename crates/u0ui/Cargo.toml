@@ -11,6 +11,8 @@ repository.workspace = true
 gpui-kit.workspace = true
 gpui-base.workspace = true
 gpui-material-symbols.workspace = true
+# "Today" in the local time zone (Calendar, DatePicker); already in the tree via GPUI.
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
 
 [dev-dependencies]
 # Headless UI tests (`#[gpui_kit::test]`, `gpui_kit::test`).

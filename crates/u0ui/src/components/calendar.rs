@@ -90,13 +90,17 @@ impl CalendarDate {
         Self { year, month, day }
     }
 
-    /// Today (UTC).
+    /// Today in the system's local time zone (flatpickr's `.today` is the
+    /// browser's local date, not UTC's).
     pub fn today() -> Self {
-        let secs = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0);
-        Self::from_days(secs.div_euclid(86_400))
+        Self::on(chrono::Local::now())
+    }
+
+    /// The date `now` falls on in its own time zone.
+    fn on<Tz: chrono::TimeZone>(now: chrono::DateTime<Tz>) -> Self {
+        use chrono::Datelike as _;
+        let date = now.date_naive();
+        Self::new(date.year(), date.month(), date.day())
     }
 
     /// Day of the week, 0 = Sunday.
@@ -921,6 +925,29 @@ mod tests {
             CalendarDate::new(2024, 2, 29)
         );
         assert_eq!(days_in_month(2100, 2), 28);
+    }
+
+    #[test]
+    fn today_is_the_local_date() {
+        use chrono::TimeZone as _;
+        // 20:00 UTC on Nov 26 is already Nov 27 at UTC+8 (and still Nov 26 at UTC-5).
+        let utc = chrono::Utc
+            .with_ymd_and_hms(2026, 11, 26, 20, 0, 0)
+            .unwrap();
+        let east = chrono::FixedOffset::east_opt(8 * 3600).unwrap();
+        let west = chrono::FixedOffset::west_opt(5 * 3600).unwrap();
+        assert_eq!(
+            CalendarDate::on(utc.with_timezone(&east)),
+            CalendarDate::new(2026, 11, 27)
+        );
+        assert_eq!(
+            CalendarDate::on(utc.with_timezone(&west)),
+            CalendarDate::new(2026, 11, 26)
+        );
+        assert_eq!(
+            CalendarDate::today(),
+            CalendarDate::on(chrono::Local::now())
+        );
     }
 
     #[test]
