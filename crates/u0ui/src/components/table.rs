@@ -15,9 +15,13 @@
 //!   first/last rows), size-dependent label paddings that can grow the header,
 //!   and arbitrary elements (tags, checkboxes) in cells. The tables here are
 //!   small, so rows are plain flex rows; nothing is virtualized.
-//! - **Columns**: HTML tables size columns from content; here every column is a
-//!   flex weight (default 1, equal widths) or a fixed width, set on its
-//!   [`TableHead`] ([`ColumnWidth`]).
+//! - **Columns** ([`ColumnWidth`], set on the [`TableHead`]): by default sized
+//!   from content like an HTML table's automatic layout. GPUI has no table
+//!   layout, so [`Table`] measures each auto column's widest cell (max-content
+//!   width, plus padding) while painting and lays the columns out in proportion
+//!   to those widths from the next frame on; content does not wrap. A column
+//!   can instead take a flex weight or a fixed width. Every row splits the
+//!   width identically ([`WEIGHT_BASIS`]), so header and body cells align.
 //! - **Density**: `[data-density="compact"] .cds--data-table tbody tr, … thead tr
 //!   { block-size: var(--density-row-md) }` (specificity 0,2,2) beats the size
 //!   classes (`.cds--data-table--xs tbody tr`, 0,1,2), so in compact density
@@ -40,9 +44,10 @@ use crate::{
 };
 use gpui_kit::{
     AnyElement, App, Div, ElementId, Hsla, InteractiveElement as _, IntoElement, ParentElement,
-    RenderOnce, SharedString, Stateful, StatefulInteractiveElement as _, Styled, Window, div,
-    prelude::FluentBuilder as _, px, rems,
+    RenderOnce, SharedString, Stateful, StatefulInteractiveElement as _, Styled, Window, canvas,
+    div, prelude::FluentBuilder as _, px, rems,
 };
+use std::{cell::RefCell, rc::Rc};
 
 /// `index.d.ts` `TableProps.size` (Carbon `size`, default `lg`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -279,6 +284,27 @@ pub enum ColumnWidth {
     Weight(f32),
     /// A fixed width in px at 100%.
     Fixed(f32),
+    /// Sized from content like an HTML table's automatic layout (the
+    /// [`TableHead`] default): [`Table`] measures each column's widest cell
+    /// and splits the width in proportion ([`auto_column_flex`]). Elsewhere
+    /// it behaves as `Weight(1.)`.
+    Auto,
+}
+
+/// The flex basis (px) of `Weight` columns: at least any cell's inline
+/// padding (16 + 16), so padding never changes a cell's hypothetical size
+/// and every row (header, body, footer) splits the free width identically,
+/// keeping columns aligned even when their cells' paddings differ.
+pub const WEIGHT_BASIS: f32 = 2. * CELL_PADDING_X;
+
+/// The flex `(basis px, grow)` of an auto column whose widest cell is
+/// `content` px wide (padding included): `basis = grow = content`, so the
+/// columns share the table width in proportion to their content (CSS 2.1
+/// §17.5.2.2 automatic layout gives each column its max-content width plus a
+/// share of the extra proportional to it), and shrink alike when it is short.
+pub fn auto_column_flex(content: f32) -> (f32, f32) {
+    let content = content.max(WEIGHT_BASIS);
+    (content, content)
 }
 
 impl Default for ColumnWidth {
@@ -308,9 +334,105 @@ pub(crate) fn cell_box(width: ColumnWidth, align: CellAlign) -> Div {
     cell_box_padded(width, align, CELL_PADDING_X, CELL_PADDING_X)
 }
 
+/// The max-content widths (px, padding included) of a [`Table`]'s auto
+/// columns: collected from every cell while painting a frame, adopted for the
+/// next layout.
+#[derive(Default)]
+struct ColumnMeasure {
+    settled: RefCell<Vec<f32>>,
+    frame: RefCell<Vec<f32>>,
+}
+
+impl ColumnMeasure {
+    fn get(&self, column: usize) -> Option<f32> {
+        self.settled
+            .borrow()
+            .get(column)
+            .copied()
+            .filter(|w| *w > 0.)
+    }
+
+    fn report(&self, column: usize, width: f32) {
+        let mut frame = self.frame.borrow_mut();
+        if frame.len() <= column {
+            frame.resize(column + 1, 0.);
+        }
+        frame[column] = frame[column].max(width);
+    }
+
+    /// Adopt this frame's widths; true when they changed.
+    fn finish(&self) -> bool {
+        let frame = std::mem::take(&mut *self.frame.borrow_mut());
+        let changed = widths_changed(&self.settled.borrow(), &frame);
+        if changed {
+            *self.settled.borrow_mut() = frame;
+        }
+        changed
+    }
+}
+
+/// Whether newly measured column widths differ from the settled ones by
+/// more than half a pixel (so subpixel jitter never relayouts).
+pub fn widths_changed(settled: &[f32], measured: &[f32]) -> bool {
+    settled.len() != measured.len()
+        || settled
+            .iter()
+            .zip(measured)
+            .any(|(a, b)| (a - b).abs() > 0.5)
+}
+
+/// An auto column's cell content at its max-content width (no wrapping),
+/// reporting that width plus the cell's 16px + 16px padding to `measure`.
+fn measured(content: AnyElement, column: usize, measure: Rc<ColumnMeasure>) -> Div {
+    div()
+        .relative()
+        .flex_none()
+        .whitespace_nowrap()
+        .child(content)
+        .child(
+            canvas(
+                move |bounds, _, _| {
+                    measure.report(column, f32::from(bounds.size.width) + 2. * CELL_PADDING_X)
+                },
+                |_, _, _, _| {},
+            )
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full(),
+        )
+}
+
 /// A cell box of `width` with explicit inline padding (start, end) in px.
 pub(crate) fn cell_box_padded(width: ColumnWidth, align: CellAlign, start: f32, end: f32) -> Div {
-    let d = div()
+    debug_assert!(start + end <= WEIGHT_BASIS);
+    let d = cell_div(align, start, end);
+    match width {
+        ColumnWidth::Fixed(w) => d.flex_none().w(rem(w)),
+        ColumnWidth::Weight(w) => flex_share(d, rem(WEIGHT_BASIS), w),
+        ColumnWidth::Auto => flex_share(d, rem(WEIGHT_BASIS), 1.),
+    }
+}
+
+/// A 16px-padded cell of an auto column whose widest cell is `content` px
+/// wide (`None` before the first measurement: an equal share).
+fn auto_cell_box(content: Option<f32>, align: CellAlign) -> Div {
+    match content {
+        Some(content) => {
+            // Measured in window pixels, so the basis is in px (not rem).
+            let (basis, grow) = auto_column_flex(content);
+            flex_share(
+                cell_div(align, CELL_PADDING_X, CELL_PADDING_X).overflow_hidden(),
+                px(basis),
+                grow,
+            )
+        }
+        None => cell_box(ColumnWidth::Auto, align),
+    }
+}
+
+fn cell_div(align: CellAlign, start: f32, end: f32) -> Div {
+    div()
         .flex()
         .flex_row()
         .min_w_0()
@@ -320,15 +442,16 @@ pub(crate) fn cell_box_padded(width: ColumnWidth, align: CellAlign, start: f32, 
             CellAlign::Start => d.justify_start(),
             CellAlign::Center => d.justify_center(),
             CellAlign::End => d.justify_end(),
-        });
-    match width {
-        ColumnWidth::Fixed(w) => d.flex_none().w(rem(w)),
-        ColumnWidth::Weight(w) => d.flex_basis(px(0.)).map(|mut d| {
-            d.style().flex_grow = Some(w);
-            d.style().flex_shrink = Some(1.);
-            d
-        }),
-    }
+        })
+}
+
+/// `flex: grow 1 basis`.
+fn flex_share(d: Div, basis: impl Into<gpui_kit::Length>, grow: f32) -> Div {
+    d.flex_basis(basis).map(|mut d| {
+        d.style().flex_grow = Some(grow);
+        d.style().flex_shrink = Some(1.);
+        d
+    })
 }
 
 /// The header row (`<thead><tr>`): `layer-accent` background,
@@ -506,12 +629,13 @@ impl TableHead {
     pub fn new(content: impl IntoElement) -> Self {
         Self {
             content: content.into_any_element(),
-            width: ColumnWidth::default(),
+            width: ColumnWidth::Auto,
             align: CellAlign::Start,
         }
     }
 
-    /// The column width (applies to the whole column).
+    /// The column width (applies to the whole column; default
+    /// [`ColumnWidth::Auto`], sized from content).
     pub fn width(mut self, width: ColumnWidth) -> Self {
         self.width = width;
         self
@@ -745,9 +869,27 @@ impl RenderOnce for Table {
         let hovered = window.use_keyed_state((self.id.clone(), "hover"), cx, |_, _| None::<usize>);
         let hovered_row = *hovered.read(cx);
 
-        // Column widths and alignments come from the first header row.
+        // Column widths and alignments come from the first header row; auto
+        // columns take the widths measured in the previous frame.
+        let measure = window
+            .use_keyed_state((self.id.clone(), "columns"), cx, |_, _| {
+                Rc::new(ColumnMeasure::default())
+            })
+            .read(cx)
+            .clone();
         let mut columns: Vec<(ColumnWidth, CellAlign)> = Vec::new();
         let mut table = div().flex().flex_col().w_full();
+        let cell = {
+            let measure = measure.clone();
+            move |i: usize, width: ColumnWidth, align: CellAlign, content: AnyElement| {
+                if width != ColumnWidth::Auto {
+                    return cell_box(width, align).child(content).into_any_element();
+                }
+                auto_cell_box(measure.get(i), align)
+                    .child(measured(content, i, measure.clone()))
+                    .into_any_element()
+            }
+        };
 
         if let Some(header) = self.header {
             for row in header.rows {
@@ -755,39 +897,45 @@ impl RenderOnce for Table {
                     .cells
                     .into_iter()
                     .enumerate()
-                    .map(|(i, cell)| {
-                        let (content, width, align) = match cell {
+                    .map(|(i, c)| {
+                        let (content, width, align) = match c {
                             Cell::Head(h) => (h.content, h.width, h.align),
-                            Cell::Data(d) => (
-                                d.content,
-                                ColumnWidth::default(),
-                                d.align.unwrap_or_default(),
-                            ),
+                            Cell::Data(d) => {
+                                (d.content, ColumnWidth::Auto, d.align.unwrap_or_default())
+                            }
                         };
                         if columns.len() <= i {
                             columns.push((width, align));
                         }
-                        cell_box(width, align)
-                            .child(header_label(geometry, content))
-                            .into_any_element()
+                        cell(
+                            i,
+                            width,
+                            align,
+                            header_label(geometry, content).into_any_element(),
+                        )
                     })
                     .collect();
                 table = table.child(header_row(geometry, level, cells));
             }
         }
-        let column = |i: usize| columns.get(i).copied().unwrap_or_default();
+        let column = |i: usize| {
+            columns
+                .get(i)
+                .copied()
+                .unwrap_or((ColumnWidth::Auto, CellAlign::Start))
+        };
 
         let place = |cells: Vec<Cell>| -> Vec<AnyElement> {
             cells
                 .into_iter()
                 .enumerate()
-                .map(|(i, cell)| {
+                .map(|(i, c)| {
                     let (width, col_align) = column(i);
-                    let (content, align) = match cell {
+                    let (content, align) = match c {
                         Cell::Head(h) => (h.content, h.align),
                         Cell::Data(d) => (d.content, d.align.unwrap_or(col_align)),
                     };
-                    cell_box(width, align).child(content).into_any_element()
+                    cell(i, width, align, content)
                 })
                 .collect()
         };
@@ -858,6 +1006,21 @@ impl RenderOnce for Table {
             }
         }
 
+        // Painted after every cell: adopt this frame's measurements and lay
+        // out again when they changed (content does not depend on the column
+        // widths, so this settles after one extra frame).
+        let table = table.child(
+            canvas(
+                move |_, window, _| {
+                    if measure.finish() {
+                        window.on_next_frame(|window, _| window.refresh());
+                    }
+                },
+                |_, _, _, _| {},
+            )
+            .w_full()
+            .h(px(0.)),
+        );
         let table = table.when_some(self.caption, |t, c| t.child(caption(c.text)));
         if self.title.is_some() || self.description.is_some() {
             container()
@@ -874,6 +1037,27 @@ impl RenderOnce for Table {
 mod tests {
     use super::*;
     use crate::tokens::CarbonTheme;
+
+    #[test]
+    fn columns_size_from_content_and_rows_align() {
+        // Auto layout: columns share the width in proportion to content.
+        assert_eq!(auto_column_flex(120.), (120., 120.));
+        assert_eq!(auto_column_flex(10.), (WEIGHT_BASIS, WEIGHT_BASIS));
+        assert_eq!(TableHead::new("Invoice").width, ColumnWidth::Auto);
+        // The weight basis covers every cell padding, so padding never
+        // changes how a row splits its width.
+        assert_eq!(WEIGHT_BASIS, 32.);
+        let m = ColumnMeasure::default();
+        m.report(0, 80.);
+        m.report(0, 120.);
+        m.report(1, 60.);
+        assert!(m.finish());
+        assert_eq!(m.get(0), Some(120.));
+        m.report(0, 120.2);
+        m.report(1, 60.);
+        assert!(!m.finish(), "subpixel jitter does not relayout");
+        assert!(widths_changed(&[120., 60.], &[120., 61.]));
+    }
 
     #[test]
     fn row_heights_follow_size_and_compact_wins() {
