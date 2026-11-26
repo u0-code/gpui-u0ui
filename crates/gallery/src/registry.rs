@@ -471,6 +471,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Progress"),
         build: pages::progress::build,
     },
+    PageDef {
+        id: "table",
+        title: "Table",
+        group: "Data display",
+        description: readme!("Table"),
+        build: pages::table::build,
+    },
 ];
 
 /// Look a page up by id.
