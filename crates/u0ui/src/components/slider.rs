@@ -17,12 +17,18 @@
 //!   an inner `layer` ring when focused; range labels `body-compact-01`; the
 //!   input is a 64px Carbon text field. Disabled: `border-disabled` track and
 //!   thumbs, `not-allowed`.
+//!   Range thumbs are Carbon's 16×24 lower/upper handle glyphs
+//!   (`.cds--slider__thumb-wrapper--lower/--upper`, `@carbon/react`
+//!   `LowerHandle`/`UpperHandle`): a wedge with a 0.92px bar on its inner edge,
+//!   the lower one left of its value and the upper one right of it, filled
+//!   `layer-selected-inverse` (hover `text-secondary`, disabled
+//!   `border-disabled`); focused, the hollow `*HandleFocus` glyph in
+//!   `interactive` over a 2px `background` strip that hides the track.
+//!   Pressing a thumb focuses it, so a drag leaves it focused for the arrows.
 //! - **Motion**: thumb size/color and fill color over 110ms productive
 //!   (`.cds--slider__thumb { transition: transform 110ms, background 110ms }`);
-//!   the size change is spatial.
-//!
-//! Deviation: range thumbs are drawn as the round thumb, not Carbon's 16×24
-//! lower/upper glyphs.
+//!   the size change is spatial. Range glyphs change at once
+//!   (`.cds--slider__thumb--lower, --upper { transition: none }`).
 //!
 //! ```ignore
 //! let memory = cx.new(|_| SliderState::new().min(0.).max(64.).default_value(24.));
@@ -110,6 +116,86 @@ impl ThumbLook {
             inner_ring: state.focused.then(|| color(level.layer())),
         }
     }
+}
+
+/// Range handle glyph box (`.cds--slider__thumb-wrapper--lower, --upper
+/// { block-size: 24px; inline-size: 16px }`).
+pub const HANDLE: (f32, f32) = (16., 24.);
+
+/// How a range handle is painted.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HandleLook {
+    /// The hollow focus glyph (`.cds--slider__thumb-icon--focus`) instead of
+    /// the filled one.
+    pub focus_glyph: bool,
+    /// Glyph fill.
+    pub fill: Hsla,
+}
+
+impl HandleLook {
+    /// The look of a range handle (`.cds--slider__thumb--lower/--upper` rules).
+    pub fn of(state: ThumbState) -> Self {
+        if state.disabled {
+            // `.cds--slider--disabled .cds--slider__thumb--lower .cds--slider__thumb-icon
+            // { fill: var(--border-disabled) }`.
+            return Self {
+                focus_glyph: false,
+                fill: color(ColorRole::BorderDisabled),
+            };
+        }
+        if state.focused {
+            // `:focus .cds--slider__thumb-icon--focus { display: block }`, `fill: interactive`.
+            return Self {
+                focus_glyph: true,
+                fill: color(ColorRole::Interactive),
+            };
+        }
+        Self {
+            focus_glyph: false,
+            // `:hover .cds--slider__thumb-icon { fill: var(--text-secondary) }`, else
+            // `.cds--slider__thumb-icon { fill: var(--layer-selected-inverse) }`.
+            fill: color(if state.hovered {
+                ColorRole::TextSecondary
+            } else {
+                ColorRole::LayerSelectedInverse
+            }),
+        }
+    }
+}
+
+/// The closed contours of a range handle glyph in its 16×24 box, filled
+/// even-odd (`@carbon/react` `SliderHandles`): the inner-edge bar
+/// (`M15.08 6.46H16v11.08h-.92z`), the wedge (`M0 .087 15.08 6.46v11.08L0
+/// 23.913V.087Z`) and, for the focus glyph, the wedge's hollow (`m1.5 2.26
+/// 12.08 5.105v9.096L1.5 21.652V2.347Z`). The upper handle mirrors the lower.
+pub fn handle_contours(upper: bool, focus: bool) -> Vec<Vec<(f32, f32)>> {
+    let mut contours = vec![
+        vec![(15.08, 6.46), (16., 6.46), (16., 17.54), (15.08, 17.54)],
+        vec![(0., 0.087), (15.08, 6.46), (15.08, 17.54), (0., 23.913)],
+    ];
+    if focus {
+        contours.push(vec![
+            (1.5, 2.347),
+            (13.58, 7.452),
+            (13.58, 16.548),
+            (1.5, 21.652),
+        ]);
+    }
+    if upper {
+        for contour in &mut contours {
+            for point in contour.iter_mut() {
+                point.0 = HANDLE.0 - point.0;
+            }
+        }
+    }
+    contours
+}
+
+/// A range handle's box: its left edge relative to the value point and its
+/// width (`--lower { transform: translate(-100%, -50%) }`, `--upper {
+/// translate(0, -50%) }`).
+pub fn handle_offset(upper: bool) -> f32 {
+    if upper { 0. } else { -HANDLE.0 }
 }
 
 /// The track colors: (rail, fill).
@@ -303,6 +389,16 @@ impl RenderOnce for Slider {
                     cx,
                 );
                 let key_state = state.clone();
+                let handle = HandleLook::of(ThumbState {
+                    hovered: pointer.read(cx).hovered,
+                    pressed: pointer.read(cx).pressed,
+                    focused: focus.is_focused(window),
+                    disabled: self.disabled,
+                });
+                let upper = range && !start;
+                let background = color(ColorRole::Background);
+                let press_focus = focus.clone();
+                let press_pointer = pointer.clone();
                 gpui_kit::base::SliderThumb::new(&state)
                     .start(start)
                     .disabled(self.disabled)
@@ -311,8 +407,30 @@ impl RenderOnce for Slider {
                     .top_0()
                     .bottom_0()
                     .left(relative(at))
-                    .ml(rem(-THUMB_ACTIVE / 2.))
-                    .w(rem(THUMB_ACTIVE))
+                    .map(|this| {
+                        if range {
+                            this.ml(rem(handle_offset(upper))).w(rem(HANDLE.0))
+                        } else {
+                            this.ml(rem(-THUMB_ACTIVE / 2.)).w(rem(THUMB_ACTIVE))
+                        }
+                    })
+                    // Kit's thumb stops the press from reaching the track, so it
+                    // takes focus here, in the capture phase: a drag that starts
+                    // on a thumb leaves it focused (`:focus`) for the arrow keys.
+                    .when(!self.disabled, |this| {
+                        this.capture_any_mouse_down(move |event, window, cx| {
+                            if event.button != MouseButton::Left {
+                                return;
+                            }
+                            press_focus.focus(window, cx);
+                            press_pointer.update(cx, |p, cx| {
+                                if !p.pressed {
+                                    p.pressed = true;
+                                    cx.notify();
+                                }
+                            });
+                        })
+                    })
                     .flex()
                     .items_center()
                     .justify_center()
@@ -338,24 +456,29 @@ impl RenderOnce for Slider {
                         });
                         cx.stop_propagation();
                     })
-                    .child(
-                        div()
-                            .size(rem(size))
-                            .rounded_full()
-                            .bg(thumb_fill)
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .when_some(look.inner_ring, |this, ring| {
-                                this.child(
-                                    div()
-                                        .size(rem(size - 4.))
-                                        .rounded_full()
-                                        .border_1()
-                                        .border_color(ring),
-                                )
-                            }),
-                    )
+                    .when(range, |this| {
+                        this.child(handle_glyph(upper, handle, background))
+                    })
+                    .when(!range, |this| {
+                        this.child(
+                            div()
+                                .size(rem(size))
+                                .rounded_full()
+                                .bg(thumb_fill)
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .when_some(look.inner_ring, |this, ring| {
+                                    this.child(
+                                        div()
+                                            .size(rem(size - 4.))
+                                            .rounded_full()
+                                            .border_1()
+                                            .border_color(ring),
+                                    )
+                                }),
+                        )
+                    })
             })
             .collect();
 
@@ -427,11 +550,18 @@ impl RenderOnce for Slider {
                 let b = s.bounds();
                 let pct = s.percentage();
                 let at = if range && k == 0 { pct.start } else { pct.end };
-                let cx_px = f32::from(b.origin.x) + at * f32::from(b.size.width);
+                let x = f32::from(b.origin.x) + at * f32::from(b.size.width);
                 let cy_px = f32::from(b.origin.y) + f32::from(b.size.height) / 2.;
-                let r = THUMB_ACTIVE / 2.;
-                (f32::from(position.x) - cx_px).abs() <= r
-                    && (f32::from(position.y) - cy_px).abs() <= r
+                let px_x = f32::from(position.x);
+                let dy = (f32::from(position.y) - cy_px).abs();
+                if range {
+                    // The 16×24 handle box beside its value point.
+                    let left = x + handle_offset(k == 1);
+                    (left..=left + HANDLE.0).contains(&px_x) && dy <= HANDLE.1 / 2.
+                } else {
+                    let r = THUMB_ACTIVE / 2.;
+                    (px_x - x).abs() <= r && dy <= r
+                }
             }
         };
         let set_pointer = {
@@ -527,12 +657,7 @@ impl RenderOnce for Slider {
                 .h(rem(field_height))
                 .px(rem(16.))
                 .bg(look.background)
-                .border_b_1()
-                .border_color(if self.disabled {
-                    Hsla::transparent_black()
-                } else {
-                    look.border_bottom
-                })
+                .pb(px(form::FIELD_RULE))
                 .capture_action(move |action: &Enter, window, cx| {
                     if !action.secondary {
                         commit_input(&commit_state, &commit_editor, is_start, range, window, cx);
@@ -550,6 +675,11 @@ impl RenderOnce for Slider {
                         .line_height(rem(18.))
                         .text_color(look.text),
                 )
+                .child(form::bottom_rule(if self.disabled {
+                    Hsla::transparent_black()
+                } else {
+                    look.border_bottom
+                }))
                 .when(focused, |this| {
                     this.child(form::inset_outline(2., color(ColorRole::Focus)))
                 })
@@ -582,6 +712,49 @@ impl RenderOnce for Slider {
             });
         form::labeled(self.label.as_ref(), self.disabled, container, None)
     }
+}
+
+/// A range handle glyph (16×24), centered in its thumb's hit area.
+fn handle_glyph(upper: bool, look: HandleLook, background: Hsla) -> impl IntoElement {
+    gpui_kit::canvas(
+        |_, _, _| (),
+        move |bounds, _, window, _| {
+            let scale = f32::from(bounds.size.width) / HANDLE.0;
+            let at = |(x, y): (f32, f32)| {
+                gpui_kit::point(
+                    bounds.origin.x + px(x * scale),
+                    bounds.origin.y + px(y * scale),
+                )
+            };
+            if look.focus_glyph {
+                // `:focus::before { inline-size: 100%; block-size: 0.125rem; background:
+                // var(--background); inset-block-start: calc(50% - 0.0625rem) }`.
+                window.paint_quad(gpui_kit::fill(
+                    gpui_kit::Bounds::new(
+                        at((0., HANDLE.1 / 2. - 1.)),
+                        gpui_kit::size(px(HANDLE.0 * scale), px(2. * scale)),
+                    ),
+                    background,
+                ));
+            }
+            let mut path = gpui_kit::PathBuilder::fill();
+            for contour in handle_contours(upper, look.focus_glyph) {
+                let mut points = contour.into_iter();
+                if let Some(first) = points.next() {
+                    path.move_to(at(first));
+                    for p in points {
+                        path.line_to(at(p));
+                    }
+                    path.close();
+                }
+            }
+            if let Ok(path) = path.build() {
+                window.paint_path(path, look.fill);
+            }
+        },
+    )
+    .w(rem(HANDLE.0))
+    .h(rem(HANDLE.1))
 }
 
 /// Parse an input's text and move the matching thumb.
@@ -660,6 +833,61 @@ mod tests {
         let (rail, fill) = track_colors(false, false);
         assert_eq!((hex(rail), hex(fill)), ("#c6c6c6".into(), "#161616".into()));
         assert_eq!(hex(track_colors(true, false).1), "#0f62fe");
+    }
+
+    #[test]
+    fn range_handles_follow_thumb_wrapper_css() {
+        crate::theme::tests_set(CarbonTheme::White);
+        let rest = HandleLook::of(ThumbState::default());
+        assert_eq!(
+            (rest.focus_glyph, hex(rest.fill)),
+            (false, "#161616".into())
+        );
+        let hover = HandleLook::of(ThumbState {
+            hovered: true,
+            ..Default::default()
+        });
+        assert_eq!(hex(hover.fill), "#525252");
+        let focus = HandleLook::of(ThumbState {
+            focused: true,
+            hovered: true,
+            ..Default::default()
+        });
+        assert_eq!(
+            (focus.focus_glyph, hex(focus.fill)),
+            (true, "#0f62fe".into())
+        );
+        let disabled = HandleLook::of(ThumbState {
+            disabled: true,
+            focused: true,
+            ..Default::default()
+        });
+        assert_eq!(
+            (disabled.focus_glyph, hex(disabled.fill)),
+            (false, "#c6c6c6".into())
+        );
+        // Lower sits left of its value, upper right of it.
+        assert_eq!(handle_offset(false), -16.);
+        assert_eq!(handle_offset(true), 0.);
+    }
+
+    #[test]
+    fn handle_glyphs_mirror_and_hollow_on_focus() {
+        let lower = handle_contours(false, false);
+        let upper = handle_contours(true, false);
+        assert_eq!(lower.len(), 2);
+        assert_eq!(handle_contours(false, true).len(), 3);
+        // The bar is on the inner edge: right for lower, left for upper.
+        assert!(lower[0].iter().all(|p| p.0 >= 15.));
+        assert!(upper[0].iter().all(|p| p.0 <= 1.));
+        for (a, b) in lower.iter().flatten().zip(upper.iter().flatten()) {
+            assert!((a.0 + b.0 - 16.).abs() < 1e-4);
+            assert_eq!(a.1, b.1);
+        }
+        // Everything fits the 16×24 box.
+        for (x, y) in handle_contours(true, true).into_iter().flatten() {
+            assert!((0. ..=16.).contains(&x) && (0. ..=24.).contains(&y));
+        }
     }
 
     #[test]
