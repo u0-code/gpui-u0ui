@@ -610,7 +610,7 @@ impl RenderOnce for Slider {
         let track = div()
             .id((id.clone(), "track"))
             .flex_1()
-            .min_w_0()
+            .min_w(rem(200.))
             .flex()
             .on_hover({
                 let set_pointer = set_pointer.clone();
@@ -622,13 +622,20 @@ impl RenderOnce for Slider {
             })
             .child(track);
 
+        // The slider is the row's only flexible item and holds the
+        // `.cds--slider` inline-size bounds, so in a narrow row it shrinks
+        // to 12.5rem and then the row overflows at its end rather than the
+        // track running under the range labels.
+        // `.cds--slider-container--two-handles .cds--slider { margin-inline: 0.25rem }`.
         let slider = gpui_kit::base::Slider::new(&state)
             .disabled(self.disabled)
             .when_some(self.label.clone(), |this, label| {
                 this.accessibility_label(label)
             })
             .flex_1()
-            .min_w_0()
+            .min_w(rem(200.))
+            .max_w(rem(640.))
+            .when(range, |this| this.mx(rem(4.)))
             .flex()
             .child(track);
 
