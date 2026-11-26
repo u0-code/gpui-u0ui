@@ -21,28 +21,45 @@ mod kit_mapping;
 
 include!("generated/carbon_icons.rs");
 
-/// Reference glyphs that are custom SVG paths in the reference bundle (not in
-/// the Material catalog), drawn with the nearest catalog symbol instead.
-const SUBSTITUTES: &[(&str, &str)] = &[
-    // A dashed circle (Carbon `CircleDash`).
-    ("dash", "radio_button_unchecked"),
-    // Carbon's pull-request glyph.
-    ("pull_request", "merge"),
-];
+/// Asset path prefix of the reference's custom glyphs ([`CUSTOM_GLYPHS`]),
+/// served by [`Assets`] as inline SVG.
+const GLYPH_PREFIX: &str = "u0ui/glyphs/";
+
+/// The SVG document of a custom glyph: the bundle's `draw()` (`viewBox
+/// "0 -960 960 960"`, one filled path), so it draws like the Material icons.
+fn glyph_svg(name: &str) -> Option<String> {
+    CUSTOM_GLYPHS
+        .iter()
+        .find(|(key, _)| *key == name)
+        .map(|(_, d)| {
+            format!(
+                "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 -960 960 960\" \
+             width=\"24\" height=\"24\"><path d=\"{d}\"/></svg>"
+            )
+        })
+}
 
 impl CarbonIcon {
-    /// The Material symbol name this Carbon name draws.
+    /// The Material symbol name this Carbon name draws (or, for a custom
+    /// glyph such as `CircleDash`, the bundle's path key, e.g. `"dash"`).
     pub fn material_name(self) -> &'static str {
-        let name = self.spec().1;
-        SUBSTITUTES
-            .iter()
-            .find(|(from, _)| *from == name)
-            .map_or(name, |(_, to)| to)
+        self.spec().1
     }
 
-    /// The Material symbol this Carbon name draws.
+    /// The Material symbol this Carbon name draws (`None` for a custom glyph).
     pub fn symbol(self) -> Option<Symbol> {
         Symbol::named(self.material_name())
+    }
+
+    /// The path data when the reference draws this icon from its own SVG path
+    /// (Carbon `CircleDash`: the 8-segment dashed ring; `PullRequest`) rather
+    /// than a Material symbol.
+    pub fn custom_glyph(self) -> Option<&'static str> {
+        let name = self.material_name();
+        CUSTOM_GLYPHS
+            .iter()
+            .find(|(key, _)| *key == name)
+            .map(|(_, d)| *d)
     }
 
     /// The Carbon name, e.g. `"ChevronDown"`.
@@ -155,6 +172,9 @@ impl Icon {
 
     /// A Carbon-named reference icon (keeps the reference's filled flag).
     pub fn carbon(icon: CarbonIcon) -> Self {
+        if icon.custom_glyph().is_some() {
+            return Self::from_path(format!("{GLYPH_PREFIX}{}.svg", icon.material_name()));
+        }
         Self::named(icon.material_name()).filled(icon.spec().2)
     }
 
@@ -276,6 +296,12 @@ impl<F: AssetSource> Assets<F> {
 
 impl<F: AssetSource> AssetSource for Assets<F> {
     fn load(&self, path: &str) -> gpui_kit::Result<Option<Cow<'static, [u8]>>> {
+        if let Some(name) = path
+            .strip_prefix(GLYPH_PREFIX)
+            .and_then(|p| p.strip_suffix(".svg"))
+        {
+            return Ok(glyph_svg(name).map(|svg| Cow::Owned(svg.into_bytes())));
+        }
         self.inner.load(path)
     }
     fn list(&self, prefix: &str) -> gpui_kit::Result<Vec<SharedString>> {
@@ -329,10 +355,24 @@ mod tests {
     fn every_carbon_icon_resolves() {
         let missing: Vec<_> = CarbonIcon::ALL
             .iter()
-            .filter(|icon| icon.symbol().is_none())
+            .filter(|icon| icon.symbol().is_none() && icon.custom_glyph().is_none())
             .map(|icon| format!("{} → {}", icon.name(), icon.material_name()))
             .collect();
         assert!(missing.is_empty(), "{missing:?}");
+    }
+
+    #[test]
+    fn circle_dash_draws_the_reference_dashed_ring() {
+        // `CircleDash = draw("dash")`: eight arc segments, not a plain circle.
+        let d = CarbonIcon::CircleDash.custom_glyph().unwrap();
+        assert_eq!(d.matches('Z').count(), 8);
+        let path = Icon::carbon(CarbonIcon::CircleDash).asset_path();
+        assert_eq!(path.as_ref(), "u0ui/glyphs/dash.svg");
+        let svg = Assets::new().load(&path).unwrap().unwrap();
+        let svg = std::str::from_utf8(&svg).unwrap();
+        assert!(svg.starts_with("<svg") && svg.contains("viewBox=\"0 -960 960 960\""));
+        assert!(svg.contains(d));
+        assert!(CarbonIcon::Add.custom_glyph().is_none());
     }
 
     #[test]

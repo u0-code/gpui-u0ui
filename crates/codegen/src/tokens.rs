@@ -64,7 +64,29 @@ pub fn carbon_icons(js: &str) -> String {
         .unwrap();
     }
     out.push_str("        }\n    }\n}\n");
+    custom_glyphs(js, &mut out);
     out
+}
+
+/// Reference glyphs that are not in the Material catalog: the bundle draws
+/// them from its own path data (`P[key][0]` in `material.js`).
+const CUSTOM_GLYPHS: [&str; 2] = ["dash", "pull_request"];
+
+/// [`CUSTOM_GLYPHS`] with their path data from the bundle's `P` table.
+fn custom_glyphs(js: &str, out: &mut String) {
+    let start = js.find("const P = {").expect("P in material.js") + "const P = ".len();
+    let end = start + js[start..].find("};").expect("end of P") + 1;
+    let paths: serde_json::Map<String, Value> = serde_json::from_str(&js[start..end]).unwrap();
+    out.push_str(
+        "\n/// Reference glyphs that are custom SVG paths in the reference bundle (not in\n\
+         /// the Material catalog): `(material key, path)` in the `0 -960 960 960` viewBox.\n\
+         pub const CUSTOM_GLYPHS: &[(&str, &str)] = &[\n",
+    );
+    for key in CUSTOM_GLYPHS {
+        let d = paths[key][0].as_str().expect("path data");
+        writeln!(out, "    (\"{key}\", \"{}\"),", escape(d)).unwrap();
+    }
+    out.push_str("];\n");
 }
 
 /// `border-subtle-01` → `BorderSubtle01`.
