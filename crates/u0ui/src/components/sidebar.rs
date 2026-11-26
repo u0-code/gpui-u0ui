@@ -20,10 +20,10 @@
 //!   optional header (600, 1rem padding, bottom line) and footer (top line).
 //!   Focus: a 2px inset `focus` outline.
 //! - **Motion**: colors 110ms; the menu chevron turns 180° in 110ms; a menu's
-//!   links reveal over 110ms; the nav's width animates over 110ms
+//!   links show and hide at once (`.cds--side-nav__menu` has no height
+//!   transition); the nav's width animates over 110ms
 //!   `cubic-bezier(0.2, 0, 1, 0.9)` (`.cds--side-nav { transition: inline-size
 //!   0.11s }`) when it collapses to the rail or hides (reduced motion: a cut).
-use super::accordion::REVEAL;
 use super::button::{Button, ButtonSize, ButtonVariant};
 use super::overlay::{self, Callback, OpenChange, rem};
 use crate::{
@@ -378,14 +378,6 @@ impl RenderOnce for Sidebar {
             let open = openness.open && show_text;
             let set_open = openness.setter();
             let rotation = motion::chevron_rotation((item_id.clone(), "chevron"), open, window, cx);
-            let progress = overlay::presence(
-                (item_id.clone(), "reveal"),
-                open,
-                REVEAL,
-                REVEAL,
-                window,
-                cx,
-            );
             let child_active = item.items.iter().any(|i| i.active);
             let has_icon = item.icon.is_some();
             let chevron = show_text.then(|| {
@@ -415,8 +407,7 @@ impl RenderOnce for Sidebar {
                 window,
                 cx,
             ));
-            if open || progress > 0. {
-                let reduced = motion::reduced_motion(cx);
+            if open {
                 let mut links = div().flex().flex_col();
                 for (i, link) in item.items.into_iter().enumerate() {
                     let on_click = link.on_click.clone();
@@ -443,19 +434,7 @@ impl RenderOnce for Sidebar {
                         cx,
                     ));
                 }
-                list = list.child(
-                    gpui_kit::base::Collapsible::new()
-                        .open(true)
-                        .reveal(
-                            (item_id.clone(), "links"),
-                            if reduced {
-                                if open { 1. } else { 0. }
-                            } else {
-                                progress
-                            },
-                        )
-                        .content(links.opacity(progress)),
-                );
+                list = list.child(links);
             }
         }
 
