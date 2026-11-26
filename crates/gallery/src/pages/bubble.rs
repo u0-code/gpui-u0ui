@@ -2,6 +2,7 @@
 //! muted suggestion, destructive error), a configurable live bubble and every
 //! variant.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window,
     div, rems,
@@ -156,16 +157,11 @@ impl Render for BubblePage {
                 controls::setter(&entity, |this: &mut BubblePage, on| this.long = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live", div().pt(rems(1.)).child(live)))
-                .child(controls::block("Variants", all)),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(div().pt(rems(1.)).child(live))
+            .config(config)
+            .example(controls::block("Reference preview", reference))
+            .example(controls::block("Variants", all))
     }
 }
 

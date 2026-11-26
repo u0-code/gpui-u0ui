@@ -1,6 +1,7 @@
 //! Navigation › Breadcrumb: the reference preview and a configurable live
 //! breadcrumb that navigates.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window, div,
 };
@@ -62,7 +63,6 @@ impl Render for BreadcrumbPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section("Live: click an ancestor to go up"))
             .child(live_crumb)
             .child(
                 div()
@@ -117,14 +117,10 @@ impl Render for BreadcrumbPage {
                 },
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("click an ancestor to go up")
+            .config(config)
+            .example(reference)
     }
 }

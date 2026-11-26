@@ -1,6 +1,7 @@
 //! Forms › Textarea: the reference Description field with a counter and a
 //! configurable live text area.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render, Styled,
     Window, div, rems,
@@ -75,28 +76,23 @@ impl Render for TextareaPage {
                 ),
             );
 
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
-            .child(
-                div().max_w(rems(26.25)).child(
-                    Textarea::new("live", &self.live)
-                        .label("Description")
-                        .placeholder("What is this service for?")
-                        .helper_text("Max 200 characters.")
-                        .rows(ROWS[self.rows].parse().unwrap_or(4))
-                        .enable_counter(self.counter)
-                        .max_count(200)
-                        .disabled(self.disabled)
-                        .readonly(self.readonly)
-                        .invalid(self.invalid)
-                        .invalid_text("Describe the service in at least 10 characters.")
-                        .warn(self.warn)
-                        .warn_text("Descriptions are visible to every account member."),
-                ),
-            );
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            div().max_w(rems(26.25)).child(
+                Textarea::new("live", &self.live)
+                    .label("Description")
+                    .placeholder("What is this service for?")
+                    .helper_text("Max 200 characters.")
+                    .rows(ROWS[self.rows].parse().unwrap_or(4))
+                    .enable_counter(self.counter)
+                    .max_count(200)
+                    .disabled(self.disabled)
+                    .readonly(self.readonly)
+                    .invalid(self.invalid)
+                    .invalid_text("Describe the service in at least 10 characters.")
+                    .warn(self.warn)
+                    .warn_text("Descriptions are visible to every account member."),
+            ),
+        );
 
         let states = div()
             .flex()
@@ -187,15 +183,10 @@ impl Render for TextareaPage {
                 toggle(|this, on| this.readonly = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live)
-                .child(states),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
+            .example(states)
     }
 }

@@ -1,6 +1,7 @@
 //! Forms › InputGroup: the reference groups (search with ⌘K, URL prefix with
 //! a Verify button, a composer with a counter and Send) and a live group.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render,
     SharedString, Styled, Window, div, rems,
@@ -138,25 +139,20 @@ impl Render for InputGroupPage {
             );
 
         let align = AddonAlign::ALL[self.align];
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
-            .child(
-                div().max_w(rems(26.25)).child(
-                    InputGroup::new("live")
-                        .invalid(self.invalid)
-                        .disabled(self.disabled)
-                        .input(InputGroupInput::new(&self.live).placeholder("Amount"))
-                        .addon(
-                            InputGroupAddon::new()
-                                .align(align)
-                                .child(Icon::carbon(CarbonIcon::Calculator).size(IconSize::S16))
-                                .child(InputGroupText::new("USD")),
-                        ),
-                ),
-            );
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            div().max_w(rems(26.25)).child(
+                InputGroup::new("live")
+                    .invalid(self.invalid)
+                    .disabled(self.disabled)
+                    .input(InputGroupInput::new(&self.live).placeholder("Amount"))
+                    .addon(
+                        InputGroupAddon::new()
+                            .align(align)
+                            .child(Icon::carbon(CarbonIcon::Calculator).size(IconSize::S16))
+                            .child(InputGroupText::new("USD")),
+                    ),
+            ),
+        );
 
         let config = div()
             .flex()
@@ -192,14 +188,9 @@ impl Render for InputGroupPage {
                 toggle(|this, on| this.disabled = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
     }
 }

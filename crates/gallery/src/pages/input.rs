@@ -1,6 +1,7 @@
 //! Forms › Input: the reference preview (text, invalid, password), a
 //! configurable live input, and every size and state.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render, Styled,
     Window, div, rems,
@@ -103,29 +104,24 @@ impl Render for InputPage {
                     ),
             );
 
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
-            .child(
-                div().max_w(rems(22.5)).child(
-                    Input::new("live", &self.live)
-                        .label("Cluster name")
-                        .hide_label(self.hide_label)
-                        .placeholder("e.g. prod-us-east")
-                        .when_helper(self.helper)
-                        .size(size)
-                        .disabled(self.disabled)
-                        .readonly(self.readonly)
-                        .invalid(self.invalid)
-                        .invalid_text("Enter a valid cluster name.")
-                        .warn(self.warn)
-                        .warn_text("Names over 30 characters are truncated in the console.")
-                        .password(self.password)
-                        .password_labels("Show password", "Hide password"),
-                ),
-            );
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            div().max_w(rems(22.5)).child(
+                Input::new("live", &self.live)
+                    .label("Cluster name")
+                    .hide_label(self.hide_label)
+                    .placeholder("e.g. prod-us-east")
+                    .when_helper(self.helper)
+                    .size(size)
+                    .disabled(self.disabled)
+                    .readonly(self.readonly)
+                    .invalid(self.invalid)
+                    .invalid_text("Enter a valid cluster name.")
+                    .warn(self.warn)
+                    .warn_text("Names over 30 characters are truncated in the console.")
+                    .password(self.password)
+                    .password_labels("Show password", "Hide password"),
+            ),
+        );
 
         // Sizes × states, plus the field on layer-01 (field-02).
         let states: [State; 3] = [
@@ -255,16 +251,11 @@ impl Render for InputPage {
                 toggle(|this, on| this.readonly = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live)
-                .child(matrix),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
+            .example(matrix)
     }
 }
 

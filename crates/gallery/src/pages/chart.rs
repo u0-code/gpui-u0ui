@@ -1,6 +1,7 @@
 //! Data display › Chart: the reference "Requests by region" bar chart and
 //! "Storage by class" donut, and a live chart with every `ChartProps` prop.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window,
     div, rems,
@@ -176,14 +177,9 @@ impl Render for ChartPage {
                 controls::setter(&entity, |this: &mut ChartPage, on| this.title = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live", div().max_w(rems(40.)).child(live))),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(div().max_w(rems(40.)).child(live))
+            .config(config)
+            .example(controls::block("Reference preview", reference))
     }
 }

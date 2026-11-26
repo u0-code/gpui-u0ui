@@ -1,6 +1,7 @@
 //! Overlays › HoverCard: the reference preview (open) and a configurable live
 //! card.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, FontWeight, IntoElement, ParentElement, Render, Styled,
     Window, div, rems,
@@ -85,26 +86,21 @@ impl Render for HoverCardPage {
                 ),
             );
 
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section("Live: hover or focus the link"))
-            .child(
-                div()
-                    .flex()
-                    .justify_center()
-                    .py(rems(10.))
-                    .bg(color(ColorRole::Background))
-                    .border_1()
-                    .border_color(color(ColorRole::BorderSubtle01))
-                    .child(
-                        HoverCard::new("live-hover-card", link("live-link"))
-                            .align(Align::ALL[self.align])
-                            .open_delay(Duration::from_millis(DELAYS[self.delay].1))
-                            .child(profile()),
-                    ),
-            );
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            div()
+                .flex()
+                .justify_center()
+                .py(rems(10.))
+                .bg(color(ColorRole::Background))
+                .border_1()
+                .border_color(color(ColorRole::BorderSubtle01))
+                .child(
+                    HoverCard::new("live-hover-card", link("live-link"))
+                        .align(Align::ALL[self.align])
+                        .open_delay(Duration::from_millis(DELAYS[self.delay].1))
+                        .child(profile()),
+                ),
+        );
 
         let config = div()
             .flex()
@@ -135,14 +131,10 @@ impl Render for HoverCardPage {
                 }),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("hover or focus the link")
+            .config(config)
+            .example(reference)
     }
 }

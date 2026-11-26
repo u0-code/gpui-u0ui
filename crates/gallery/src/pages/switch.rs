@@ -1,6 +1,7 @@
 //! Forms › Switch: the reference toggles (Auto-scaling, Public endpoint, Small,
 //! Locked) and a configurable live switch.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div,
@@ -99,7 +100,6 @@ impl Render for SwitchPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
             .child(live_switch)
             .child(
                 div()
@@ -187,15 +187,10 @@ impl Render for SwitchPage {
                 toggle(|this, on| this.readonly = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live)
-                .child(matrix),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
+            .example(matrix)
     }
 }

@@ -1,6 +1,7 @@
 //! Navigation › Tabs: the reference preview (line and contained) and a
 //! configurable live set.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div,
@@ -81,9 +82,6 @@ impl Render for TabsPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section(
-                "Live: click, or Tab into the list then ← → Home End (and Enter when manual)",
-            ))
             .child(
                 Tabs::new("live-tabs")
                     .variant(TabsVariant::ALL[self.variant])
@@ -181,14 +179,10 @@ impl Render for TabsPage {
                 toggle(|this, on| this.icons = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("click, or Tab into the list then ← → Home End (and Enter when manual)")
+            .config(config)
+            .example(reference)
     }
 }

@@ -1,6 +1,7 @@
 //! Actions › ButtonGroup: the reference sets (horizontal Cancel/Save, stacked
 //! Continue/Back) and a configurable live set.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, rems,
@@ -116,7 +117,6 @@ impl Render for ButtonGroupPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
             .child(
                 div()
                     .when_vertical(orientation)
@@ -180,15 +180,10 @@ impl Render for ButtonGroupPage {
                 toggle(|this, on| this.disabled = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
     }
 }
 

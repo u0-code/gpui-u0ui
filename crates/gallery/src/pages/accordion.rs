@@ -1,6 +1,7 @@
 //! Navigation › Accordion: the reference preview and a configurable live
 //! accordion.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window, div,
 };
@@ -71,7 +72,6 @@ impl Render for AccordionPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
             .child(
                 Accordion::new("live-accordion")
                     .align(AccordionAlign::ALL[self.align])
@@ -129,14 +129,9 @@ impl Render for AccordionPage {
                 toggle(|this, on| this.disabled = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
     }
 }

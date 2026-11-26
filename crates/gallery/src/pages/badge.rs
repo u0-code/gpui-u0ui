@@ -2,6 +2,7 @@
 //! the Carbon colors, a dismissible `region: eu-de`), a live tag with every
 //! prop, and every type × kind.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, prelude::FluentBuilder as _,
@@ -236,16 +237,11 @@ impl Render for BadgePage {
                 }),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live", live))
-                .child(controls::block("Types × kinds", matrix))
-                .child(controls::block("Disabled", disabled)),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(controls::block("Reference preview", reference))
+            .example(controls::block("Types × kinds", matrix))
+            .example(controls::block("Disabled", disabled))
     }
 }

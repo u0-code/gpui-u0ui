@@ -1,6 +1,7 @@
 //! Data display › Empty: the reference "No buckets yet" state (a 5rem icon
 //! box, title, description, two actions) and a live state with each media variant.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window, div,
 };
@@ -69,20 +70,16 @@ impl Render for EmptyPage {
                 self.actions,
                 controls::setter(&entity, |this: &mut EmptyPage, on| this.actions = on),
             ));
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block(
-                    "Reference preview",
-                    state("ref", EmptyMediaVariant::Icon, true),
-                ))
-                .child(controls::block(
-                    "Live",
-                    state("live", EmptyMediaVariant::ALL[self.media], self.actions),
-                )),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(state(
+                "live",
+                EmptyMediaVariant::ALL[self.media],
+                self.actions,
+            ))
+            .config(config)
+            .example(controls::block(
+                "Reference preview",
+                state("ref", EmptyMediaVariant::Icon, true),
+            ))
     }
 }

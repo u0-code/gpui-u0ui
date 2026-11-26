@@ -1,6 +1,7 @@
 //! Overlays › AlertDialog: the reference preview (open on arrival, as the
 //! reference card is) and a configurable live alert.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div,
@@ -71,81 +72,76 @@ impl Render for AlertDialogPage {
                     }),
             );
 
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .flex_wrap()
-                    .items_center()
-                    .gap(tokens::SPACING_05)
-                    .p(tokens::SPACING_05)
-                    .bg(color(ColorRole::Layer01))
-                    .child(
-                        AlertDialog::new("live-alert")
-                            .open(self.live_open)
-                            .on_open_change(update(|this, open| {
-                                this.live_open = open;
-                                if !open {
-                                    this.last = "Cancelled".into();
-                                }
-                            }))
-                            .trigger(
-                                Button::new(
-                                    "live-alert-open",
-                                    if self.danger {
-                                        "Delete project"
-                                    } else {
-                                        "Publish"
-                                    },
-                                )
-                                .variant(if self.danger {
-                                    ButtonVariant::DangerTertiary
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            div()
+                .flex()
+                .flex_row()
+                .flex_wrap()
+                .items_center()
+                .gap(tokens::SPACING_05)
+                .p(tokens::SPACING_05)
+                .bg(color(ColorRole::Layer01))
+                .child(
+                    AlertDialog::new("live-alert")
+                        .open(self.live_open)
+                        .on_open_change(update(|this, open| {
+                            this.live_open = open;
+                            if !open {
+                                this.last = "Cancelled".into();
+                            }
+                        }))
+                        .trigger(
+                            Button::new(
+                                "live-alert-open",
+                                if self.danger {
+                                    "Delete project"
                                 } else {
-                                    ButtonVariant::Tertiary
-                                }),
+                                    "Publish"
+                                },
                             )
-                            .danger(self.danger)
-                            .size(DialogSize::ALL[self.size])
-                            .label("Projects")
-                            .title(if self.danger {
-                                "Delete carbon-ui?"
+                            .variant(if self.danger {
+                                ButtonVariant::DangerTertiary
                             } else {
-                                "Publish carbon-ui?"
-                            })
-                            .description(if self.danger {
-                                "Its 3 environments and their logs are deleted too."
-                            } else {
-                                "Everyone in the organization can see published projects."
-                            })
-                            .action_text(if self.danger {
-                                "Delete project"
-                            } else {
-                                "Publish project"
-                            })
-                            .cancel_text("Cancel")
-                            .on_action({
-                                let entity = entity.clone();
-                                move |_, cx| {
-                                    entity.update(cx, |this, cx| {
-                                        this.last = "Confirmed".into();
-                                        this.live_open = false;
-                                        cx.notify();
-                                    })
-                                }
+                                ButtonVariant::Tertiary
                             }),
-                    )
-                    .child(
-                        div()
-                            .type_style(TypeStyle::Label01)
-                            .text_color(color(ColorRole::TextSecondary))
-                            .child(format!("Result: {}", self.last)),
-                    ),
-            );
+                        )
+                        .danger(self.danger)
+                        .size(DialogSize::ALL[self.size])
+                        .label("Projects")
+                        .title(if self.danger {
+                            "Delete carbon-ui?"
+                        } else {
+                            "Publish carbon-ui?"
+                        })
+                        .description(if self.danger {
+                            "Its 3 environments and their logs are deleted too."
+                        } else {
+                            "Everyone in the organization can see published projects."
+                        })
+                        .action_text(if self.danger {
+                            "Delete project"
+                        } else {
+                            "Publish project"
+                        })
+                        .cancel_text("Cancel")
+                        .on_action({
+                            let entity = entity.clone();
+                            move |_, cx| {
+                                entity.update(cx, |this, cx| {
+                                    this.last = "Confirmed".into();
+                                    this.live_open = false;
+                                    cx.notify();
+                                })
+                            }
+                        }),
+                )
+                .child(
+                    div()
+                        .type_style(TypeStyle::Label01)
+                        .text_color(color(ColorRole::TextSecondary))
+                        .child(format!("Result: {}", self.last)),
+                ),
+        );
 
         let config = div()
             .flex()
@@ -175,14 +171,9 @@ impl Render for AlertDialogPage {
                 update(|this, on| this.danger = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
     }
 }

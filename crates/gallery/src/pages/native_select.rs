@@ -1,6 +1,7 @@
 //! Forms › NativeSelect: the reference Region select with option groups and
 //! a configurable live select.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, rems,
@@ -69,7 +70,6 @@ impl Render for NativeSelectPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
             .child(
                 div().max_w(rems(20.)).child(
                     regions("live")
@@ -142,14 +142,9 @@ impl Render for NativeSelectPage {
                 toggle(|this, on| this.readonly = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
     }
 }

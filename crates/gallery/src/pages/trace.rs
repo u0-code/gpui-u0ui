@@ -1,6 +1,7 @@
 //! Chat & AI › Trace: the reference agent trace (search, tool call with its
 //! output, a running step, a pending step) and a configurable live line.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window,
     div, rems,
@@ -115,14 +116,9 @@ impl Render for TracePage {
                 controls::setter(&entity, |this: &mut TracePage, on| this.collapsible = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live", live)),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(controls::block("Reference preview", reference))
     }
 }

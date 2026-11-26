@@ -1,6 +1,7 @@
 //! Overlays › Drawer: the reference preview (a contained drawer, open) and a
 //! live window-level drawer with every side.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window,
     div, rems,
@@ -119,30 +120,25 @@ impl Render for DrawerPage {
                     )),
             );
 
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section("Live (window)"))
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .p(tokens::SPACING_05)
-                    .bg(color(ColorRole::Layer01))
-                    .child(filters(
-                        Drawer::new("live-drawer")
-                            .side(SheetSide::ALL[self.side])
-                            .show_close_button(self.close_button)
-                            .open(self.live_open)
-                            .on_open_change(update(|this, open| this.live_open = open))
-                            .trigger(
-                                Button::new("live-drawer-open", "Open drawer")
-                                    .variant(ButtonVariant::Tertiary),
-                            ),
-                        "live-drawer",
-                    )),
-            );
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            div()
+                .flex()
+                .flex_row()
+                .p(tokens::SPACING_05)
+                .bg(color(ColorRole::Layer01))
+                .child(filters(
+                    Drawer::new("live-drawer")
+                        .side(SheetSide::ALL[self.side])
+                        .show_close_button(self.close_button)
+                        .open(self.live_open)
+                        .on_open_change(update(|this, open| this.live_open = open))
+                        .trigger(
+                            Button::new("live-drawer-open", "Open drawer")
+                                .variant(ButtonVariant::Tertiary),
+                        ),
+                    "live-drawer",
+                )),
+        );
 
         let config = div()
             .flex()
@@ -172,14 +168,10 @@ impl Render for DrawerPage {
                 update(|this, on| this.close_button = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("opens over the whole window")
+            .config(config)
+            .example(reference)
     }
 }

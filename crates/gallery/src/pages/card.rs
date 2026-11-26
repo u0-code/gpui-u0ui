@@ -1,6 +1,7 @@
 //! Data display › Card (Carbon Tile): the reference tiles (Object storage,
 //! Clickable tile, Selectable), a live tile of every kind and variant.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, rems,
@@ -231,15 +232,10 @@ impl Render for CardPage {
                 controls::setter(&entity, |this: &mut CardPage, on| this.disabled = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live", live))
-                .child(controls::block("Kinds on background and layer-01", matrix)),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(controls::block("Reference preview", reference))
+            .example(controls::block("Kinds on background and layer-01", matrix))
     }
 }

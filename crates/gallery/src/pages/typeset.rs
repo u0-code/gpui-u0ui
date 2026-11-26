@@ -2,11 +2,9 @@
 //! started, a paragraph with a link, a list with inline code, a quote, Next
 //! steps) and every block type.
 use crate::controls;
-use gpui_kit::{
-    AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window, div,
-};
+use crate::page::Body;
+use gpui_kit::{AnyView, App, AppContext as _, Context, IntoElement, Render, Window};
 use u0ui::components::typography::{Inline, TypeBlock, Typography};
-use u0ui::prelude::*;
 
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
@@ -69,14 +67,8 @@ impl Render for TypesetPage {
             },
         ]);
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Every block", all)),
-            None,
-        )
+        Body::new()
+            .playground(controls::block("Reference preview", reference))
+            .example(controls::block("Every block", all))
     }
 }

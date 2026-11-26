@@ -1,5 +1,6 @@
 //! Data display › Kbd: the reference shortcuts (⌘ K, "Press Esc to close",
 //! Ctrl + Shift + P) and a live key built from typed text.
+use crate::page::Body;
 use crate::{controls, stand_in};
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render, Styled,
@@ -71,14 +72,9 @@ impl Render for KbdPage {
             LayerLevel::Two,
         ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live", live)),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(controls::block("Reference preview", reference))
     }
 }

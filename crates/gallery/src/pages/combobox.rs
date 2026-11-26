@@ -1,6 +1,7 @@
 //! Forms › Combobox: the reference single (Framework) and multiple (Tags)
 //! comboboxes and a configurable live one.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render,
     SharedString, Styled, Window, div, rems,
@@ -98,7 +99,6 @@ impl Render for ComboboxPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section("Live (type to find, ↑/↓, Enter, Escape)"))
             .child(
                 div().max_w(rems(22.5)).child(
                     Combobox::new(SharedString::from(format!("live-{}", self.multiple)), state)
@@ -192,14 +192,10 @@ impl Render for ComboboxPage {
                 toggle(|this, on| this.disabled = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("type to find, ↑/↓, Enter, Escape")
+            .config(config)
+            .example(reference)
     }
 }

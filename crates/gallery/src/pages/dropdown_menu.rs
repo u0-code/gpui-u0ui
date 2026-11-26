@@ -1,6 +1,7 @@
 //! Overlays › DropdownMenu: the reference preview (a MenuButton and an open
 //! overflow menu), and a configurable live menu with every item type.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, rems,
@@ -141,30 +142,23 @@ impl Render for DropdownMenuPage {
             live_menu = live_menu.label("Actions");
         }
 
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section(
-                "Live: click or Enter; ↑↓ Home End, → submenu, ← back, Esc, type to jump",
-            ))
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_start()
-                    .gap(tokens::SPACING_05)
-                    .p(tokens::SPACING_05)
-                    .pb(rems(18.))
-                    .bg(color(ColorRole::Layer01))
-                    .child(live_menu)
-                    .child(
-                        div()
-                            .type_style(TypeStyle::Label01)
-                            .text_color(color(ColorRole::TextSecondary))
-                            .child(format!("Last action: {}", self.last)),
-                    ),
-            );
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            div()
+                .flex()
+                .flex_row()
+                .items_start()
+                .gap(tokens::SPACING_05)
+                .p(tokens::SPACING_05)
+                .pb(rems(18.))
+                .bg(color(ColorRole::Layer01))
+                .child(live_menu)
+                .child(
+                    div()
+                        .type_style(TypeStyle::Label01)
+                        .text_color(color(ColorRole::TextSecondary))
+                        .child(format!("Last action: {}", self.last)),
+                ),
+        );
 
         let config = div()
             .flex()
@@ -223,14 +217,10 @@ impl Render for DropdownMenuPage {
                 toggle(|this, on| this.disabled_item = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("click or Enter; ↑↓ Home End, → submenu, ← back, Esc, type to jump")
+            .config(config)
+            .example(reference)
     }
 }

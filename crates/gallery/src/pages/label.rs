@@ -1,6 +1,7 @@
 //! Forms › Label: a `.cds--label` over a bare text input; clicking the label
 //! focuses the input (`htmlFor`).
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, Focusable as _, IntoElement, ParentElement,
     Render, Styled, Window, div, rems,
@@ -63,30 +64,25 @@ impl Render for LabelPage {
                     ),
             );
 
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
-            .child(
-                div()
-                    .max_w(rems(20.))
-                    .flex()
-                    .flex_col()
-                    .child(
-                        Label::new("Billing region")
-                            .disabled(self.disabled)
-                            .no_margin(self.no_margin)
-                            .target(&live_focus),
-                    )
-                    .child(
-                        Input::new("live-region", &self.live)
-                            .label("Billing region")
-                            .hide_label(true)
-                            .placeholder("eu-de")
-                            .disabled(self.disabled),
-                    ),
-            );
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            div()
+                .max_w(rems(20.))
+                .flex()
+                .flex_col()
+                .child(
+                    Label::new("Billing region")
+                        .disabled(self.disabled)
+                        .no_margin(self.no_margin)
+                        .target(&live_focus),
+                )
+                .child(
+                    Input::new("live-region", &self.live)
+                        .label("Billing region")
+                        .hide_label(true)
+                        .placeholder("eu-de")
+                        .disabled(self.disabled),
+                ),
+        );
 
         let config = div()
             .flex()
@@ -105,14 +101,9 @@ impl Render for LabelPage {
                 toggle(|this, on| this.no_margin = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
     }
 }

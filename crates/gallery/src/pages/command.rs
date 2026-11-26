@@ -1,6 +1,7 @@
 //! Overlays › Command: the reference palette and a CommandDialog opened
 //! with a button (or ⌘K while the page has focus).
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div,
@@ -153,14 +154,9 @@ impl Render for CommandPage {
                 },
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
     }
 }

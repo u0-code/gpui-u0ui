@@ -1,5 +1,6 @@
 //! Navigation › Menubar: the reference preview (File open) and a live bar.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, rems,
@@ -76,35 +77,23 @@ impl Render for MenubarPage {
                     .pb(rems(14.))
                     .child(menus(Menubar::new("ref-menubar").default_open(0), None)),
             );
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section(
-                "Live: click a menu, then point at the others or use ← →",
-            ))
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap(tokens::SPACING_03)
-                    .pb(rems(14.))
-                    .child(menus(Menubar::new("live-menubar"), Some(log)))
-                    .child(
-                        div()
-                            .type_style(TypeStyle::Label01)
-                            .text_color(color(ColorRole::TextSecondary))
-                            .child(format!("Last action: {}", self.last)),
-                    ),
-            );
-        controls::page_body(
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
             div()
                 .flex()
                 .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            None,
-        )
+                .gap(tokens::SPACING_03)
+                .pb(rems(14.))
+                .child(menus(Menubar::new("live-menubar"), Some(log)))
+                .child(
+                    div()
+                        .type_style(TypeStyle::Label01)
+                        .text_color(color(ColorRole::TextSecondary))
+                        .child(format!("Last action: {}", self.last)),
+                ),
+        );
+        Body::new()
+            .playground(live)
+            .hint("click a menu, then point at the others or use ← →")
+            .example(reference)
     }
 }

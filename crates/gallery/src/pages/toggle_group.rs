@@ -1,6 +1,7 @@
 //! Actions › ToggleGroup: the reference content switcher (Day/Week/Month) and
 //! multiple-select B/I/U, plus a configurable live group.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, FontWeight, IntoElement, ParentElement, Render,
     SharedString, Styled, Window, div, rems,
@@ -79,7 +80,6 @@ impl Render for ToggleGroupPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section("Live (←/→ move the selection)"))
             .child(
                 div().max_w(rems(26.25)).child(
                     ToggleGroup::new(SharedString::from(format!("live-{}", kind.name())))
@@ -169,15 +169,11 @@ impl Render for ToggleGroupPage {
                 },
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live)
-                .child(sizes),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("←/→ move the selection")
+            .config(config)
+            .example(reference)
+            .example(sizes)
     }
 }

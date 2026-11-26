@@ -1,6 +1,7 @@
 //! Forms › Calendar: the reference inline calendar (11/26/2026) and a
 //! configurable live one (single/range, min/max).
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div,
@@ -71,9 +72,6 @@ impl Render for CalendarPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section(
-                "Live (Tab into the grid: arrows, PageUp/PageDown, Enter)",
-            ))
             .child(live_calendar)
             .child(
                 div()
@@ -121,14 +119,10 @@ impl Render for CalendarPage {
                 },
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("Tab into the grid: arrows, PageUp/PageDown, Enter")
+            .config(config)
+            .example(reference)
     }
 }

@@ -1,6 +1,7 @@
 //! Foundations › Icons: the reference's Carbon-named set and a searchable
 //! sample of the full Material Symbols catalog.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, InteractiveElement, IntoElement, ParentElement,
@@ -150,6 +151,6 @@ impl Render for IconsPage {
                         )
                     })),
             );
-        controls::page_body(preview, Some(config.into_any_element()))
+        Body::new().playground(preview).config(config)
     }
 }

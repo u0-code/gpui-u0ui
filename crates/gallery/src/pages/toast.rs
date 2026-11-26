@@ -3,6 +3,7 @@
 //! `ToastProps` prop, and the `Toaster` (position, duration) with buttons for
 //! every `toast.*` call.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div,
@@ -233,20 +234,15 @@ impl Render for ToastPage {
                 ),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live Toast", live))
-                .child(controls::block("Toaster", toaster_controls))
-                .child(
-                    Toaster::new("gallery-toaster")
-                        .position(ToasterPosition::ALL[self.position])
-                        .duration(DURATIONS[self.duration].1),
-                ),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(controls::block("Reference preview", reference))
+            .example(controls::block("Toaster", toaster_controls))
+            .example(
+                Toaster::new("gallery-toaster")
+                    .position(ToasterPosition::ALL[self.position])
+                    .duration(DURATIONS[self.duration].1),
+            )
     }
 }

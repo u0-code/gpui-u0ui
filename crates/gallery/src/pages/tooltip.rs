@@ -1,6 +1,7 @@
 //! Overlays › Tooltip: the reference preview (an icon button with its
 //! tooltip open), a configurable live tooltip, and all 12 alignments.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, rems,
@@ -63,27 +64,22 @@ impl Render for TooltipPage {
                 ),
             );
 
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section("Live: hover or focus the button"))
-            .child(
-                div()
-                    .flex()
-                    .justify_center()
-                    .py(rems(8.))
-                    .bg(color(ColorRole::Layer01))
-                    .child(
-                        Tooltip::new(
-                            ("live-tooltip", self.generation),
-                            copy_button(("live-copy", self.generation)),
-                        )
-                        .content(content)
-                        .align(align)
-                        .default_open(self.default_open),
-                    ),
-            );
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            div()
+                .flex()
+                .justify_center()
+                .py(rems(8.))
+                .bg(color(ColorRole::Layer01))
+                .child(
+                    Tooltip::new(
+                        ("live-tooltip", self.generation),
+                        copy_button(("live-copy", self.generation)),
+                    )
+                    .content(content)
+                    .align(align)
+                    .default_open(self.default_open),
+                ),
+        );
 
         let grid = div()
             .flex()
@@ -163,15 +159,11 @@ impl Render for TooltipPage {
                 },
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live)
-                .child(grid),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("hover or focus the button")
+            .config(config)
+            .example(reference)
+            .example(grid)
     }
 }

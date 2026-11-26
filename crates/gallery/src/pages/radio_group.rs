@@ -1,5 +1,6 @@
 //! Forms › RadioGroup: the reference Plan group and a configurable live group.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div,
@@ -97,7 +98,6 @@ impl Render for RadioPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
             .child(group)
             .child(
                 div()
@@ -176,15 +176,10 @@ impl Render for RadioPage {
                 toggle(|this, on| this.readonly = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live)
-                .child(states),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
+            .example(states)
     }
 }

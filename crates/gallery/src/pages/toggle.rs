@@ -1,6 +1,7 @@
 //! Actions › Toggle: the reference toggles (B, I, Pin, Pinned, Disabled) and
 //! a configurable live toggle.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, FontWeight, IntoElement, ParentElement, Render,
     SharedString, Styled, Window, div,
@@ -95,40 +96,35 @@ impl Render for TogglePage {
                     .child(Toggle::new("ref-disabled").disabled(true).child("Disabled")),
             );
 
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
-            .child(
-                row()
-                    .p(tokens::SPACING_05)
-                    .child(
-                        Toggle::new("live")
-                            .variant(variant)
-                            .size(size)
-                            .disabled(self.disabled)
-                            .pressed(self.pressed)
-                            .aria_label("Pin")
-                            .on_pressed_change({
-                                let entity = entity.clone();
-                                move |on, _, cx| {
-                                    entity.update(cx, |this, cx| {
-                                        this.pressed = on;
-                                        cx.notify();
-                                    })
-                                }
-                            })
-                            .when_icon(self.with_icon)
-                            .child("Pin"),
-                    )
-                    .child(
-                        div()
-                            .type_style(TypeStyle::Label01)
-                            .text_color(color(ColorRole::TextSecondary))
-                            .child(SharedString::from(format!("aria-pressed={}", self.pressed))),
-                    ),
-            );
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            row()
+                .p(tokens::SPACING_05)
+                .child(
+                    Toggle::new("live")
+                        .variant(variant)
+                        .size(size)
+                        .disabled(self.disabled)
+                        .pressed(self.pressed)
+                        .aria_label("Pin")
+                        .on_pressed_change({
+                            let entity = entity.clone();
+                            move |on, _, cx| {
+                                entity.update(cx, |this, cx| {
+                                    this.pressed = on;
+                                    cx.notify();
+                                })
+                            }
+                        })
+                        .when_icon(self.with_icon)
+                        .child("Pin"),
+                )
+                .child(
+                    div()
+                        .type_style(TypeStyle::Label01)
+                        .text_color(color(ColorRole::TextSecondary))
+                        .child(SharedString::from(format!("aria-pressed={}", self.pressed))),
+                ),
+        );
 
         // Every variant × size, rest and pressed.
         let matrix = div()
@@ -194,16 +190,11 @@ impl Render for TogglePage {
                 toggle(|this, on| this.disabled = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live)
-                .child(matrix),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
+            .example(matrix)
     }
 }
 

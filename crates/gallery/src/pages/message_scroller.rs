@@ -2,6 +2,7 @@
 //! questions and replies, and a live one that grows ("Add message") so the
 //! follow / stop-following / jump behavior can be tried.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window,
     div, px,
@@ -119,14 +120,9 @@ impl Render for ScrollerPage {
                  \"Jump to latest\" returns.",
             );
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live", live.child(note))),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live.child(note))
+            .config(config)
+            .example(controls::block("Reference preview", reference))
     }
 }

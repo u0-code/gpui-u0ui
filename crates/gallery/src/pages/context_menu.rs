@@ -1,6 +1,7 @@
 //! Overlays › ContextMenu: the reference preview (open at 220, 40) and a
 //! configurable live area.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, rems,
@@ -90,32 +91,25 @@ impl Render for ContextMenuPage {
                 .danger(true)
                 .on_select(log("Delete")),
         ];
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section(
-                "Live: right-click (or Shift+F10 while focused) anywhere in the box",
-            ))
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_start()
-                    .gap(tokens::SPACING_05)
-                    .child(
-                        ContextMenu::new("live-context", area("Right-click here"))
-                            .label("Context menu")
-                            .size(MenuSize::ALL[self.size])
-                            .items(live_items),
-                    )
-                    .child(
-                        div()
-                            .type_style(TypeStyle::Label01)
-                            .text_color(color(ColorRole::TextSecondary))
-                            .child(format!("Last action: {}", self.last)),
-                    ),
-            );
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            div()
+                .flex()
+                .flex_row()
+                .items_start()
+                .gap(tokens::SPACING_05)
+                .child(
+                    ContextMenu::new("live-context", area("Right-click here"))
+                        .label("Context menu")
+                        .size(MenuSize::ALL[self.size])
+                        .items(live_items),
+                )
+                .child(
+                    div()
+                        .type_style(TypeStyle::Label01)
+                        .text_color(color(ColorRole::TextSecondary))
+                        .child(format!("Last action: {}", self.last)),
+                ),
+        );
 
         let config = div()
             .flex()
@@ -134,14 +128,10 @@ impl Render for ContextMenuPage {
                 }),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("right-click (or Shift+F10 while focused) anywhere in the box")
+            .config(config)
+            .example(reference)
     }
 }

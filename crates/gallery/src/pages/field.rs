@@ -1,6 +1,7 @@
 //! Forms › Field: the reference Billing contact field set and a configurable
 //! live field.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render, Styled,
     Window, div, rems,
@@ -130,7 +131,6 @@ impl Render for FieldPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
             .child(div().max_w(rems(26.25)).child(field))
             .child(controls::section("FieldContent + FieldTitle"))
             .child(
@@ -182,15 +182,10 @@ impl Render for FieldPage {
                 toggle(|this, on| this.description = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
     }
 }
 

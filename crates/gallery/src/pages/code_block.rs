@@ -3,6 +3,7 @@
 //! CodeSnippet single / multi (with show more) / inline. Press a copy button
 //! to see the "Copied!" feedback.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window,
     div, rems,
@@ -179,15 +180,10 @@ impl Render for CodeBlockPage {
             }))
             .child(t("code-footer", "footer", self.footer, |p, v| p.footer = v));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live", div().max_w(rems(35.)).child(live)))
-                .child(controls::block("Carbon CodeSnippet", snippets)),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(div().max_w(rems(35.)).child(live))
+            .config(config)
+            .example(controls::block("Reference preview", reference))
+            .example(controls::block("Carbon CodeSnippet", snippets))
     }
 }

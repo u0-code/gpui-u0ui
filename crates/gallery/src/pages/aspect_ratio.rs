@@ -1,6 +1,7 @@
 //! Data display › AspectRatio: the reference 16 : 9 (280px) and 1 : 1 (140px)
 //! boxes and a live box for every Carbon ratio.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, rems,
@@ -69,14 +70,9 @@ impl Render for AspectRatioPage {
             ),
         );
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live", live)),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(controls::block("Reference preview", reference))
     }
 }

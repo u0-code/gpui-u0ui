@@ -2,6 +2,7 @@
 //! `DirectionProvider`, a live readout of `use_direction()`, and an honest note
 //! of what GPUI does and does not change.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render, RenderOnce,
     Styled, Window, div, rems,
@@ -110,18 +111,11 @@ impl Render for DirectionPage {
             ),
         );
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview (rtl)", reference))
-                .child(controls::block(
-                    "Live (the last readout is outside the provider)",
-                    live,
-                ))
-                .child(controls::block("In GPUI", honest)),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("the last readout is outside the provider")
+            .config(config)
+            .example(controls::block("Reference preview (rtl)", reference))
+            .example(controls::block("In GPUI", honest))
     }
 }

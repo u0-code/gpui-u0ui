@@ -1,6 +1,7 @@
 //! Chat & AI › Marker: the reference status / exported / "Today" markers and
 //! a configurable live marker.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window,
     div, prelude::FluentBuilder as _, rems,
@@ -101,14 +102,9 @@ impl Render for MarkerPage {
                 ),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live", live)),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(controls::block("Reference preview", reference))
     }
 }

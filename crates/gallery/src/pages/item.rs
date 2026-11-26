@@ -2,6 +2,7 @@
 //! Open action, a linked Jane Doe item with an avatar, a muted small item
 //! with a switch) and a live item with every variant, size and media.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window,
     div, rems,
@@ -195,20 +196,12 @@ impl Render for ItemPage {
                 controls::setter(&entity, |this: &mut ItemPage, on| this.header = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block(
-                    "Reference preview",
-                    div().max_w(rems(28.75)).child(reference),
-                ))
-                .child(controls::block(
-                    "Live",
-                    div().max_w(rems(28.75)).child(live),
-                )),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(div().max_w(rems(28.75)).child(live))
+            .config(config)
+            .example(controls::block(
+                "Reference preview",
+                div().max_w(rems(28.75)).child(reference),
+            ))
     }
 }

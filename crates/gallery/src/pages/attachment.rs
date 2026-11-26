@@ -2,6 +2,7 @@
 //! failed SQL dump, trigger) and a configurable live attachment; the trigger
 //! opens the platform file picker and lists what was chosen.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, prelude::FluentBuilder as _,
@@ -195,22 +196,16 @@ impl Render for AttachmentPage {
                 controls::setter(&entity, |this: &mut AttachmentPage, on| this.image = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block(
-                    "Live",
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap(tokens::SPACING_04)
-                        .child(live)
-                        .child(picked),
-                )),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(tokens::SPACING_04)
+                    .child(live)
+                    .child(picked),
+            )
+            .config(config)
+            .example(controls::block("Reference preview", reference))
     }
 }

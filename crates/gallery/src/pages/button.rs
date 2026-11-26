@@ -1,6 +1,7 @@
 //! Actions › Button: the reference preview, a configurable live button, and
 //! every kind × size and state.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div,
@@ -112,36 +113,31 @@ impl Render for ButtonPage {
             );
 
         // The configurable live button.
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
-            .child(
-                row()
-                    .min_h(gpui_kit::rems(5.5))
-                    .p(tokens::SPACING_05)
-                    .bg(color(ColorRole::Layer01))
-                    .child(
-                        Button::new("live", "Create project")
-                            .variant(variant)
-                            .size(size)
-                            .disabled(self.disabled)
-                            .loading(self.loading)
-                            .icon_only(self.icon_only)
-                            .when_icon(self.with_icon || self.icon_only)
-                            .on_click({
-                                let entity = entity.clone();
-                                move |_, _, cx| {
-                                    entity.update(cx, |this, cx| {
-                                        this.clicks += 1;
-                                        cx.notify();
-                                    })
-                                }
-                            }),
-                    )
-                    .child(caption(format!("Activations: {}", self.clicks))),
-            );
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            row()
+                .min_h(gpui_kit::rems(5.5))
+                .p(tokens::SPACING_05)
+                .bg(color(ColorRole::Layer01))
+                .child(
+                    Button::new("live", "Create project")
+                        .variant(variant)
+                        .size(size)
+                        .disabled(self.disabled)
+                        .loading(self.loading)
+                        .icon_only(self.icon_only)
+                        .when_icon(self.with_icon || self.icon_only)
+                        .on_click({
+                            let entity = entity.clone();
+                            move |_, _, cx| {
+                                entity.update(cx, |this, cx| {
+                                    this.clicks += 1;
+                                    cx.notify();
+                                })
+                            }
+                        }),
+                )
+                .child(caption(format!("Activations: {}", self.clicks))),
+        );
 
         // Every kind × size.
         let matrix = div()
@@ -271,17 +267,12 @@ impl Render for ButtonPage {
                 toggle(|this, on| this.loading = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live)
-                .child(states)
-                .child(matrix),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
+            .example(states)
+            .example(matrix)
     }
 }
 

@@ -1,5 +1,6 @@
 //! Overlays › Sheet: the reference preview (a contained sheet, open), and a
 //! live window-level sheet with every side and option.
+use crate::page::Body;
 use crate::{controls, stand_in};
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render, Styled,
@@ -179,7 +180,6 @@ impl Render for SheetPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section("Live (window)"))
             .child(
                 div()
                     .flex()
@@ -256,14 +256,10 @@ impl Render for SheetPage {
                 update(|this, on| this.close_button = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("opens over the whole window")
+            .config(config)
+            .example(reference)
     }
 }

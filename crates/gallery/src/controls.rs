@@ -1,79 +1,16 @@
-//! Gallery chrome controls: a content switcher (`.cds--content-switcher`,
-//! size sm) drawn here because the always-dark header paints it in a fixed
-//! theme, the config-panel switch (u0ui's [`Switch`]) and labeled fields.
-use gpui_kit::{
-    App, ClickEvent, CursorStyle, ElementId, Hsla, InteractiveElement, IntoElement, ParentElement,
-    SharedString, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder as _,
-    rems,
-};
+//! Configuration-panel controls, built from u0ui's own components: a
+//! [`Switch`] per flag, a content switcher ([`ToggleGroup`]) for a short
+//! choice and a [`Select`] for a long one, each under a `label-01` label.
+//! The panel is a `layer-01` surface, so fields paint layer two.
+use gpui_kit::{App, ElementId, IntoElement, ParentElement, SharedString, Styled, Window, div};
 use std::rc::Rc;
 use u0ui::components::switch::{Switch, SwitchSize};
+use u0ui::components::toggle::ToggleSize;
+use u0ui::components::{Select, ToggleGroup, ToggleGroupItem};
 use u0ui::prelude::*;
 
-/// Which theme a control paints in: the active one (`None`), or a fixed one
-/// (the always-dark header).
-pub type Palette = Option<CarbonTheme>;
-
-fn paint(palette: Palette, role: ColorRole) -> Hsla {
-    match palette {
-        None => theme::color(role),
-        Some(theme) => role.in_theme(theme),
-    }
-}
-
-type Select = Rc<dyn Fn(usize, &mut Window, &mut App)>;
-
-/// A content switcher: one selected option out of `options`.
-pub fn switcher(
-    id: impl Into<ElementId>,
-    palette: Palette,
-    options: &[&'static str],
-    selected: usize,
-    on_select: impl Fn(usize, &mut Window, &mut App) + 'static,
-) -> impl IntoElement {
-    let id: ElementId = id.into();
-    let on_select: Select = Rc::new(on_select);
-    let p = move |role| paint(palette, role);
-    div()
-        .flex()
-        .flex_row()
-        .flex_shrink_0()
-        // `.cds--content-switcher-btn`: 1px border-inverse top/bottom, 4px outer radius.
-        .border_1()
-        .border_color(p(ColorRole::BorderInverse))
-        .rounded(rems(0.25))
-        .children(options.iter().enumerate().map(|(i, label)| {
-            let is_selected = i == selected;
-            let on_select = on_select.clone();
-            div()
-                .id(ElementId::NamedChild(
-                    std::sync::Arc::new(id.clone()),
-                    SharedString::from(*label),
-                ))
-                .h(rems(1.875))
-                .px(rems(0.75))
-                .flex()
-                .items_center()
-                .whitespace_nowrap()
-                .type_style(TypeStyle::BodyCompact01)
-                .cursor(CursorStyle::PointingHand)
-                .rounded(rems(0.1875))
-                .map(|this| {
-                    if is_selected {
-                        // `.cds--content-switcher--selected`: layer-selected-inverse / text-inverse.
-                        this.bg(p(ColorRole::LayerSelectedInverse))
-                            .text_color(p(ColorRole::TextInverse))
-                    } else {
-                        this.text_color(p(ColorRole::TextSecondary)).hover(|s| {
-                            s.bg(p(ColorRole::LayerHover01))
-                                .text_color(p(ColorRole::TextPrimary))
-                        })
-                    }
-                })
-                .on_click(move |_: &ClickEvent, window, cx| on_select(i, window, cx))
-                .child(*label)
-        }))
-}
+/// The panel's content width (`20rem` less its `1rem` padding), in px.
+const PANEL_CONTENT: f32 = 288.;
 
 /// A config-panel switch: u0ui's small [`Switch`] whose state text is the
 /// option name (`.cds--toggle__appearance--sm`: 32×16 track).
@@ -107,50 +44,55 @@ pub fn field(label: impl Into<SharedString>, control: impl IntoElement) -> impl 
         .child(control)
 }
 
-/// A wrapping row of choices for the config panel, for option lists too long
-/// for one switcher row.
+/// Whether `options` fit one content-switcher row in the panel: about 7px a
+/// character plus each segment's 2×16px padding.
+pub fn fits_switcher(options: &[&str]) -> bool {
+    let text: usize = options.iter().map(|o| o.chars().count()).sum();
+    options.len() <= 5 && text as f32 * 7.5 + options.len() as f32 * 32. <= PANEL_CONTENT
+}
+
+/// One of `options`: a content switcher ([`ToggleGroup`], size sm) when they
+/// fit one row, a [`Select`] otherwise.
 pub fn choices(
     id: impl Into<ElementId>,
     options: &[&'static str],
     selected: usize,
     on_select: impl Fn(usize, &mut Window, &mut App) + 'static,
-) -> impl IntoElement {
+) -> gpui_kit::AnyElement {
     let id: ElementId = id.into();
-    let on_select: Select = Rc::new(on_select);
-    div()
-        .flex()
-        .flex_row()
-        .flex_wrap()
-        .gap(tokens::SPACING_02)
-        .children(options.iter().enumerate().map(|(i, label)| {
-            let on_select = on_select.clone();
-            let selected = i == selected;
-            div()
-                .id(ElementId::NamedChild(
-                    std::sync::Arc::new(id.clone()),
-                    SharedString::from(*label),
-                ))
-                .h(rems(1.5))
-                .px(rems(0.5))
-                .flex()
-                .items_center()
-                .border_1()
-                .type_style(TypeStyle::Label01)
-                .cursor(CursorStyle::PointingHand)
-                .map(|this| {
-                    if selected {
-                        this.bg(color(ColorRole::LayerSelectedInverse))
-                            .border_color(color(ColorRole::LayerSelectedInverse))
-                            .text_color(color(ColorRole::TextInverse))
-                    } else {
-                        this.border_color(color(ColorRole::BorderStrong01))
-                            .text_color(color(ColorRole::TextPrimary))
-                            .hover(|s| s.bg(color(ColorRole::LayerHover01)))
-                    }
-                })
-                .on_click(move |_, window, cx| on_select(i, window, cx))
-                .child(*label)
-        }))
+    let options: Vec<&'static str> = options.to_vec();
+    let on_select = Rc::new(on_select);
+    let current: SharedString = options.get(selected).copied().unwrap_or_default().into();
+    let index_of = {
+        let options = options.clone();
+        move |value: &str| options.iter().position(|o| *o == value)
+    };
+    if fits_switcher(&options) {
+        let mut group = ToggleGroup::new(id)
+            .size(ToggleSize::Sm)
+            .value([current])
+            .on_value_change(move |value, window, cx| {
+                if let Some(i) = value.first().and_then(|v| index_of(v)) {
+                    on_select(i, window, cx);
+                }
+            });
+        for option in &options {
+            group = group.item(ToggleGroupItem::new(*option).child(*option));
+        }
+        group.into_any_element()
+    } else {
+        Select::new(id)
+            .items(options.iter().copied())
+            .value(Some(current))
+            .size(u0ui::components::FieldSize::Sm)
+            .layer(LayerLevel::Two)
+            .on_value_change(move |value, window, cx| {
+                if let Some(i) = value.and_then(|v| index_of(v)) {
+                    on_select(i, window, cx);
+                }
+            })
+            .into_any_element()
+    }
 }
 
 /// A section heading inside a page (`heading-compact-01`).
@@ -159,43 +101,6 @@ pub fn section(title: impl Into<SharedString>) -> impl IntoElement {
         .type_style(TypeStyle::HeadingCompact01)
         .text_color(color(ColorRole::TextPrimary))
         .child(title.into())
-}
-
-/// The standard page body: a live preview on `background` and, when given, a
-/// config panel (`layer-01`). They sit side by side when there is room and
-/// stack otherwise (no horizontal scrolling).
-pub fn page_body(
-    preview: impl IntoElement,
-    config: Option<gpui_kit::AnyElement>,
-) -> impl IntoElement {
-    div()
-        .flex()
-        .flex_row()
-        .flex_wrap()
-        .items_start()
-        .gap(tokens::SPACING_06)
-        .child(
-            div()
-                .flex_1()
-                .min_w(rems(20.))
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_06)
-                .child(preview),
-        )
-        .when_some(config, |this, config| {
-            this.child(
-                div()
-                    .w(rems(18.))
-                    .flex_shrink_0()
-                    .p(tokens::SPACING_05)
-                    .bg(color(ColorRole::Layer01))
-                    .flex()
-                    .flex_col()
-                    .gap(tokens::SPACING_06)
-                    .child(config),
-            )
-        })
 }
 
 /// A titled page section: a [`section`] heading over `content`, 16px apart.
@@ -220,5 +125,23 @@ pub fn setter<T: 'static, V: 'static>(
             f(this, value);
             cx.notify();
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn short_choices_switch_long_ones_select() {
+        assert!(fits_switcher(&["sm", "md", "lg"]));
+        assert!(fits_switcher(&["16", "20", "24", "32"]));
+        assert!(!fits_switcher(&[
+            "primary",
+            "secondary",
+            "tertiary",
+            "ghost",
+            "danger"
+        ]));
     }
 }

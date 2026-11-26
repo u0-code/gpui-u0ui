@@ -1,6 +1,7 @@
 //! Layout › ScrollArea: the reference release list (280×180, 30 versions)
 //! and a configurable live area (axes, focusability, wide content).
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window,
     div, prelude::FluentBuilder as _, rems,
@@ -134,22 +135,16 @@ impl Render for ScrollAreaPage {
                  Home and End scroll it.",
             );
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block(
-                    "Live",
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap(tokens::SPACING_04)
-                        .child(live)
-                        .child(note),
-                )),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(tokens::SPACING_04)
+                    .child(live)
+                    .child(note),
+            )
+            .config(config)
+            .example(controls::block("Reference preview", reference))
     }
 }

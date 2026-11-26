@@ -1,5 +1,6 @@
 //! Foundations › Motion: every curve and duration, as boxes you can run.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyElement, AnyView, App, AppContext as _, Context, ElementId, IntoElement, ParentElement,
     Render, SharedString, Styled, Window, div, relative, rems,
@@ -167,16 +168,17 @@ impl Render for MotionPage {
                         "Reduced motion is off."
                     })),
             );
-        crate::controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_05)
-                .child(controls::section("Curves"))
-                .children(curves)
-                .child(controls::section("Durations"))
-                .children(speeds),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(tokens::SPACING_05)
+                    .child(controls::section("Curves"))
+                    .children(curves)
+                    .child(controls::section("Durations"))
+                    .children(speeds),
+            )
+            .config(config)
     }
 }

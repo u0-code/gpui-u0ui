@@ -2,6 +2,7 @@
 //! single choice, multiple choice, free text) with the submitted answers shown
 //! below, and a variant whose questions are all optional and described.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div,
@@ -164,15 +165,10 @@ impl Render for QuizPage {
                 ),
             );
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live", live))
-                .child(result),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(controls::block("Reference preview", reference))
+            .example(result)
     }
 }

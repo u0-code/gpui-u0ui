@@ -1,5 +1,6 @@
 //! Navigation › Collapsible: the reference preview and a controlled live one.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window, div,
 };
@@ -44,7 +45,6 @@ impl Render for CollapsiblePage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section("Live (controlled)"))
             .child(
                 Collapsible::new("live-collapsible", "Network settings")
                     .open(self.open)
@@ -68,14 +68,10 @@ impl Render for CollapsiblePage {
             .flex_col()
             .gap(tokens::SPACING_06)
             .child(controls::toggle("collapsible-open", "open", self.open, set));
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("controlled: the open switch in the panel follows it")
+            .config(config)
+            .example(reference)
     }
 }

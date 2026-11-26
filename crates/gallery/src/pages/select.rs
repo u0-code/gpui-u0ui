@@ -1,6 +1,7 @@
 //! Forms › Select: the reference Instance profile dropdown and a configurable
 //! live dropdown (keyboard: ↑/↓, Enter, Escape, type-ahead).
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, rems,
@@ -93,9 +94,6 @@ impl Render for SelectPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section(
-                "Live (↑/↓, Enter, Escape, type a letter)",
-            ))
             .child(
                 div().max_w(rems(20.)).child(
                     Select::new("live")
@@ -178,15 +176,11 @@ impl Render for SelectPage {
                 toggle(|this, on| this.readonly = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("↑/↓, Enter, Escape, type a letter")
+            .config(config)
+            .example(reference)
     }
 }
 

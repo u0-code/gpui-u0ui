@@ -2,6 +2,7 @@
 //! status tags, caption) and a live table with every `TableProps` prop plus
 //! footer and caption parts.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window, div,
 };
@@ -173,14 +174,9 @@ impl Render for TablePage {
                 controls::setter(&entity, |this: &mut TablePage, on| this.selected = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live", live)),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(controls::block("Reference preview", reference))
     }
 }

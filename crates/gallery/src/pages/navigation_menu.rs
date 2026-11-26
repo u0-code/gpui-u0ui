@@ -1,6 +1,7 @@
 //! Navigation › NavigationMenu: the reference header and a live one whose
 //! links navigate.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, rems,
@@ -87,9 +88,6 @@ impl Render for NavigationMenuPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section(
-                "Live: click links; Manage opens on click or ↓, then ↑↓ Enter Esc",
-            ))
             .child(div().pb(rems(10.)).child(header))
             .child(
                 div()
@@ -112,14 +110,10 @@ impl Render for NavigationMenuPage {
                     })
                 },
             ));
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("click links; Manage opens on click or ↓, then ↑↓ Enter Esc")
+            .config(config)
+            .example(reference)
     }
 }

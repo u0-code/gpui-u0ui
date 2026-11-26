@@ -1,5 +1,6 @@
 //! Overlays › Popover: the reference preview (open, bottom-left) and a
 //! configurable live popover.
+use crate::page::Body;
 use crate::{controls, stand_in};
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render, Styled,
@@ -89,45 +90,38 @@ impl Render for PopoverPage {
                 ),
             );
 
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section(
-                "Live: press the button; press outside or Escape to close",
-            ))
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .justify_center()
-                    .gap(tokens::SPACING_05)
-                    .py(rems(12.))
-                    .bg(color(ColorRole::Background))
-                    .border_1()
-                    .border_color(color(ColorRole::BorderSubtle01))
-                    .child(
-                        Popover::new(
-                            "live-popover",
-                            Button::new("live-dimensions", "Dimensions")
-                                .variant(ButtonVariant::Outline)
-                                .size(ButtonSize::Md),
-                        )
-                        .open(self.live_open)
-                        .on_open_change(toggle(|this, open| this.live_open = open))
-                        .align(Align::ALL[self.align])
-                        .caret(self.caret)
-                        .drop_shadow(self.drop_shadow)
-                        .child(dimensions("live-width", &self.live_width)),
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_center()
+                .gap(tokens::SPACING_05)
+                .py(rems(12.))
+                .bg(color(ColorRole::Background))
+                .border_1()
+                .border_color(color(ColorRole::BorderSubtle01))
+                .child(
+                    Popover::new(
+                        "live-popover",
+                        Button::new("live-dimensions", "Dimensions")
+                            .variant(ButtonVariant::Outline)
+                            .size(ButtonSize::Md),
                     )
-                    .child(
-                        div()
-                            .type_style(TypeStyle::Label01)
-                            .text_color(color(ColorRole::TextSecondary))
-                            .child(if self.live_open { "open" } else { "closed" }),
-                    ),
-            );
+                    .open(self.live_open)
+                    .on_open_change(toggle(|this, open| this.live_open = open))
+                    .align(Align::ALL[self.align])
+                    .caret(self.caret)
+                    .drop_shadow(self.drop_shadow)
+                    .child(dimensions("live-width", &self.live_width)),
+                )
+                .child(
+                    div()
+                        .type_style(TypeStyle::Label01)
+                        .text_color(color(ColorRole::TextSecondary))
+                        .child(if self.live_open { "open" } else { "closed" }),
+                ),
+        );
 
         let config = div()
             .flex()
@@ -169,14 +163,10 @@ impl Render for PopoverPage {
                 toggle(|this, on| this.live_open = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("press the button; press outside or Escape to close")
+            .config(config)
+            .example(reference)
     }
 }

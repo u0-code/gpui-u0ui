@@ -1,6 +1,7 @@
 //! Forms › InputOTP: the reference codes (6 digits in 3+3, 4 digits invalid)
 //! and a configurable live code.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render,
     SharedString, Styled, Window, div,
@@ -99,7 +100,6 @@ impl Render for OtpPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section("Live (type or paste)"))
             .child(otp)
             .child(
                 div()
@@ -146,14 +146,10 @@ impl Render for OtpPage {
                 toggle(|this, on| this.disabled = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("type or paste")
+            .config(config)
+            .example(reference)
     }
 }

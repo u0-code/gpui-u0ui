@@ -1,5 +1,6 @@
 //! Overlays › Dialog: the reference preview (open on arrival, as the
 //! reference card is), and a configurable live dialog.
+use crate::page::Body;
 use crate::{controls, stand_in};
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, Focusable as _, IntoElement, ParentElement,
@@ -102,54 +103,49 @@ impl Render for DialogPage {
                     )),
             );
 
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section("Live"))
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .flex_wrap()
-                    .items_center()
-                    .gap(tokens::SPACING_05)
-                    .p(tokens::SPACING_05)
-                    .bg(color(ColorRole::Layer01))
-                    .child(
-                        Dialog::new("live-dialog")
-                            .open(self.live_open)
-                            .on_open_change(update(|this, open| this.live_open = open))
-                            .trigger(
-                                Button::new("live-open", "Open live dialog")
-                                    .variant(ButtonVariant::Tertiary),
-                            )
-                            .size(DialogSize::ALL[self.size])
-                            .when_label(self.with_label)
-                            .title("Rename project")
-                            .when_description(self.with_description)
-                            .primary_text(if self.danger { "Delete" } else { "Save" })
-                            .secondary_text("Cancel")
-                            .danger(self.danger)
-                            .passive(self.passive)
-                            .primary_disabled(self.primary_disabled)
-                            .close_on_backdrop(self.close_on_backdrop)
-                            .on_primary(log("Primary"))
-                            .on_secondary(log("Secondary"))
-                            .child(stand_in::text_field(
-                                "live-name",
-                                "Project name",
-                                &self.live_name,
-                                LayerLevel::Two,
-                            )),
-                    )
-                    .child(
-                        div()
-                            .type_style(TypeStyle::Label01)
-                            .text_color(color(ColorRole::TextSecondary))
-                            .child(format!("Last action: {}", self.last)),
-                    ),
-            );
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            div()
+                .flex()
+                .flex_row()
+                .flex_wrap()
+                .items_center()
+                .gap(tokens::SPACING_05)
+                .p(tokens::SPACING_05)
+                .bg(color(ColorRole::Layer01))
+                .child(
+                    Dialog::new("live-dialog")
+                        .open(self.live_open)
+                        .on_open_change(update(|this, open| this.live_open = open))
+                        .trigger(
+                            Button::new("live-open", "Open live dialog")
+                                .variant(ButtonVariant::Tertiary),
+                        )
+                        .size(DialogSize::ALL[self.size])
+                        .when_label(self.with_label)
+                        .title("Rename project")
+                        .when_description(self.with_description)
+                        .primary_text(if self.danger { "Delete" } else { "Save" })
+                        .secondary_text("Cancel")
+                        .danger(self.danger)
+                        .passive(self.passive)
+                        .primary_disabled(self.primary_disabled)
+                        .close_on_backdrop(self.close_on_backdrop)
+                        .on_primary(log("Primary"))
+                        .on_secondary(log("Secondary"))
+                        .child(stand_in::text_field(
+                            "live-name",
+                            "Project name",
+                            &self.live_name,
+                            LayerLevel::Two,
+                        )),
+                )
+                .child(
+                    div()
+                        .type_style(TypeStyle::Label01)
+                        .text_color(color(ColorRole::TextSecondary))
+                        .child(format!("Last action: {}", self.last)),
+                ),
+        );
 
         let config = div()
             .flex()
@@ -209,15 +205,10 @@ impl Render for DialogPage {
                 update(|this, on| this.close_on_backdrop = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .config(config)
+            .example(reference)
     }
 }
 

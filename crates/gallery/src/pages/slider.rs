@@ -1,6 +1,7 @@
 //! Forms › Slider: the reference Memory and Price range sliders and a
 //! configurable live slider.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render,
     SharedString, Styled, Window, div, rems,
@@ -83,9 +84,6 @@ impl Render for SliderPage {
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
-            .child(controls::section(
-                "Live (drag, click the track, ←/→, Shift ×4, type a value)",
-            ))
             .child(
                 div().max_w(rems(32.5)).child(
                     Slider::new("live", &self.live)
@@ -118,14 +116,10 @@ impl Render for SliderPage {
                 toggle(|this, on| this.hide_input = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("drag, click the track, ←/→, Shift ×4, type a value")
+            .config(config)
+            .example(reference)
     }
 }

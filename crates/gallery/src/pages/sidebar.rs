@@ -1,6 +1,7 @@
 //! Navigation › Sidebar: the reference preview (provider, side nav, inset
 //! with the trigger) and a configurable live one whose links navigate.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, rems,
@@ -124,25 +125,18 @@ impl Render for SidebarPage {
                     .child("v4.2 · us-south"),
             );
         }
-        let live = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section(
-                "Live: the trigger hides the nav; links navigate",
-            ))
-            .child(
-                frame().child(
-                    SidebarProvider::new("live-provider")
-                        .sidebar(sidebar)
-                        .child(
-                            div()
-                                .mt(rems(0.5))
-                                .type_style(TypeStyle::Heading03)
-                                .child(self.current.clone()),
-                        ),
-                ),
-            );
+        let live = div().flex().flex_col().gap(tokens::SPACING_05).child(
+            frame().child(
+                SidebarProvider::new("live-provider")
+                    .sidebar(sidebar)
+                    .child(
+                        div()
+                            .mt(rems(0.5))
+                            .type_style(TypeStyle::Heading03)
+                            .child(self.current.clone()),
+                    ),
+            ),
+        );
 
         let config = div()
             .flex()
@@ -167,14 +161,10 @@ impl Render for SidebarPage {
                 toggle(|this, on| this.footer = on),
             ));
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(reference)
-                .child(live),
-            Some(config.into_any_element()),
-        )
+        Body::new()
+            .playground(live)
+            .hint("the trigger hides the nav; links navigate")
+            .config(config)
+            .example(reference)
     }
 }

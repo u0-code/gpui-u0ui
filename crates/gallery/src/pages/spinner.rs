@@ -2,6 +2,7 @@
 //! (large, small, "Loading data…", "Saved" finished), a live spinner with
 //! every size and status, the stop sequence and the window overlay.
 use crate::controls;
+use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window, div,
 };
@@ -156,16 +157,14 @@ impl Render for SpinnerPage {
                     }),
             );
 
-        controls::page_body(
-            div()
-                .flex()
-                .flex_col()
-                .gap(tokens::SPACING_07)
-                .child(controls::block("Reference preview", reference))
-                .child(controls::block("Live", live))
-                .child(controls::block("Statuses (inline and small)", states))
-                .children(overlay),
-            Some(config.into_any_element()),
-        )
+        let body = Body::new()
+            .playground(live)
+            .config(config)
+            .example(controls::block("Reference preview", reference))
+            .example(controls::block("Statuses (inline and small)", states));
+        match overlay {
+            Some(overlay) => body.example(overlay),
+            None => body,
+        }
     }
 }
