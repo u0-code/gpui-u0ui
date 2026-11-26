@@ -20,7 +20,8 @@
 //!   tooltip (`background-inverse` box, `text-inverse` 11px text, clamped as in
 //!   the JSX); a hovered donut segment gets `.cu-chart-seg:hover { opacity: .85 }`
 //!   and shows its `<title>` text (`label: value`) in the same tooltip style,
-//!   since GPUI has no native SVG `<title>` tooltip.
+//!   since GPUI has no native SVG `<title>` tooltip; like the native one it
+//!   opens at the pointer ([`segment_tip_origin`]), not over the total.
 //!
 //! ```ignore
 //! Chart::new("requests")
@@ -58,6 +59,9 @@ pub enum ChartType {
 impl ChartType {
     /// Every type.
     pub const ALL: [ChartType; 4] = [Self::Bar, Self::Line, Self::Area, Self::Donut];
+    /// The types `index.d.ts` declares (`'bar' | 'line' | 'donut'`); `Area`
+    /// is an extension kept for callers.
+    pub const REFERENCE: [ChartType; 3] = [Self::Bar, Self::Line, Self::Donut];
 
     /// The `index.d.ts` name.
     pub const fn name(self) -> &'static str {
@@ -359,6 +363,43 @@ pub const TIP_BOX: Rect = Rect {
 };
 /// The tooltip text baseline: `<text y="-8" textAnchor="middle">`.
 pub const TIP_BASELINE: f32 = -8.;
+/// How far below the pointer a donut segment's tooltip starts: the segment's
+/// SVG `<title>` is a native tooltip, which opens under the pointer (clear of
+/// the arrow), not at a fixed place in the chart.
+pub const SEGMENT_TIP_GAP: f32 = 20.;
+
+/// The window position of a donut segment tooltip's top-left corner for a
+/// pointer at `pointer` (window px).
+pub fn segment_tip_origin(pointer: (f32, f32)) -> (f32, f32) {
+    (pointer.0, pointer.1 + SEGMENT_TIP_GAP)
+}
+
+/// A hovered donut segment's `<title>` text (`label: value`) in the
+/// `.cu-chart-tip` look, at the pointer like the native tooltip.
+fn segment_tip(text: SharedString, pointer: Point<Pixels>, bg: Hsla, fg: Hsla) -> impl IntoElement {
+    let (x, y) = segment_tip_origin((f32::from(pointer.x), f32::from(pointer.y)));
+    gpui_kit::deferred(
+        gpui_kit::anchored()
+            .position(point(px(x), px(y)))
+            .snap_to_window()
+            .child(
+                div()
+                    .h(px(TIP_BOX.h))
+                    .min_w(px(TIP_BOX.w))
+                    .px(px(6.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .bg(bg)
+                    .text_color(fg)
+                    .font(font(FontFamilyKey::Sans, 400))
+                    .text_size(px(AXIS_FONT))
+                    .whitespace_nowrap()
+                    .child(text),
+            ),
+    )
+    .with_priority(1)
+}
 
 /// Donut segment angles (radians, clockwise from 12 o'clock):
 /// `a0 = (acc / tot) * 2π; acc += v; a1 = (acc / tot) * 2π`.
@@ -789,7 +830,6 @@ fn paint_donut(
     total: f64,
     unit: SharedString,
     hover: Option<ChartHover>,
-    titles: &[SharedString],
     colors: &Colors,
     view: View,
     w: &mut Window,
@@ -879,17 +919,6 @@ fn paint_donut(
         w,
         cx,
     );
-    if let Some(ChartHover::Segment { index, x, y }) = hover
-        && let Some(text) = titles.get(index)
-    {
-        // The segment's `<title>`, shown in the `.cu-chart-tip` style and
-        // clamped into the 200px box like the cartesian tip.
-        let at = (
-            x.clamp(-TIP_BOX.x, DONUT_SIZE + TIP_BOX.x),
-            (y - 10.).max(22.),
-        );
-        paint_tip(view, at, text.clone(), colors, w, cx);
-    }
 }
 
 /// A chart. See the module docs.
@@ -1050,13 +1079,22 @@ impl RenderOnce for Chart {
                 .collect();
             let unit = series.display();
             let palette = colors.palette.clone();
+            let tip = match hover {
+                Some(ChartHover::Segment { index, .. }) => titles.get(index).map(|t| {
+                    segment_tip(
+                        t.clone(),
+                        window.mouse_position(),
+                        colors.tip_bg,
+                        colors.tip_text,
+                    )
+                }),
+                _ => None,
+            };
             let svg = canvas(
                 |bounds, window, _| window.insert_hitbox(bounds, HitboxBehavior::Normal),
                 move |bounds, hitbox, window, cx| {
                     let view = View::of(bounds, DONUT_SIZE);
-                    paint_donut(
-                        &segments, total, unit, hover, &titles, &colors, view, window, cx,
-                    );
+                    paint_donut(&segments, total, unit, hover, &colors, view, window, cx);
                     let segments = segments.clone();
                     register_hover(
                         hitbox,
@@ -1084,6 +1122,7 @@ impl RenderOnce for Chart {
                         .items_center()
                         .gap(crate::tokens::SPACING_06)
                         .child(svg)
+                        .children(tip)
                         .child(legend(true).children(self.data.iter().enumerate().map(
                             |(i, d)| legend_item(palette[i % palette.len()], d.label(&self.x_key)),
                         ))),
@@ -1213,5 +1252,18 @@ mod tests {
         assert_eq!(format_number(60.), "60");
         assert_eq!(ChartSeries::new("v").display().as_ref(), "v");
         assert_eq!(ChartType::Area.name(), "area");
+    }
+
+    #[test]
+    fn donut_tip_opens_at_the_pointer() {
+        // Below the pointer, wherever it is: never pinned over the centre total.
+        assert_eq!(segment_tip_origin((480., 500.)), (480., 520.));
+        assert_eq!(segment_tip_origin((10., 20.)), (10., 40.));
+    }
+
+    #[test]
+    fn reference_types_match_index_d_ts() {
+        let names = ChartType::REFERENCE.map(|t| t.name());
+        assert_eq!(names, ["bar", "line", "donut"]);
     }
 }

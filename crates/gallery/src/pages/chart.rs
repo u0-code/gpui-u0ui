@@ -102,7 +102,7 @@ impl Render for ChartPage {
                     .series(vec![ChartSeries::new("v").label("TB")]),
             );
 
-        let kind = ChartType::ALL[self.kind];
+        let kind = ChartType::REFERENCE[self.kind];
         let all = [
             ChartSeries::new("us").label("US"),
             ChartSeries::new("eu").label("EU"),
@@ -127,7 +127,8 @@ impl Render for ChartPage {
                 .series(all[..=self.series].to_vec())
         };
 
-        let kinds = ChartType::ALL.map(|k| k.name());
+        // Only the `index.d.ts` types (`bar | line | donut`).
+        let kinds = ChartType::REFERENCE.map(|k| k.name());
         let heights = HEIGHTS.map(|h| h.0);
         let months = MONTHS.map(|m| m.0);
         let config = div()
