@@ -2,6 +2,7 @@
 //! and is registered with one line in `registry.rs`.
 pub mod alert_dialog;
 pub mod button;
+pub mod button_group;
 pub mod colors;
 pub mod dialog;
 pub mod drawer;

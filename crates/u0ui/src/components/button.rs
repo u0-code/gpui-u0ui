@@ -578,6 +578,11 @@ impl Button {
         self
     }
 
+    /// Whether the button is disabled.
+    pub fn is_disabled(&self) -> bool {
+        self.disabled
+    }
+
     /// The Carbon kind actually drawn.
     pub fn kind(&self) -> ButtonKind {
         if self.icon_only && self.variant == ButtonVariant::Default {
