@@ -15,7 +15,7 @@
 //! HoverCard::new("profile", Button::new("l", "@carbon-design").variant(ButtonVariant::Link))
 //!     .child(profile_summary)
 //! ```
-use super::floating::{self, Align, FLOAT_ENTER, FLOAT_EXIT};
+use super::floating::{self, Align};
 use super::overlay::{self, rem};
 use super::popover::{CONTENT_MAX_WIDTH, CONTENT_MIN_WIDTH, PopoverLook, RADIUS};
 use crate::{tokens::TypeStyle, typography::TypeStyled as _};
@@ -93,14 +93,6 @@ impl RenderOnce for HoverCard {
             dismissed.update(cx, |d, _| *d = false);
         }
         let open = (hover.read(cx).open || focused) && !*dismissed.read(cx);
-        let progress = overlay::presence(
-            (id.clone(), "fade"),
-            open,
-            FLOAT_ENTER,
-            FLOAT_EXIT,
-            window,
-            cx,
-        );
         let open_delay = self.open_delay;
         let on_hover = {
             let hover = hover.clone();
@@ -136,22 +128,19 @@ impl RenderOnce for HoverCard {
             .into_any_element();
 
         let look = PopoverLook::current();
-        let surface = (open || progress > 0.).then(|| {
-            (
-                div()
-                    .id((id.clone(), "surface"))
-                    .on_hover(on_hover)
-                    .rounded(px(RADIUS))
-                    .bg(look.background)
-                    .text_color(look.text)
-                    .shadow(overlay::floating_shadow())
-                    .min_w(rem(CONTENT_MIN_WIDTH))
-                    .max_w(rem(CONTENT_MAX_WIDTH))
-                    .p(rem(16.))
-                    .type_style(TypeStyle::Body01)
-                    .children(self.children),
-                progress,
-            )
+        let surface = open.then(|| {
+            div()
+                .id((id.clone(), "surface"))
+                .on_hover(on_hover)
+                .rounded(px(RADIUS))
+                .bg(look.background)
+                .text_color(look.text)
+                .shadow(overlay::floating_shadow())
+                .min_w(rem(CONTENT_MIN_WIDTH))
+                .max_w(rem(CONTENT_MAX_WIDTH))
+                .p(rem(16.))
+                .type_style(TypeStyle::Body01)
+                .children(self.children)
         });
         floating::anchored((id, "popup"), trigger, surface, self.align, None, 0.)
     }

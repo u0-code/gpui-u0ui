@@ -23,9 +23,8 @@
 //!   `text-disabled`; keyboard focus a 2px inset `focus` outline; dividers
 //!   1px `border-subtle` with 0.25rem margins.
 //! - **Motion**: item backgrounds `transition: background-color 70ms
-//!   cubic-bezier(0.2, 0, 0.38, 0.9)`; the surface fades like other floating
-//!   surfaces ([`super::floating`]).
-use super::floating::{FLOAT_ENTER, FLOAT_EXIT};
+//!   cubic-bezier(0.2, 0, 0.38, 0.9)`; the surface shows and hides at once
+//!   (`.cds--menu { display: none }` → `.cds--menu--open`, no transition).
 use super::overlay::{self, Callback, Translate, rem};
 use crate::{
     density::{self, Density},
@@ -1000,8 +999,8 @@ pub(crate) struct MenuSpec {
     pub on_unhandled_key: Option<KeyHook>,
 }
 
-/// The faded menu surface for `spec` (closing on a press outside it and its
-/// submenus), or `None` once it has faded out. Focus moves into it on open
+/// The menu surface for `spec` (closing on a press outside it and its
+/// submenus), or `None` while closed. Focus moves into it on open
 /// and back on close.
 pub(crate) fn menu_surface(
     id: &ElementId,
@@ -1010,14 +1009,6 @@ pub(crate) fn menu_surface(
     cx: &mut App,
 ) -> Option<AnyElement> {
     let open = spec.open;
-    let progress = overlay::presence(
-        (id.clone(), "fade"),
-        open,
-        FLOAT_ENTER,
-        FLOAT_EXIT,
-        window,
-        cx,
-    );
     let focus = overlay::surface_focus(id, open, None, window, cx);
     let selections = window.use_keyed_state((id.clone(), "selections"), cx, |_, _| HashMap::new());
     let bounds = window
@@ -1026,7 +1017,7 @@ pub(crate) fn menu_surface(
         })
         .read(cx)
         .clone();
-    if !(open || progress > 0.) {
+    if !open {
         return None;
     }
     let set_open = spec.set_open;
@@ -1056,7 +1047,6 @@ pub(crate) fn menu_surface(
     Some(
         div()
             .id((id.clone(), "surface"))
-            .opacity(progress)
             .on_mouse_down_out(outside)
             .child(menu)
             .into_any_element(),

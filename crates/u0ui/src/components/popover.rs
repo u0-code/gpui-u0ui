@@ -4,8 +4,9 @@
 //! - **Behavior**: pressing the trigger (pointer, Enter or Space) toggles it; a
 //!   press outside or Escape closes it; focus moves into the surface on open
 //!   and back to where it was on close. Positioning is Base's `Popup` via
-//!   [`super::floating`]. Base's own `Popover` is not used because it unmounts
-//!   its content the frame it closes, which would cut the exit fade.
+//!   [`super::floating`]. Base's own `Popover` is not used: it draws no caret
+//!   and cannot place Carbon's 12 alignments.
+//! - **Motion**: none; it shows and hides at once (see [`super::floating`]).
 //! - **Appearance**: `layer-01` surface, 2px radius
 //!   (`--popover-border-radius: 2px`), the floating shadow when `drop_shadow`,
 //!   a 12×6 caret and a 0.625rem offset when `caret`, content padded 1rem,
@@ -16,7 +17,7 @@
 //!     .align(Align::BottomLeft)
 //!     .child(div().child("Set the layer size."))
 //! ```
-use super::floating::{self, Align, FLOAT_ENTER, FLOAT_EXIT, POPOVER_OFFSET};
+use super::floating::{self, Align, POPOVER_OFFSET};
 use super::overlay::{self, OpenChange, rem};
 use crate::{
     theme::color,
@@ -141,14 +142,6 @@ impl RenderOnce for Popover {
         );
         let open = openness.open;
         let set_open = openness.setter();
-        let progress = overlay::presence(
-            (id.clone(), "fade"),
-            open,
-            FLOAT_ENTER,
-            FLOAT_EXIT,
-            window,
-            cx,
-        );
         let focus = overlay::surface_focus(&id, open, None, window, cx);
 
         let trigger = {
@@ -161,39 +154,36 @@ impl RenderOnce for Popover {
             .into_any_element()
         };
         let look = PopoverLook::current();
-        let surface = (open || progress > 0.).then(|| {
+        let surface = open.then(|| {
             let set_escape = set_open.clone();
             let set_outside = set_open.clone();
-            (
-                div()
-                    .id((id.clone(), "surface"))
-                    .track_focus(&focus)
-                    .tab_group()
-                    .rounded(px(RADIUS))
-                    .bg(look.background)
-                    .text_color(look.text)
-                    .when(self.drop_shadow, |this| {
-                        this.shadow(overlay::floating_shadow())
-                    })
-                    .min_w(rem(CONTENT_MIN_WIDTH))
-                    .max_w(rem(CONTENT_MAX_WIDTH))
-                    .p(rem(16.))
-                    .type_style(TypeStyle::Body01)
-                    .on_key_down(move |event: &KeyDownEvent, window, cx| {
-                        if event.keystroke.key == "escape" && open {
-                            set_escape(false, window, cx);
-                            cx.stop_propagation();
-                        }
-                    })
-                    .on_mouse_down_out(move |_, window, cx| {
-                        if open {
-                            set_outside(false, window, cx);
-                        }
-                    })
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .children(self.children),
-                progress,
-            )
+            div()
+                .id((id.clone(), "surface"))
+                .track_focus(&focus)
+                .tab_group()
+                .rounded(px(RADIUS))
+                .bg(look.background)
+                .text_color(look.text)
+                .when(self.drop_shadow, |this| {
+                    this.shadow(overlay::floating_shadow())
+                })
+                .min_w(rem(CONTENT_MIN_WIDTH))
+                .max_w(rem(CONTENT_MAX_WIDTH))
+                .p(rem(16.))
+                .type_style(TypeStyle::Body01)
+                .on_key_down(move |event: &KeyDownEvent, window, cx| {
+                    if event.keystroke.key == "escape" && open {
+                        set_escape(false, window, cx);
+                        cx.stop_propagation();
+                    }
+                })
+                .on_mouse_down_out(move |_, window, cx| {
+                    if open {
+                        set_outside(false, window, cx);
+                    }
+                })
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .children(self.children)
         });
         floating::anchored(
             (id, "popup"),

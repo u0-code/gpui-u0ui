@@ -10,14 +10,14 @@
 //! - **Appearance**: `background-inverse` surface, `text-inverse` body-01
 //!   text, 1rem padding, `max-inline-size: 18rem`, 2px radius, a 12×6 caret
 //!   and a 12px offset (`.cds--tooltip { --popover-offset: 12px }`).
-//! - **Motion**: see [`super::floating`] (a short fade; nothing moves).
+//! - **Motion**: none; it shows and hides at once (see [`super::floating`]).
 //!
 //! ```ignore
 //! Tooltip::new("copy", Button::new("c", "Copy").icon(CarbonIcon::Copy).icon_only(true))
 //!     .content("Copy to clipboard")
 //! ```
-use super::floating::{self, Align, FLOAT_ENTER, FLOAT_EXIT, TOOLTIP_OFFSET};
-use super::overlay::{self, rem};
+use super::floating::{self, Align, TOOLTIP_OFFSET};
+use super::overlay::rem;
 use crate::{
     theme::color,
     tokens::{ColorRole, TypeStyle},
@@ -108,14 +108,6 @@ impl RenderOnce for Tooltip {
             dismissed.update(cx, |d, _| *d = false);
         }
         let open = (hover.read(cx).open || focused) && !*dismissed.read(cx);
-        let progress = overlay::presence(
-            (id.clone(), "fade"),
-            open,
-            FLOAT_ENTER,
-            FLOAT_EXIT,
-            window,
-            cx,
-        );
 
         let trigger = div()
             .id((id.clone(), "trigger"))
@@ -149,21 +141,18 @@ impl RenderOnce for Tooltip {
             .into_any_element();
 
         let look = TooltipLook::current();
-        let surface = (open || progress > 0.).then(|| {
-            (
-                div()
-                    .id((id.clone(), "surface"))
-                    // `.cds--tooltip-content`: body-01, 1rem padding, max 18rem.
-                    .max_w(rem(288.))
-                    .px(rem(16.))
-                    .py(rem(16.))
-                    .rounded(gpui_kit::px(2.))
-                    .bg(look.background)
-                    .text_color(look.text)
-                    .type_style(TypeStyle::Body01)
-                    .child(self.content.clone()),
-                progress,
-            )
+        let surface = open.then(|| {
+            div()
+                .id((id.clone(), "surface"))
+                // `.cds--tooltip-content`: body-01, 1rem padding, max 18rem.
+                .max_w(rem(288.))
+                .px(rem(16.))
+                .py(rem(16.))
+                .rounded(gpui_kit::px(2.))
+                .bg(look.background)
+                .text_color(look.text)
+                .type_style(TypeStyle::Body01)
+                .child(self.content.clone())
         });
         floating::anchored(
             (id, "popup"),

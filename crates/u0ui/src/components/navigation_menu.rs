@@ -7,8 +7,7 @@
 //!   Enter/Space, pointer). A `HeaderMenu` opens under its title on press or
 //!   ↓; inside it ↑/↓ move between items, Enter runs one, Escape (or a press
 //!   outside) closes and returns focus to the title. Placement is Base's
-//!   `Popup`; open state, focus moves and the fade come from
-//!   [`super::overlay`].
+//!   `Popup`; open state and focus moves come from [`super::overlay`].
 //! - **Appearance**: a 3rem bar on `background` with a 1px `border-subtle`
 //!   bottom line; the name in body-compact-01 600 with a 400 prefix, padded
 //!   `0 2rem 0 1rem`; the navigation after a 1.5rem `border-subtle` rule;
@@ -20,10 +19,9 @@
 //!   rgba(0,0,0,.5)`, 3rem items, hover `layer-hover`, the current one
 //!   `layer-selected` with a 3px start bar. Global actions sit at the end.
 //! - **Motion**: `transition: background-color 110ms, border-color 110ms,
-//!   color 110ms`; chevron `transform 110ms`; the menu fades
-//!   ([`super::floating`]).
-use super::floating::{FLOAT_ENTER, FLOAT_EXIT};
-use super::overlay::{self, Callback, rem};
+//!   color 110ms`; chevron `transform 110ms`; the menu shows and hides at
+//!   once (`.cds--header__menu { display: none }` → `flex`, no transition).
+use super::overlay::{Callback, rem};
 use crate::{
     icons::{CarbonIcon, Icon, IconSize},
     motion::{self, Curve, Motion, Speed},
@@ -387,14 +385,6 @@ impl RenderOnce for NavigationMenu {
                     window.refresh();
                 })
             };
-            let progress = overlay::presence(
-                (item_id.clone(), "fade"),
-                open,
-                FLOAT_ENTER,
-                FLOAT_EXIT,
-                window,
-                cx,
-            );
             let title = header_item(
                 (item_id.clone(), "title").into(),
                 item.label.clone(),
@@ -423,7 +413,7 @@ impl RenderOnce for NavigationMenu {
             let popup = gpui_kit::base::Popup::new((item_id.clone(), "popup"), title)
                 .anchor(Anchor::TopLeft)
                 .h_full();
-            if !(open || progress > 0.) {
+            if !open {
                 nav = nav.child(popup);
                 continue;
             }
@@ -434,7 +424,6 @@ impl RenderOnce for NavigationMenu {
                 .flex_col()
                 .bg(color(ColorRole::Layer01))
                 .shadow(menu_shadow())
-                .opacity(progress)
                 .on_mouse_down_out({
                     let set_open = set_open.clone();
                     move |_, window, cx| {

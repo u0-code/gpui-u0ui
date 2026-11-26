@@ -1,5 +1,5 @@
 //! Anchored floating surfaces (`.cds--popover`): placement for Carbon's 12
-//! alignments, the caret, hover intent with delays, and the presence fade.
+//! alignments, the caret and hover intent with delays.
 //! Shared by Tooltip, Popover and HoverCard.
 //!
 //! Positioning is Kit's: [`gpui_kit::base::Popup`] measures the trigger,
@@ -8,22 +8,16 @@
 //! trigger edge (`*-start`/`*-end`), which is a [`Translate`] here, like the
 //! CSS `transform`.
 //!
-//! Motion: Carbon's popover CSS shows and hides at once (`display: none` →
-//! `block`, no transition). u0ui fades it with the motion tokens for small
-//! surfaces (in: fast-02 productive entrance, out: fast-01 productive exit) so
-//! interrupting never jumps; nothing moves, so reduced motion is unaffected.
+//! Motion: none. Carbon's popover CSS shows and hides at once
+//! (`.cds--popover-content { display: none }` → `block` with
+//! `.cds--popover--open`, no transition), so surfaces mount and unmount on
+//! the frame their open state flips.
 use super::overlay::{Translate, rem};
-use crate::motion::{Curve, Motion, Speed};
 use gpui_kit::{
     Anchor, AnyElement, App, Bounds, Entity, Hsla, IntoElement, ParentElement, PathBuilder, Pixels,
     Styled, Task, Window, canvas, div, point, px,
 };
 use std::time::Duration;
-
-/// Surface fade in: fast-02, productive entrance.
-pub const FLOAT_ENTER: Motion = Motion::new(Curve::ProductiveEntrance, Speed::Fast02);
-/// Surface fade out: fast-01, productive exit.
-pub const FLOAT_EXIT: Motion = Motion::new(Curve::ProductiveExit, Speed::Fast01);
 
 /// `--popover-caret-width` 0.75rem.
 pub const CARET_WIDTH: f32 = 12.;
@@ -260,13 +254,12 @@ pub(crate) fn caret(side: Side, at: (f32, f32), color: Hsla) -> AnyElement {
         .into_any_element()
 }
 
-/// Position `surface` (already styled, at full opacity) for `align`, add the
-/// caret, apply `opacity`, and hand it to Base's [`gpui_kit::base::Popup`]
-/// anchored to `trigger`.
+/// Position `surface` (already styled) for `align`, add the caret, and hand
+/// it to Base's [`gpui_kit::base::Popup`] anchored to `trigger`.
 pub(crate) fn anchored(
     id: impl Into<gpui_kit::ElementId>,
     trigger: AnyElement,
-    surface: Option<(gpui_kit::Stateful<gpui_kit::Div>, f32)>,
+    surface: Option<gpui_kit::Stateful<gpui_kit::Div>>,
     align: Align,
     caret_color: Option<Hsla>,
     offset: f32,
@@ -275,7 +268,7 @@ pub(crate) fn anchored(
     let popup = gpui_kit::base::Popup::new(id, trigger)
         .anchor(placement.anchor)
         .offset(px(placement.gap));
-    let Some((surface, opacity)) = surface else {
+    let Some(surface) = surface else {
         return popup.into_any_element();
     };
     let side = align.side();
@@ -293,11 +286,7 @@ pub(crate) fn anchored(
         ),
     };
     popup
-        .content(
-            div()
-                .opacity(opacity)
-                .child(Translate::new(surface, fraction, shift)),
-        )
+        .content(Translate::new(surface, fraction, shift))
         .into_any_element()
 }
 
@@ -396,11 +385,5 @@ mod tests {
     #[test]
     fn caret_size_follows_popover_caret() {
         assert_eq!((CARET_WIDTH, CARET_HEIGHT), (12., 6.));
-    }
-
-    #[test]
-    fn fade_is_short() {
-        assert_eq!(FLOAT_ENTER.speed.millis(), 110);
-        assert_eq!(FLOAT_EXIT.speed.millis(), 70);
     }
 }
