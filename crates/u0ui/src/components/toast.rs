@@ -22,13 +22,10 @@
 //!   [`toast`] live in an app-global queue; `error` toasts never auto-dismiss,
 //!   the others after their `duration` or the toaster's (default 5000ms):
 //!   `timeout={t.variant === 'error' ? 0 : t.duration ?? duration}`.
-//! - **Motion**: Carbon ships no toast keyframes (`bundle.css` has none for
-//!   `.cds--toast-notification`), so the u0ui conventions apply: entering
-//!   toasts fade in and slide in from the toaster's edge with
-//!   [`Motion::ENTER`] (moderate-02, productive entrance), leaving ones fade and
-//!   slide out with [`Motion::EXIT`] (fast-02, productive exit), and each
-//!   toast's slot grows/collapses with the same progress so the others reflow
-//!   smoothly. Reduced motion keeps only the fade.
+//! - **Motion**: none. The reference has no toast keyframes or transitions
+//!   (`bundle.css` has none for `.cds--toast-notification`, nor do `custom.css`,
+//!   `ghost.css` or `t3.css` for `.cu-toaster`), so toasts appear and disappear
+//!   at once and the stack reflows instantly.
 //! - **Kit reuse**: Kit's `notification` and Base's `toast` stack toasts
 //!   Sonner-style (collapsed layers, springs, hover expansion), which Carbon's
 //!   flat 8px-gap column does not do; only the idea (a global queue with
@@ -38,16 +35,12 @@ use super::alert::{
 };
 use super::form::rem;
 use super::overlay::Callback;
-use crate::{
-    motion::{self, Motion},
-    tokens::TypeStyle,
-    typography::TypeStyled as _,
-};
+use crate::{tokens::TypeStyle, typography::TypeStyled as _};
 use gpui_kit::{
     App, BoxShadow, ElementId, Global, IntoElement, ParentElement, RenderOnce, SharedString,
-    Styled, Window, anchored, canvas, deferred, div, point, prelude::FluentBuilder as _, px,
+    Styled, Window, anchored, deferred, div, point, prelude::FluentBuilder as _, px,
 };
-use std::{cell::Cell, collections::HashSet, rc::Rc, time::Duration};
+use std::{collections::HashSet, rc::Rc, time::Duration};
 
 /// `inline-size: 18rem`; `@media (min-width: 99rem) { inline-size: 22rem }`.
 pub fn toast_width(viewport_rem: f32) -> f32 {
@@ -117,18 +110,6 @@ impl ToasterPosition {
     fn bottom(self) -> bool {
         matches!(self, Self::BottomRight | Self::BottomLeft)
     }
-}
-
-/// Where a toast is at presence progress `p` (0 hidden → 1 shown):
-/// `(x offset px, slot height factor)`. It slides `width + padding` toward the
-/// toaster's edge; under reduced motion it neither slides nor collapses.
-pub fn toast_motion(p: f32, width: f32, from_right: bool, reduced: bool) -> (f32, f32) {
-    if reduced {
-        return (0., 1.);
-    }
-    let p = p.clamp(0., 1.);
-    let distance = (1. - p) * (width + TOASTER_PADDING);
-    (if from_right { distance } else { -distance }, p)
 }
 
 type CloseHandler = Rc<dyn Fn(&mut App) -> bool>;
@@ -374,7 +355,6 @@ struct Item {
     kind: NotificationKind,
     title: SharedString,
     options: ToastOptions,
-    leaving: bool,
 }
 
 /// The app-global toast queue (`toastBus`).
@@ -397,7 +377,6 @@ pub fn toast(cx: &mut App, title: impl Into<SharedString>, options: ToastOptions
         kind: options.variant.unwrap_or_default(),
         title: title.into(),
         options,
-        leaving: false,
     });
     cx.refresh_windows();
     id
@@ -439,25 +418,15 @@ pub fn info(cx: &mut App, title: impl Into<SharedString>, options: ToastOptions)
     with_kind(cx, NotificationKind::Info, title, options)
 }
 
-/// `toast.dismiss(id)`: the toast plays its exit motion, then leaves the queue.
+/// `toast.dismiss(id)`: the toast leaves the queue at once (no exit motion).
 pub fn dismiss(cx: &mut App, id: ToastId) {
     let bus = cx.default_global::<ToastBus>();
-    let Some(item) = bus.items.iter_mut().find(|t| t.id == id && !t.leaving) else {
-        return;
-    };
-    item.leaving = true;
-    cx.refresh_windows();
-    let exit = Motion::EXIT.speed.duration();
-    cx.spawn(async move |cx| {
-        cx.background_executor().timer(exit).await;
-        cx.update(|cx| {
-            let bus = cx.default_global::<ToastBus>();
-            bus.items.retain(|t| t.id != id);
-            bus.scheduled.remove(&id);
-            cx.refresh_windows();
-        });
-    })
-    .detach();
+    let before = bus.items.len();
+    bus.items.retain(|t| t.id != id);
+    bus.scheduled.remove(&id);
+    if bus.items.len() != before {
+        cx.refresh_windows();
+    }
 }
 
 /// Dismiss every toast.
@@ -519,7 +488,7 @@ impl RenderOnce for Toaster {
         for item in &items {
             let timeout = effective_timeout(item.kind, item.options.duration, self.duration);
             let bus = cx.default_global::<ToastBus>();
-            if item.leaving || bus.scheduled.contains(&item.id) {
+            if bus.scheduled.contains(&item.id) {
                 continue;
             }
             bus.scheduled.insert(item.id);
@@ -535,7 +504,6 @@ impl RenderOnce for Toaster {
             }
         }
 
-        let reduced = motion::reduced_motion(cx);
         let width = toast_width(viewport_rem(window));
         let position = self.position;
         let mut stack = div()
@@ -551,19 +519,6 @@ impl RenderOnce for Toaster {
                 std::sync::Arc::new(self.id.clone()),
                 SharedString::from(format!("toast-{}", item.id)),
             );
-            let p = super::overlay::presence(
-                key.clone(),
-                !item.leaving,
-                Motion::ENTER,
-                Motion::EXIT,
-                window,
-                cx,
-            );
-            let (dx, factor) = toast_motion(p, width, position.right(), reduced);
-            let measured = window
-                .use_keyed_state((key.clone(), "height"), cx, |_, _| Rc::new(Cell::new(0f32)))
-                .read(cx)
-                .clone();
             let id = item.id;
             let toast_card = card(
                 key.clone(),
@@ -576,35 +531,8 @@ impl RenderOnce for Toaster {
                 Rc::new(move |_, cx| dismiss(cx, id)),
                 window,
                 cx,
-            )
-            .child({
-                let measured = measured.clone();
-                canvas(
-                    move |bounds, _, _| measured.set(f32::from(bounds.size.height)),
-                    |_, _, _, _| {},
-                )
-                .absolute()
-                .top_0()
-                .left_0()
-                .size_full()
-            });
-            let settled = factor >= 1. && !item.leaving;
-            let slot = if settled || measured.get() <= 0. && factor >= 1. {
-                // At rest: natural layout.
-                div().flex_none().pb(rem(TOASTER_GAP)).child(toast_card)
-            } else {
-                // Moving: the slot's height follows the progress so the
-                // others reflow; the card is clipped inside it.
-                let full = measured.get() + TOASTER_GAP;
-                div()
-                    .relative()
-                    .flex_none()
-                    .w(rem(width))
-                    .h(px(full * factor))
-                    .overflow_hidden()
-                    .child(div().absolute().top_0().left_0().child(toast_card))
-            };
-            stack = stack.child(div().relative().left(px(dx)).opacity(p).child(slot));
+            );
+            stack = stack.child(div().flex_none().pb(rem(TOASTER_GAP)).child(toast_card));
         }
 
         let viewport = window.viewport_size();
@@ -659,19 +587,28 @@ mod tests {
     }
 
     #[test]
-    fn geometry_and_motion() {
+    fn geometry() {
         assert_eq!(toast_width(80.), 288.);
         assert_eq!(toast_width(100.), 352.);
         assert_eq!(TOASTER_GAP, 8.);
         assert_eq!(TOASTER_PADDING, 16.);
-        // Hidden: one toast width plus the padding past the edge; shown: in place.
-        assert_eq!(toast_motion(0., 288., true, false), (304., 0.));
-        assert_eq!(toast_motion(0., 288., false, false), (-304., 0.));
-        assert_eq!(toast_motion(1., 288., true, false), (0., 1.));
-        // Reduced motion: fade only.
-        assert_eq!(toast_motion(0.3, 288., true, true), (0., 1.));
         assert_eq!(ToasterPosition::BottomLeft.name(), "bottom-left");
-        assert_eq!(Motion::ENTER.speed.millis(), 240);
-        assert_eq!(Motion::EXIT.speed.millis(), 110);
+    }
+
+    /// No toast motion in the reference: dismissing removes the toast at once.
+    #[gpui_kit::test]
+    fn dismiss_is_instant(cx: &mut gpui_kit::TestAppContext) {
+        cx.update(|cx| {
+            let first = toast(cx, "One", ToastOptions::default());
+            let second = toast(cx, "Two", ToastOptions::default());
+            dismiss(cx, first);
+            let ids: Vec<ToastId> = cx
+                .default_global::<ToastBus>()
+                .items
+                .iter()
+                .map(|t| t.id)
+                .collect();
+            assert_eq!(ids, vec![second]);
+        });
     }
 }

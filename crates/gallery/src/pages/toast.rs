@@ -43,21 +43,9 @@ struct ToastPage {
 const TIMEOUTS: [(&str, u64); 3] = [("0 (never)", 0), ("3000", 3000), ("5000", 5000)];
 const DURATIONS: [(&str, u64); 3] = [("2000", 2000), ("5000", 5000), ("10000", 10000)];
 
-/// `new Date().toLocaleTimeString()`: the wall-clock time (UTC; std has no
-/// time-zone database).
+/// `new Date().toLocaleTimeString()`: the local wall-clock time.
 fn now() -> SharedString {
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-        % 86_400;
-    format!(
-        "{:02}:{:02}:{:02} UTC",
-        secs / 3600,
-        (secs / 60) % 60,
-        secs % 60
-    )
-    .into()
+    u0ui::clock::now().time_string().into()
 }
 
 impl Render for ToastPage {
