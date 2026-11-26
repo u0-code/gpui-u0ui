@@ -422,6 +422,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("ScrollArea"),
         build: pages::scroll_area::build,
     },
+    PageDef {
+        id: "resizable",
+        title: "Resizable",
+        group: "Layout",
+        description: readme!("Resizable"),
+        build: pages::resizable::build,
+    },
 ];
 
 /// Look a page up by id.

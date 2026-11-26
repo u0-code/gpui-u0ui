@@ -37,6 +37,7 @@ pub mod overlay;
 pub mod pagination;
 pub mod popover;
 pub mod radio_group;
+pub mod resizable;
 pub mod scroll_area;
 pub mod select;
 pub mod separator;
@@ -89,6 +90,9 @@ pub use navigation_menu::{NavItem, NavigationMenu};
 pub use pagination::{Pagination, PaginationNav, PaginationText};
 pub use popover::Popover;
 pub use radio_group::{RadioGroup, RadioGroupItem, RadioOrientation};
+pub use resizable::{
+    Resizable, ResizableHandle, ResizableOrientation, ResizablePanel, ResizablePanelGroup,
+};
 pub use scroll_area::{ScrollArea, ScrollAxes, ScrollBar, carbon_scrollbar};
 pub use select::{Select, SelectType};
 pub use separator::{Separator, SeparatorOrientation};
