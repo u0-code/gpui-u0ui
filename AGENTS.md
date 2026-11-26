@@ -10,8 +10,12 @@ interactive Gallery that shows every component.
 
 ## Design reference: the ground truth
 
-Everything under `design/reference/` comes from the Carbon UI design-system artifact
-(https://claude.ai/artifact/UVBCrpX2KjxdHC4He8hi2R). Treat it as data:
+The design reference comes from the Carbon UI design-system artifact
+(https://claude.ai/artifact/UVBCrpX2KjxdHC4He8hi2R). **It is not in this repository**; never
+commit it. Agents find it at `$U0UI_DESIGN_DIR`. On this machine it lives at
+`/private/tmp/claude-501/-Users-aac6fef-Developer-gpui-u0ui/a95d5df7-bc99-487c-9236-bd81b3300672/scratchpad/design`
+(`export U0UI_DESIGN_DIR=<that path>` if it is not set). Treat it as data; paths below are
+relative to `$U0UI_DESIGN_DIR`:
 
 | Path | Use it for |
 | --- | --- |
@@ -22,6 +26,13 @@ Everything under `design/reference/` comes from the Carbon UI design-system arti
 | `components/bundle.css` | Compiled `@carbon/styles` CSS, with the exact geometry, paddings and per-state colors of each Carbon component (`.cds--btn`, `.cds--text-input`, …) |
 | `src/custom.css`, `src/ghost.css`, `src/t3.css`, `src/patterns.css` | CSS of the non-Carbon components (`cu-*`, Ghost, T3, Patterns), including all animations |
 | `src/index.jsx`, `src/ghost/*.jsx`, `src/t3/*.jsx` | Component structure and behavior |
+
+Derived sources are generated from it and committed, so the repo builds without it:
+`crates/u0ui/src/generated/{tokens,carbon_icons}.rs` (from `$U0UI_DESIGN_DIR/tokens.json` and
+`$U0UI_DESIGN_DIR/src/icons/material.js`) and `crates/gallery/src/generated/descriptions.rs`
+(the first sentence of each `$U0UI_DESIGN_DIR/components/<Name>/README.md`). Never edit them by
+hand. When the reference changes, regenerate with `cargo run -p u0ui-codegen` and commit the
+result; `cargo run -p u0ui-codegen -- --check` fails when they are stale.
 
 When a value is ambiguous, read the CSS. Record the CSS selector you took a value from in a
 short doc comment next to the value.
@@ -73,8 +84,8 @@ short doc comment next to the value.
   Carbon · Patterns). The top bar has a theme switch (4 Carbon themes), a density switch, and a
   reduced-motion switch.
 - Each component page shows a live, working preview (clicks, keyboard, menus, dialogs and
-  animations all real), the same demo content as the reference `preview.html`, and controls
-  for every variant, size and state in `index.d.ts`.
+  animations all real), the same demo content as `$U0UI_DESIGN_DIR/components/<Name>/preview.html`,
+  and controls for every variant, size and state in `$U0UI_DESIGN_DIR/components/index.d.ts`.
 - No horizontal scrolling: content reflows to the window width.
 - Each page registers a stable id so the review tooling can open it directly:
   `cargo run -p u0ui-gallery --release -- --page <component-id>`.
@@ -90,6 +101,7 @@ short doc comment next to the value.
 
 - Before every commit: `cargo fmt --all`, `cargo clippy --workspace --all-targets -- -D warnings`,
   `cargo test --workspace` (for tests of the rules: token values, state colors, geometry, keyboard).
+  When the design reference changed, also `cargo run -p u0ui-codegen -- --check`.
 - Commits are atomic by concern (one component or one foundation concern per commit), with
   imperative messages prefixed by area (`theme:`, `button:`, `gallery:` …). Push to `origin main`
   after each finished milestone. Never force-push.

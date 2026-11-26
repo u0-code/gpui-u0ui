@@ -8,7 +8,10 @@ is the map and the recipe.
 ## Layers
 
 ```
-design/reference/tokens.json ──build.rs──▶ $OUT_DIR/tokens.rs, carbon_icons.rs
+$U0UI_DESIGN_DIR/tokens.json, src/icons/material.js   (outside the repo)
+        │ cargo run -p u0ui-codegen  (--check: fail if stale)
+        ▼
+crates/u0ui/src/generated/tokens.rs, carbon_icons.rs  (committed, include!d)
                                               │
 u0ui::tokens       ColorRole (276), CarbonTheme, TypeStyle → TypeSpec,
                    SPACING_01..13, SIZE_*, DENSITY_*, BORDER_RADIUS_* (TokenLength)
@@ -61,9 +64,11 @@ Kit icons. Applications serve icons with
 
 Copy `crates/u0ui/src/components/button.rs`.
 
-1. **Read the reference**: `design/reference/components/<Name>/README.md`,
-   `preview.html`, the props in `components/index.d.ts`, and the `.cds--<name>`
-   rules in `components/bundle.css` (or `src/custom.css` for `cu-*`).
+1. **Read the reference** (outside the repo, see `AGENTS.md`):
+   `$U0UI_DESIGN_DIR/components/<Name>/README.md` and `preview.html`, the props in
+   `$U0UI_DESIGN_DIR/components/index.d.ts`, and the `.cds--<name>` rules in
+   `$U0UI_DESIGN_DIR/components/bundle.css` (or `$U0UI_DESIGN_DIR/src/custom.css`
+   for `cu-*`).
 2. **API** mirrors `index.d.ts`: `Name::new(id, …)` plus builders for every prop;
    enums for variants/sizes with `ALL` and `name()` (the d.ts string). Callers
    pass every user-facing string.
@@ -92,7 +97,9 @@ Copy `crates/u0ui/src/components/button.rs`.
    (`controls::choices`, `controls::toggle`, `controls::field`).
 2. Add `pub mod <name>;` to `pages/mod.rs` and one `PageDef` to
    `registry::PAGES` with the stable id, title, the artifact's group and
-   `description: readme!("<Name>")`.
+   `description: Component::<Name>.summary()` (the README's first sentence, from
+   `crates/gallery/src/generated/descriptions.rs`; every reference component
+   already has a variant).
 3. Check it: `cargo run -p u0ui-gallery -- --page <id> --theme g100`. No horizontal
    scrolling at the 800×520 minimum window.
 
