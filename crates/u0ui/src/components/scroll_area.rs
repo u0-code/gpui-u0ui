@@ -9,7 +9,17 @@
 //!   like a styled `::-webkit-scrollbar`. The container is a tab stop
 //!   (`tabIndex={0}` in `index.jsx`) and scrolls from the keyboard as a focused
 //!   browser scroller does ([`keyboard_scroll`]); GPUI has no native keyboard
-//!   scrolling, so that part is written here.
+//!   scrolling, so that part is written here. Two more pieces are written here
+//!   because Base lacks them: a press on the track pages one viewport toward
+//!   the pointer, as macOS does by default ([`track_page`]; Base jumps the
+//!   thumb there), and Shift turns a vertical wheel into a horizontal scroll
+//!   ([`shift_wheel`]), as browsers do.
+//! - **Horizontal axis**: the content takes its own width (at least the
+//!   viewport's), so wide content overflows sideways and gets the same bar,
+//!   wheel/trackpad, Shift+wheel, drag and arrow-key scrolling as the vertical
+//!   axis. [`ScrollArea::restrict_wheel_to_axis`] keeps a vertical wheel from
+//!   scrolling a horizontal-only area sideways (for a code block, where it
+//!   should scroll the page).
 //! - **Appearance**: `.cu-scroll::-webkit-scrollbar { width: 8px; height: 8px }`,
 //!   `::-webkit-scrollbar-thumb { background: var(--border-strong-01) }` (square,
 //!   no hover change), `::-webkit-scrollbar-track { background: transparent }`.
@@ -34,9 +44,10 @@
 //! ```
 use crate::{theme::color, tokens::ColorRole};
 use gpui_kit::{
-    AnyElement, App, ElementId, FocusHandle, InteractiveElement, IntoElement, KeyDownEvent,
-    ParentElement, Pixels, Point, RenderOnce, ScrollHandle, StatefulInteractiveElement,
-    StyleRefinement, Styled, Window,
+    AnyElement, App, Bounds, DispatchPhase, ElementId, FocusHandle, Hitbox, HitboxBehavior,
+    InteractiveElement, IntoElement, KeyDownEvent, MouseButton, MouseDownEvent, ParentElement,
+    Pixels, Point, RenderOnce, ScrollEvent, ScrollHandle, StatefulInteractiveElement,
+    StyleRefinement, Styled, Window, canvas,
     component::scroll::{
         Scrollbar, ScrollbarAxis, ScrollbarHandle, ScrollbarMode, ScrollbarStyles,
     },
@@ -192,6 +203,58 @@ pub fn keyboard_scroll(
     (next != offset).then_some(next)
 }
 
+/// A thumb's `(start, length)` along a track of `track` px for a viewport of
+/// `viewport` px over `content` px scrolled to `offset` (GPUI, ≤ 0): Base's
+/// geometry with the Carbon styles (no inset, at least [`MIN_THUMB`] long).
+pub fn thumb_span(track: f32, viewport: f32, content: f32, offset: f32) -> (f32, f32) {
+    if content <= 0. {
+        return (0., track);
+    }
+    let length = (viewport / content * track).max(MIN_THUMB).min(track);
+    let extent = content - viewport;
+    let start = if extent > 0. {
+        (-offset / extent).clamp(0., 1.) * (track - length)
+    } else {
+        0.
+    };
+    (start, length)
+}
+
+/// The offset after a press at `at` px along a track whose thumb spans
+/// `thumb` (`(start, length)`): one viewport toward the press, as a macOS
+/// scroller pages by default ("Jump to the next page"), clamped to
+/// `-max..=0`. `None` on the thumb itself (Base starts a drag there).
+pub fn track_page(at: f32, thumb: (f32, f32), offset: f32, viewport: f32, max: f32) -> Option<f32> {
+    let next = if at < thumb.0 {
+        offset + viewport
+    } else if at > thumb.0 + thumb.1 {
+        offset - viewport
+    } else {
+        return None;
+    };
+    Some(next.clamp(-max.max(0.), 0.))
+}
+
+/// The horizontal offset a wheel step moves to when Shift turns a vertical
+/// wheel into a horizontal one (as browsers do): `None` without Shift, for
+/// a step that already has a horizontal part, when the area does not scroll
+/// sideways, or when it is already at that end.
+pub fn shift_wheel(shift: bool, delta: Point<f32>, offset_x: f32, max_x: f32) -> Option<f32> {
+    if !shift || delta.x != 0. || delta.y == 0. || max_x <= 0. {
+        return None;
+    }
+    let next = (offset_x + delta.y).clamp(-max_x, 0.);
+    (next != offset_x).then_some(next)
+}
+
+/// Which bars a [`ScrollArea`] on `axes` shows for a scroll range `max`.
+fn bars(axes: ScrollAxes, max: Point<Pixels>) -> (bool, bool) {
+    (
+        axes.vertical() && max.y > px(0.),
+        axes.horizontal() && max.x > px(0.),
+    )
+}
+
 /// A scroll container with Carbon's thin scrollbar. See the module docs.
 ///
 /// Size it like a div (`.h(..)`, `.w(..)`, `.max_h(..)`); children are laid
@@ -206,6 +269,7 @@ pub struct ScrollArea {
     focusable: bool,
     focus_handle: Option<FocusHandle>,
     scroll_handle: Option<ScrollHandle>,
+    restrict_wheel: bool,
 }
 
 impl ScrollArea {
@@ -219,7 +283,16 @@ impl ScrollArea {
             focusable: true,
             focus_handle: None,
             scroll_handle: None,
+            restrict_wheel: false,
         }
+    }
+
+    /// Let a wheel scroll only along its own axis: a vertical wheel over a
+    /// horizontal-only area then scrolls the page instead of the area
+    /// sideways (Shift+wheel and horizontal wheels still scroll it).
+    pub fn restrict_wheel_to_axis(mut self) -> Self {
+        self.restrict_wheel = true;
+        self
     }
 
     /// Which axes scroll (default both, `overflow: auto`).
@@ -282,27 +355,31 @@ impl RenderOnce for ScrollArea {
                 .clone()
         });
         let axes = self.axes;
-        // A classic scrollbar takes layout space on an axis that overflows
-        // (read from the last layout; GPUI settles it on the next frame).
-        let max = handle.max_offset();
-        let v_bar = axes.vertical() && max.y > px(0.);
-        let h_bar = axes.horizontal() && max.x > px(0.);
+        // A classic scrollbar takes layout space on an axis that overflows,
+        // read from the last layout; when this layout changes which bars
+        // show, the next frame is drawn again with them.
+        let (v_bar, h_bar) = bars(axes, handle.max_offset());
         let focus_visible =
             self.focusable && focus.is_focused(window) && window.last_input_was_keyboard();
 
+        // The content column: as wide as the viewport, or wider when its
+        // children are (horizontal scrolling), and inset by the bars.
         let content = div()
             .flex()
             .flex_col()
             .flex_none()
-            .when(axes == ScrollAxes::Horizontal, |this| this.h_full())
-            .when(v_bar, |this| this.mr(px(THICKNESS)))
-            .when(h_bar, |this| this.mb(px(THICKNESS)))
+            .when(axes.horizontal(), |this| this.min_w_full())
+            .when(axes == ScrollAxes::Horizontal, |this| this.min_h_full())
+            .when(v_bar, |this| this.pr(px(THICKNESS)))
+            .when(h_bar, |this| this.pb(px(THICKNESS)))
             .children(self.children);
 
         let viewport = div()
             .id((id.clone(), "viewport"))
             .flex()
             .flex_col()
+            // Not stretched across: the content keeps its own width.
+            .when(axes.horizontal(), |this| this.items_start())
             .flex_grow_1()
             .flex_shrink_1()
             .min_h_0()
@@ -313,6 +390,7 @@ impl RenderOnce for ScrollArea {
                 ScrollAxes::Vertical => this.overflow_y_scroll(),
                 ScrollAxes::Horizontal => this.overflow_x_scroll(),
             })
+            .when(self.restrict_wheel, |this| this.restrict_scroll_to_axis())
             .child(content);
 
         let on_key = {
@@ -335,6 +413,36 @@ impl RenderOnce for ScrollArea {
             }
         };
 
+        // Base draws only the bars that overflow, but reserves the vertical
+        // bar's corner on a horizontal bar whenever it is given both axes.
+        let bar_axes = match (v_bar, h_bar) {
+            (true, true) => ScrollAxes::Both,
+            (true, false) => ScrollAxes::Vertical,
+            (false, true) => ScrollAxes::Horizontal,
+            (false, false) => axes,
+        };
+        let behavior = {
+            let measured = handle.clone();
+            canvas(
+                move |bounds, window, _| {
+                    if bars(axes, measured.max_offset()) != (v_bar, h_bar) {
+                        window.on_next_frame(|window, _| window.refresh());
+                    }
+                    window.insert_hitbox(bounds, HitboxBehavior::Normal)
+                },
+                {
+                    let handle = handle.clone();
+                    move |_, hitbox, window, _| {
+                        install_pointer(&handle, hitbox, axes, (v_bar, h_bar), window)
+                    }
+                },
+            )
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
+        };
+
         let mut root = div()
             .id(id.clone())
             .relative()
@@ -347,13 +455,18 @@ impl RenderOnce for ScrollArea {
                 .on_key_down(on_key)
         })
         .child(viewport)
+        .child(behavior)
         .child(
             div()
                 .absolute()
                 .top_0()
                 .left_0()
                 .size_full()
-                .child(carbon_scrollbar((id.clone(), "scrollbar"), &handle, axes)),
+                .child(carbon_scrollbar(
+                    (id.clone(), "scrollbar"),
+                    &handle,
+                    bar_axes,
+                )),
         )
         .when(focus_visible, |this| {
             this.child(
@@ -367,6 +480,92 @@ impl RenderOnce for ScrollArea {
             )
         })
     }
+}
+
+/// The pointer behavior Base's scrollbar lacks: track presses page
+/// ([`track_page`]) and Shift turns a vertical wheel sideways
+/// ([`shift_wheel`]). Registered after the viewport's own wheel listener, so
+/// it runs first in the bubble phase; the track press is taken in the capture
+/// phase, before Base's bar would jump the thumb there.
+fn install_pointer(
+    handle: &ScrollHandle,
+    hitbox: Hitbox,
+    axes: ScrollAxes,
+    shown: (bool, bool),
+    window: &mut Window,
+) {
+    let bounds = hitbox.bounds;
+    window.on_mouse_event({
+        let handle = handle.clone();
+        let hitbox = hitbox.clone();
+        move |event: &MouseDownEvent, phase, window, cx| {
+            if phase != DispatchPhase::Capture
+                || event.button != MouseButton::Left
+                || !hitbox.is_hovered(window)
+            {
+                return;
+            }
+            if let Some(next) = track_press(&handle, bounds, shown, event.position) {
+                handle.set_offset(next);
+                cx.stop_propagation();
+                window.refresh();
+            }
+        }
+    });
+    if !axes.horizontal() {
+        return;
+    }
+    window.on_mouse_event({
+        let handle = handle.clone();
+        move |event: &ScrollEvent, phase, window, cx| {
+            if phase != DispatchPhase::Bubble || !hitbox.should_handle_scroll(window) {
+                return;
+            }
+            let delta = event.delta.pixel_delta(window.line_height());
+            let offset = handle.offset();
+            if let Some(x) = shift_wheel(
+                event.modifiers.shift,
+                to_f32(delta),
+                f32::from(offset.x),
+                f32::from(handle.max_offset().x),
+            ) {
+                handle.set_offset(point(px(x), offset.y));
+                cx.stop_propagation();
+                window.refresh();
+            }
+        }
+    });
+}
+
+/// The offset a left press at `at` on a bar's track pages to, if it hit a
+/// shown bar outside its thumb. The vertical bar runs the full height; the
+/// horizontal one leaves the corner to it when both show (Base's layout).
+fn track_press(
+    handle: &ScrollHandle,
+    bounds: Bounds<Pixels>,
+    (v_bar, h_bar): (bool, bool),
+    at: Point<Pixels>,
+) -> Option<Point<Pixels>> {
+    let offset = to_f32(handle.offset());
+    let max = to_f32(handle.max_offset());
+    let origin = to_f32(bounds.origin);
+    let size = point(f32::from(bounds.size.width), f32::from(bounds.size.height));
+    let local = point(f32::from(at.x) - origin.x, f32::from(at.y) - origin.y);
+    if v_bar && local.x >= size.x - THICKNESS {
+        let thumb = thumb_span(size.y, size.y, size.y + max.y, offset.y);
+        let y = track_page(local.y, thumb, offset.y, size.y, max.y)?;
+        return Some(point(px(offset.x), px(y)));
+    }
+    if h_bar && local.y >= size.y - THICKNESS {
+        let track = size.x - if v_bar { THICKNESS } else { 0. };
+        let thumb = thumb_span(track, size.x, size.x + max.x, offset.x);
+        if local.x > track {
+            return None;
+        }
+        let x = track_page(local.x, thumb, offset.x, size.x, max.x)?;
+        return Some(point(px(x), px(offset.y)));
+    }
+    None
 }
 
 /// `index.d.ts` `ScrollBar.orientation`.
@@ -458,5 +657,72 @@ mod tests {
             keyboard_scroll("right", false, at(0., 0.), max, view, ScrollAxes::Vertical),
             None
         );
+    }
+
+    #[test]
+    fn horizontal_keys_scroll_a_wide_area() {
+        let max = point(360., 0.);
+        let view = point(280., 180.);
+        let step = |key, offset, axes| keyboard_scroll(key, false, offset, max, view, axes);
+        assert_eq!(
+            step("right", point(0., 0.), ScrollAxes::Horizontal),
+            Some(point(-40., 0.))
+        );
+        assert_eq!(
+            step("left", point(-40., 0.), ScrollAxes::Horizontal),
+            Some(point(0., 0.))
+        );
+        // Home/End move along the only axis.
+        assert_eq!(
+            step("end", point(0., 0.), ScrollAxes::Horizontal),
+            Some(point(-360., 0.))
+        );
+        assert_eq!(step("right", point(-360., 0.), ScrollAxes::Both), None);
+    }
+
+    #[test]
+    fn thumb_follows_base_geometry() {
+        // 180px viewport over 720px: a quarter-length thumb.
+        assert_eq!(thumb_span(180., 180., 720., 0.), (0., 45.));
+        assert_eq!(thumb_span(180., 180., 720., -540.), (135., 45.));
+        // Never shorter than the bar is thick.
+        assert_eq!(thumb_span(100., 100., 100_000., 0.).1, MIN_THUMB);
+    }
+
+    #[test]
+    fn a_track_press_pages_one_viewport_toward_the_pointer() {
+        let thumb = thumb_span(180., 180., 720., -270.);
+        // Below the thumb: one viewport down.
+        assert_eq!(track_page(170., thumb, -270., 180., 540.), Some(-450.));
+        // Above it: one viewport up.
+        assert_eq!(track_page(5., thumb, -270., 180., 540.), Some(-90.));
+        // On the thumb: Base drags.
+        assert_eq!(track_page(thumb.0 + 1., thumb, -270., 180., 540.), None);
+        // Clamped at the ends.
+        assert_eq!(track_page(170., thumb, -500., 180., 540.), Some(-540.));
+        assert_eq!(track_page(0., (50., 45.), -20., 180., 540.), Some(0.));
+    }
+
+    #[test]
+    fn shift_turns_a_vertical_wheel_sideways() {
+        let wheel = point(0., -30.);
+        assert_eq!(shift_wheel(true, wheel, 0., 360.), Some(-30.));
+        assert_eq!(shift_wheel(false, wheel, 0., 360.), None);
+        // A horizontal step is already sideways.
+        assert_eq!(shift_wheel(true, point(-30., 0.), 0., 360.), None);
+        // Nothing to scroll, or already at the end.
+        assert_eq!(shift_wheel(true, wheel, 0., 0.), None);
+        assert_eq!(shift_wheel(true, wheel, -360., 360.), None);
+        assert_eq!(shift_wheel(true, point(0., 50.), -20., 360.), Some(0.));
+    }
+
+    #[test]
+    fn bars_show_only_on_overflowing_scroll_axes() {
+        let max = point(px(360.), px(0.));
+        assert_eq!(bars(ScrollAxes::Both, max), (false, true));
+        assert_eq!(bars(ScrollAxes::Horizontal, max), (false, true));
+        assert_eq!(bars(ScrollAxes::Vertical, max), (false, false));
+        let both = point(px(10.), px(10.));
+        assert_eq!(bars(ScrollAxes::Both, both), (true, true));
     }
 }
