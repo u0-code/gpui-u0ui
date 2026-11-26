@@ -31,9 +31,9 @@ use crate::{
     typography::{self, TypeStyled as _},
 };
 use gpui_kit::{
-    App, AppContext as _, CursorStyle, ElementId, Entity, Hsla, InteractiveElement, IntoElement,
-    KeyDownEvent, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
-    Subscription, Window,
+    App, AppContext as _, CursorStyle, ElementId, Entity, Focusable as _, Hsla, InteractiveElement,
+    IntoElement, KeyDownEvent, ParentElement, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled, Subscription, Window,
     component::Sizable as _,
     component::input::{Input, InputEvent, InputState},
     div,
@@ -329,6 +329,8 @@ impl RenderOnce for Command {
             (s.active, s.keyboard)
         };
         let look = CommandLook::current();
+        // Focus lives in the search field; the list is driven from it.
+        let input_focused = input.read(cx).focus_handle(cx).contains_focused(window, cx);
 
         let on_key = {
             let state = state.clone();
@@ -457,6 +459,19 @@ impl RenderOnce for Command {
                                 .color(look.icon),
                         ),
                 )
+            })
+            .when(input_focused, |this| {
+                // `.cds--search-input:focus { outline: 2px solid var(--focus);
+                // outline-offset: -2px }`.
+                this.child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .size_full()
+                        .border_2()
+                        .border_color(color(ColorRole::Focus)),
+                )
             });
 
         let mut list = div()
@@ -582,7 +597,7 @@ impl RenderOnce for Command {
                                             .child(shortcut),
                                     )
                                 })
-                                .when(highlighted && keyboard, |this| {
+                                .when(highlighted && keyboard && input_focused, |this| {
                                     // `.cu-command-item:focus-visible { box-shadow: inset 0 0 0 2px var(--focus) }`.
                                     this.child(
                                         div()
