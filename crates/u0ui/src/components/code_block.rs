@@ -51,6 +51,8 @@ pub const FEEDBACK_TIMEOUT: Duration = Duration::from_millis(2000);
 pub const FEEDBACK_FADE: Motion = Motion::new(Curve::ProductiveStandard, Speed::Fast02);
 /// `.cds--snippet .cds--snippet__icon { transition: all 70ms … }` and button backgrounds.
 const HOVER: Motion = Motion::new(Curve::ProductiveStandard, Speed::Fast01);
+/// Carbon `CopyButton`'s `align = 'bottom'` default: its feedback shows below.
+pub const COPY_FEEDBACK_BELOW: bool = true;
 /// Carbon `CodeSnippet` `maxCollapsedNumberOfRows`.
 pub const MAX_COLLAPSED_ROWS: usize = 15;
 /// `code-01` line height in px (rows are 16px).
@@ -294,8 +296,14 @@ impl RenderOnce for CopyButton {
                         .border_color(color(ColorRole::Focus)),
                 )
             })
+            // Carbon `CopyButton` defaults to `align="bottom"`: the feedback
+            // shows below the button.
             .when_some(opacity, |this, opacity| {
-                this.child(feedback_box(self.feedback.clone(), opacity, false))
+                this.child(feedback_box(
+                    self.feedback.clone(),
+                    opacity,
+                    COPY_FEEDBACK_BELOW,
+                ))
             });
         press_handlers(div().id((id, "press")), &state)
             .flex_none()
@@ -1170,5 +1178,11 @@ mod tests {
         assert_eq!(container_height(20, false), 15. * ROW);
         assert_eq!(container_height(20, true), 20. * ROW + 24. + 16.);
         assert_eq!(container_height(4, false), 4. * ROW + 24.);
+    }
+
+    #[test]
+    fn copy_feedback_shows_below_like_carbon() {
+        // `CopyButton({ align = 'bottom' })` in @carbon/react.
+        const { assert!(COPY_FEEDBACK_BELOW) };
     }
 }
