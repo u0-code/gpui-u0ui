@@ -122,9 +122,11 @@ type KeyHandler = Rc<dyn Fn(&KeyDownEvent, &mut Window, &mut App)>;
 /// Open or close a header menu, optionally focusing an item.
 type SetMenu = Rc<dyn Fn(bool, Option<usize>, &mut Window, &mut App)>;
 
-/// How far the menu shadow reaches past the menu's sides and bottom (4px
-/// offset + 8px blur), so the clip that keeps it off the title spares it.
-const MENU_SHADOW_REACH: f32 = 12.;
+/// How far the menu shadow reaches past the menu's sides and bottom, so the
+/// clip that keeps it off the title spares all of it: GPUI paints a shadow's
+/// blur out to 3 × `blur_radius` (its gaussian's extent), plus the 4px
+/// offset. A smaller reach cuts the fading edge into a hard step.
+const MENU_SHADOW_REACH: f32 = 4. + 3. * 8.;
 
 /// The header menu's shadow: `box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.5)`.
 pub fn menu_shadow() -> Vec<BoxShadow> {
@@ -600,5 +602,15 @@ mod tests {
         assert_eq!((HEADER_HEIGHT, MENU_WIDTH), (48., 200.));
         let shadow = &menu_shadow()[0];
         assert_eq!((shadow.offset.y, shadow.blur_radius), (px(4.), px(8.)));
+    }
+
+    #[test]
+    fn menu_clip_spares_the_whole_shadow() {
+        // The clip pads the menu by MENU_SHADOW_REACH on the sides and bottom;
+        // the shadow must fade out inside it (3σ of GPUI's gaussian + offset).
+        let shadow = &menu_shadow()[0];
+        let reach = px(MENU_SHADOW_REACH);
+        assert!(reach >= shadow.offset.x.abs() + shadow.blur_radius * 3. + shadow.spread_radius);
+        assert!(reach >= shadow.offset.y + shadow.blur_radius * 3. + shadow.spread_radius);
     }
 }
