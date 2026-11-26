@@ -1,0 +1,283 @@
+//! Shared plumbing for floating and modal surfaces (Dialog, Sheet, Popover,
+//! menus, tooltips): open state, presence (enter/exit motion that keeps a
+//! closing surface mounted until it has faded), focus moves, the Carbon
+//! floating shadow, and a translate wrapper.
+//!
+//! Behavior stays Kit's: modal hosts are [`gpui_kit::base::Dialog`] (focus
+//! trap, Escape, backdrop press, deferred top layer) and anchored surfaces are
+//! [`gpui_kit::base::Popup`] (trigger measurement, anchoring, window-edge
+//! snapping). Base leaves open state, motion and focus moves to callers; they
+//! live here.
+use crate::motion::{self, Motion};
+use crate::theme::color;
+use crate::tokens::ColorRole;
+use gpui_kit::{
+    AnyElement, App, Bounds, BoxShadow, Element, ElementId, Entity, FocusHandle, GlobalElementId,
+    InspectorElementId, InteractiveElement, IntoElement, KeyDownEvent, LayoutId, MouseButton,
+    ParentElement, Pixels, Point, Rems, Styled, Window, div, point, px,
+};
+use std::rc::Rc;
+
+/// `px` at 100% zoom as rems (Carbon's rem is 16px).
+pub(crate) fn rem(px_value: f32) -> Rems {
+    gpui_kit::rems(px_value / crate::tokens::REM_PX)
+}
+
+/// The one shadow floating layers carry: `box-shadow: 0 2px 6px var(--shadow)`
+/// (`.cds--menu`, `.cu-panel`, `.cu-command`).
+pub fn floating_shadow() -> Vec<BoxShadow> {
+    vec![BoxShadow::new(px(0.), px(2.), color(ColorRole::Shadow)).blur_radius(px(6.))]
+}
+
+/// An open-change callback.
+pub type OpenChange = Rc<dyn Fn(bool, &mut Window, &mut App)>;
+
+/// A plain callback.
+pub type Callback = Rc<dyn Fn(&mut Window, &mut App)>;
+
+/// Resolved open state for one frame, with a setter that respects
+/// controlled/uncontrolled ownership (`OpenState` in `index.d.ts`).
+#[derive(Clone)]
+pub(crate) struct Openness {
+    /// Whether the surface is open this frame.
+    pub open: bool,
+    state: Entity<bool>,
+    controlled: bool,
+    on_change: Option<OpenChange>,
+}
+
+impl Openness {
+    /// Request `open`: uncontrolled state updates itself; the callback is told
+    /// either way.
+    pub fn set(&self, open: bool, window: &mut Window, cx: &mut App) {
+        if !self.controlled {
+            self.state.update(cx, |state, cx| {
+                if *state != open {
+                    *state = open;
+                    cx.notify();
+                }
+            });
+        }
+        if let Some(on_change) = &self.on_change {
+            on_change(open, window, cx);
+        }
+        window.refresh();
+    }
+
+    /// A shareable setter.
+    pub fn setter(&self) -> OpenChange {
+        let this = self.clone();
+        Rc::new(move |open, window, cx| this.set(open, window, cx))
+    }
+}
+
+/// Resolve `open` (controlled) or the keyed internal state seeded by
+/// `default_open` (uncontrolled).
+pub(crate) fn openness(
+    id: &ElementId,
+    open: Option<bool>,
+    default_open: bool,
+    on_change: Option<OpenChange>,
+    window: &mut Window,
+    cx: &mut App,
+) -> Openness {
+    let state = window.use_keyed_state((id.clone(), "open"), cx, |_, _| default_open);
+    Openness {
+        open: open.unwrap_or_else(|| *state.read(cx)),
+        state,
+        controlled: open.is_some(),
+        on_change,
+    }
+}
+
+/// Presence progress, 0 (absent) → 1 (present): `enter` while opening, `exit`
+/// while closing, retargeting from the current value when interrupted (Base's
+/// keyed transition shortens a reversal like a CSS transition does). The motion
+/// is non-spatial, so under reduced motion the fade keeps playing; callers drop
+/// any translation when [`motion::reduced_motion`] is on.
+///
+/// The surface stays mounted while `open || progress > 0`.
+pub(crate) fn presence(
+    id: impl Into<ElementId>,
+    open: bool,
+    enter: Motion,
+    exit: Motion,
+    window: &mut Window,
+    cx: &mut App,
+) -> f32 {
+    let id: ElementId = id.into();
+    let motion = if open { enter } else { exit };
+    motion::animate(
+        (id, "presence"),
+        if open { 1f32 } else { 0. },
+        motion.spatial(false),
+        window,
+        cx,
+    )
+}
+
+/// Focus that moves into a modal or floating surface when it opens and returns
+/// to the previously focused element when it closes. Base's hosts trap focus
+/// but leave both moves to the application.
+struct SurfaceFocus {
+    focus: FocusHandle,
+    previous: Option<FocusHandle>,
+    shown: bool,
+}
+
+/// The focus handle of the surface keyed by `id`, after applying this frame's
+/// open/close focus moves. `initial` (if any) receives focus on open instead of
+/// the surface itself (Carbon focuses a danger modal's secondary button).
+pub(crate) fn surface_focus(
+    id: &ElementId,
+    open: bool,
+    initial: Option<FocusHandle>,
+    window: &mut Window,
+    cx: &mut App,
+) -> FocusHandle {
+    let state = window.use_keyed_state((id.clone(), "surface-focus"), cx, |_, cx| SurfaceFocus {
+        focus: cx.focus_handle(),
+        previous: None,
+        shown: false,
+    });
+    let shown = state.read(cx).shown;
+    if open && !shown {
+        let previous = window.focused(cx);
+        state.update(cx, |state, _| {
+            state.shown = true;
+            state.previous = previous;
+        });
+        let target = initial.unwrap_or_else(|| state.read(cx).focus.clone());
+        // The host attaches its focus handle while painting this frame.
+        window.defer(cx, move |window, cx| target.focus(window, cx));
+    } else if !open && shown {
+        let previous = state.update(cx, |state, _| {
+            state.shown = false;
+            state.previous.take()
+        });
+        if let Some(previous) = previous {
+            window.defer(cx, move |window, cx| previous.focus(window, cx));
+        }
+    }
+    state.read(cx).focus.clone()
+}
+
+/// Wrap a caller's trigger element so pressing it (pointer) or activating it
+/// from the keyboard (Enter/Space while focus is inside) runs `activate`.
+/// GPUI cannot inject a click handler into an arbitrary element, so this is
+/// Base's `DialogTrigger` wrapper plus the keyboard path.
+pub(crate) fn trigger_wrapper(
+    id: impl Into<ElementId>,
+    trigger: AnyElement,
+    activate: Callback,
+) -> gpui_kit::Stateful<gpui_kit::Div> {
+    let on_key = activate.clone();
+    div()
+        .id(id)
+        .flex_shrink_0()
+        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+            activate(window, cx);
+        })
+        .on_key_down(move |event: &KeyDownEvent, window, cx| {
+            if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.is_held {
+                on_key(window, cx);
+                cx.stop_propagation();
+            }
+        })
+        .child(trigger)
+}
+
+/// Translates its child by a fraction of the child's own size plus a fixed
+/// offset, like CSS `transform: translate(…)`: layout is unchanged; paint, hit
+/// testing and accessibility follow the offset (`window.with_element_offset`,
+/// as Kit's dialog entrance surface does).
+pub(crate) struct Translate {
+    child: AnyElement,
+    fraction: Point<f32>,
+    offset: Point<Pixels>,
+}
+
+impl Translate {
+    /// `translate(fraction.x * 100%, fraction.y * 100%)` + `offset`.
+    pub fn new(child: impl IntoElement, fraction: Point<f32>, offset: Point<Pixels>) -> Self {
+        Self {
+            child: child.into_any_element(),
+            fraction,
+            offset,
+        }
+    }
+
+    /// `translateY(y)` in px.
+    pub fn y(child: impl IntoElement, y: f32) -> Self {
+        Self::new(child, point(0., 0.), point(px(0.), px(y)))
+    }
+}
+
+impl Element for Translate {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, ()) {
+        (self.child.request_layout(window, cx), ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        bounds: Bounds<Pixels>,
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        let offset = point(
+            bounds.size.width * self.fraction.x + self.offset.x,
+            bounds.size.height * self.fraction.y + self.offset.y,
+        );
+        window.with_element_offset(offset, |window| self.child.prepaint(window, cx));
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        self.child.paint(window, cx);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn floating_shadow_is_carbons() {
+        crate::theme::tests_set(crate::tokens::CarbonTheme::White);
+        let shadow = &floating_shadow()[0];
+        // `.cds--menu { box-shadow: 0 2px 6px var(--shadow) }`.
+        assert_eq!(
+            (shadow.offset.x, shadow.offset.y, shadow.blur_radius),
+            (px(0.), px(2.), px(6.))
+        );
+        assert!(!shadow.inset);
+    }
+}

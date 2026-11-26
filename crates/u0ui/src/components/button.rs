@@ -471,6 +471,7 @@ pub struct Button {
     disabled: bool,
     loading: bool,
     selected: bool,
+    full_width: bool,
     tab_index: isize,
     focus_handle: Option<FocusHandle>,
     on_click: Option<ClickHandler>,
@@ -491,6 +492,7 @@ impl Button {
             disabled: false,
             loading: false,
             selected: false,
+            full_width: false,
             tab_index: 0,
             focus_handle: None,
             on_click: None,
@@ -545,6 +547,13 @@ impl Button {
     /// `background-selected`).
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    /// Fill the parent's width instead of hugging the label (`max-inline-size:
+    /// none`, as in `.cds--modal-footer .cds--btn`).
+    pub fn full_width(mut self, full_width: bool) -> Self {
+        self.full_width = full_width;
         self
     }
 
@@ -743,7 +752,15 @@ impl RenderOnce for Button {
                 .when_some(icon, |this, icon| this.child(icon));
         } else {
             button = button
-                .max_w(rem(320.))
+                .map(|this| {
+                    if self.full_width {
+                        this.w_full()
+                    } else {
+                        this.max_w(rem(320.))
+                    }
+                })
+                // Base centers its content; Carbon's label starts at the padding box.
+                .justify_start()
                 .items_start()
                 .pt(rem(geometry.padding_top))
                 .pl(rem(geometry.padding_left))

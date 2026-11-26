@@ -135,6 +135,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Label"),
         build: pages::label::build,
     },
+    PageDef {
+        id: "dialog",
+        title: "Dialog",
+        group: "Overlays",
+        description: readme!("Dialog"),
+        build: pages::dialog::build,
+    },
 ];
 
 /// Look a page up by id.

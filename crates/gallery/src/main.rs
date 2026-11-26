@@ -7,6 +7,7 @@ mod controls;
 mod pages;
 mod registry;
 mod shell;
+mod stand_in;
 
 use gpui_kit::*;
 use u0ui::CarbonTheme;
