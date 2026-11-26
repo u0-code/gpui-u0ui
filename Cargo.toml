@@ -1,0 +1,27 @@
+[workspace]
+resolver = "3"
+members = ["crates/u0ui", "crates/gallery"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+rust-version = "1.98"
+repository = "https://github.com/u0-code/gpui-u0ui"
+
+[workspace.dependencies]
+u0ui = { path = "crates/u0ui" }
+# Kit owns GPUI, Base and the behavior layer (gpui-component); u0ui owns Carbon appearance.
+gpui-kit = "0.11.0"
+gpui-base = "0.11.0"
+# Material Symbols Sharp is the design system's only icon set.
+gpui-material-symbols = { version = "0.3", default-features = false, features = ["gpui-kit", "sharp"] }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package.gpui-pre]
+opt-level = 3
