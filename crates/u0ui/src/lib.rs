@@ -11,6 +11,7 @@
 //! | [`motion`] | Carbon curves and durations, reduced motion, state-change animation helpers |
 //! | [`icons`] | Material Symbols Sharp [`Icon`], [`CarbonIcon`], asset source, Kit icon mapping |
 //! | [`density`] | [`Density`] (compact desktop default / comfortable) |
+//! | [`components`] | Carbon components ([`components::button`] is the reference) |
 //!
 //! ```no_run
 //! use gpui_kit::*;
@@ -21,7 +22,7 @@
 //!     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
 //!         div()
 //!             .bg(color(ColorRole::Background))
-//!             .child(Icon::carbon(CarbonIcon::Add))
+//!             .child(Button::new("go", "Create project").icon(CarbonIcon::Add))
 //!     }
 //! }
 //!
@@ -35,6 +36,7 @@
 //! ```
 #![warn(missing_docs)]
 
+pub mod components;
 pub mod density;
 pub mod icons;
 pub mod motion;
@@ -50,6 +52,7 @@ pub use typography::TypeStyled;
 
 /// Everything a component or page usually needs.
 pub mod prelude {
+    pub use crate::components::{Button, ButtonKind, ButtonSize, ButtonVariant};
     pub use crate::density::{self, Density};
     pub use crate::icons::{CarbonIcon, Icon, IconSize};
     pub use crate::motion::{self, Curve, Motion, Speed};
