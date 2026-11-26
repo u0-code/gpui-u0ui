@@ -2,23 +2,25 @@
 //! for the recipe ([`button`] is the reference implementation).
 pub mod alert_dialog;
 pub mod button;
+pub mod button_group;
 pub mod dialog;
 pub mod drawer;
-pub mod button_group;
 pub mod form;
 pub mod input;
 pub mod label;
 pub mod overlay;
 pub mod sheet;
+pub mod toggle;
 
 pub use alert_dialog::AlertDialog;
 pub use button::{Button, ButtonKind, ButtonSize, ButtonVariant};
-pub use dialog::{Dialog, DialogSize};
-pub use drawer::Drawer;
 pub use button_group::{
     ButtonGroup, ButtonGroupOrientation, ButtonGroupSeparator, ButtonGroupText,
 };
+pub use dialog::{Dialog, DialogSize};
+pub use drawer::Drawer;
 pub use form::{FieldSize, Validation};
 pub use input::{Input, InputState};
 pub use label::Label;
 pub use sheet::{Sheet, SheetSide};
+pub use toggle::{Toggle, ToggleVariant};

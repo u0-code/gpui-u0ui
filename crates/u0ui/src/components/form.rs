@@ -25,6 +25,22 @@ pub(crate) fn rem(px_value: f32) -> Rems {
     gpui_kit::rems(px_value / tokens::REM_PX)
 }
 
+/// shadcn's controlled/uncontrolled value (`value` + `defaultValue`): the
+/// caller's `value` when given, else the value kept in keyed state under `id`
+/// (seeded with `default`). Returns the value to show and the keyed store,
+/// which a change handler must update so an uncontrolled control remembers.
+pub(crate) fn controlled<T: Clone + 'static>(
+    id: impl Into<gpui_kit::ElementId>,
+    value: Option<T>,
+    default: T,
+    window: &mut gpui_kit::Window,
+    cx: &mut gpui_kit::App,
+) -> (T, gpui_kit::Entity<T>) {
+    let store = window.use_keyed_state(id, cx, |_, _| default);
+    let shown = value.unwrap_or_else(|| store.read(cx).clone());
+    (shown, store)
+}
+
 /// `index.d.ts` `Size` (`'sm' | 'md' | 'lg'`) for fields and field-like controls.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum FieldSize {

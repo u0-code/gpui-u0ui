@@ -129,6 +129,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::button_group::build,
     },
     PageDef {
+        id: "toggle",
+        title: "Toggle",
+        group: "Actions",
+        description: readme!("Toggle"),
+        build: pages::toggle::build,
+    },
+    PageDef {
         id: "input",
         title: "Input",
         group: "Forms",
