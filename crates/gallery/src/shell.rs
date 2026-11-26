@@ -98,6 +98,9 @@ pub struct Gallery {
     /// The side nav, opened over the content below [`NAV_BREAKPOINT`].
     pub(crate) nav_open: bool,
     focus: FocusHandle,
+    /// The page area, focused when the palette navigates (as a page load
+    /// would), so focus does not return to the nav item clicked before.
+    main_focus: FocusHandle,
     scroll: ScrollHandle,
 }
 
@@ -120,6 +123,7 @@ impl Gallery {
             palette_open: false,
             nav_open: false,
             focus,
+            main_focus: cx.focus_handle(),
             scroll: ScrollHandle::new(),
         }
     }
@@ -197,7 +201,11 @@ impl Gallery {
         let entity = cx.entity();
         let go = |route: Route| {
             let entity = entity.clone();
-            move |_: &mut Window, cx: &mut App| {
+            let main = self.main_focus.clone();
+            move |window: &mut Window, cx: &mut App| {
+                // Land on the new page's content; the closing palette leaves
+                // focus there instead of returning it to its old trigger.
+                main.focus(window, cx);
                 entity.update(cx, |this, cx| this.navigate(route, cx))
             }
         };
@@ -379,6 +387,7 @@ impl Render for Gallery {
             // scrolls only that, not the page.
             .restrict_scroll_to_axis()
             .track_scroll(&self.scroll)
+            .track_focus(&self.main_focus)
             .child(
                 div()
                     .w_full()
