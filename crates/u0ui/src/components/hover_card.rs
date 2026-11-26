@@ -60,7 +60,8 @@ impl HoverCard {
         self
     }
 
-    /// Show on arrival until the pointer has come and gone.
+    /// Open initially, and again whenever the pointer leaves (`index.jsx`:
+    /// leaving runs `set(defaultOpen)` after 150ms).
     pub fn default_open(mut self, open: bool) -> Self {
         self.default_open = open;
         self
@@ -82,7 +83,13 @@ impl ParentElement for HoverCard {
 impl RenderOnce for HoverCard {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
-        let hover = floating::hover_intent((id.clone(), "hover"), self.default_open, window, cx);
+        let hover = floating::hover_intent(
+            (id.clone(), "hover"),
+            self.default_open,
+            self.default_open,
+            window,
+            cx,
+        );
         let within = window
             .use_keyed_state((id.clone(), "within"), cx, |_, cx| cx.focus_handle())
             .read(cx)
@@ -97,7 +104,7 @@ impl RenderOnce for HoverCard {
         let on_hover = {
             let hover = hover.clone();
             move |hovered: &bool, _: &mut Window, cx: &mut App| {
-                floating::schedule(
+                floating::pointer(
                     &hover,
                     *hovered,
                     if *hovered { open_delay } else { CLOSE_DELAY },
@@ -125,6 +132,7 @@ impl RenderOnce for HoverCard {
                 }
             })
             .child(self.trigger)
+            .child(floating::window_exit_guard(hover.clone(), CLOSE_DELAY))
             .into_any_element();
 
         let look = PopoverLook::current();

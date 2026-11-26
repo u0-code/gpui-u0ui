@@ -97,7 +97,8 @@ impl Tooltip {
 impl RenderOnce for Tooltip {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
-        let hover = floating::hover_intent((id.clone(), "hover"), self.default_open, window, cx);
+        let hover =
+            floating::hover_intent((id.clone(), "hover"), self.default_open, false, window, cx);
         let within = window
             .use_keyed_state((id.clone(), "within"), cx, |_, cx| cx.focus_handle())
             .read(cx)
@@ -116,7 +117,7 @@ impl RenderOnce for Tooltip {
             .on_hover({
                 let hover = hover.clone();
                 move |hovered, _, cx| {
-                    floating::schedule(
+                    floating::pointer(
                         &hover,
                         *hovered,
                         if *hovered { ENTER_DELAY } else { LEAVE_DELAY },
@@ -138,6 +139,7 @@ impl RenderOnce for Tooltip {
                 }
             })
             .child(self.trigger)
+            .child(floating::window_exit_guard(hover.clone(), LEAVE_DELAY))
             .into_any_element();
 
         let look = TooltipLook::current();

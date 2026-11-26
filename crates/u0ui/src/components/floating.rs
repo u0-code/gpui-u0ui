@@ -14,8 +14,9 @@
 //! the frame their open state flips.
 use super::overlay::{Translate, rem};
 use gpui_kit::{
-    Anchor, AnyElement, App, Bounds, Entity, Hsla, IntoElement, ParentElement, PathBuilder, Pixels,
-    Styled, Task, Window, canvas, div, point, px,
+    Anchor, AnyElement, App, Bounds, DispatchPhase, Entity, Hsla, IntoElement, MouseExitEvent,
+    MouseMoveEvent, ParentElement, PathBuilder, Pixels, Styled, Task, Window, canvas, div, point,
+    px,
 };
 use std::time::Duration;
 
@@ -308,28 +309,43 @@ impl WhenCaret for gpui_kit::Stateful<gpui_kit::Div> {
 pub(crate) struct HoverIntent {
     /// Open now.
     pub open: bool,
+    /// The pointer left the window and has not moved inside it since.
+    outside: bool,
+    /// The pointer is on the trigger (or the surface).
+    pointer_in: bool,
+    /// Where the state returns to once the pointer leaves.
+    rest: bool,
     generation: u64,
     _task: Option<Task<()>>,
 }
 
-/// The keyed hover intent for `id`, initially `open`.
+/// The keyed hover intent for `id`, initially `open`; leaving returns it to
+/// `rest` (HoverCard: `setTimeout(() => set(defaultOpen), 150)`).
 pub(crate) fn hover_intent(
     id: impl Into<gpui_kit::ElementId>,
     open: bool,
+    rest: bool,
     window: &mut Window,
     cx: &mut App,
 ) -> Entity<HoverIntent> {
     window.use_keyed_state(id, cx, move |_, _| HoverIntent {
         open,
+        outside: false,
+        pointer_in: false,
+        rest,
         generation: 0,
         _task: None,
     })
 }
 
 /// Ask `intent` to become `open` after `delay` (cancelling any pending
-/// change; a zero delay applies at once).
+/// change; a zero delay applies at once). A request to open while the
+/// pointer is outside the window is ignored (see [`window_exit_guard`]).
 pub(crate) fn schedule(intent: &Entity<HoverIntent>, open: bool, delay: Duration, cx: &mut App) {
     intent.update(cx, |state, cx| {
+        if open && state.outside {
+            return;
+        }
         state.generation += 1;
         let generation = state.generation;
         if delay.is_zero() || state.open == open {
@@ -350,6 +366,51 @@ pub(crate) fn schedule(intent: &Entity<HoverIntent>, open: bool, delay: Duration
             });
         }));
     });
+}
+
+/// The pointer entered (`inside`) or left the trigger: open after `delay`,
+/// or return to the rest state after `delay`.
+pub(crate) fn pointer(intent: &Entity<HoverIntent>, inside: bool, delay: Duration, cx: &mut App) {
+    let target = {
+        let state = intent.read(cx);
+        if inside { true } else { state.rest }
+    };
+    intent.update(cx, |state, _| state.pointer_in = inside);
+    schedule(intent, target, delay, cx);
+}
+
+/// Returns `intent` to rest `delay` after the pointer leaves the window from
+/// the trigger, and keeps it
+/// from reopening until the pointer moves inside again.
+///
+/// GPUI reports the exit (`MouseExitEvent`) but keeps the last in-window
+/// pointer position, so the next frame's hit test still finds the trigger
+/// hovered and `on_hover(true)` fires again: a hover surface left the window
+/// open (and its trigger hovered) when the pointer went straight out.
+pub(crate) fn window_exit_guard(intent: Entity<HoverIntent>, delay: Duration) -> impl IntoElement {
+    canvas(
+        |_, _, _| {},
+        move |_, _, window, _| {
+            let exit = intent.clone();
+            window.on_mouse_event(move |_: &MouseExitEvent, phase, _, cx| {
+                if phase == DispatchPhase::Bubble {
+                    let was_in = exit.read(cx).pointer_in;
+                    exit.update(cx, |state, _| state.outside = true);
+                    if was_in {
+                        pointer(&exit, false, delay, cx);
+                    }
+                }
+            });
+            let moved = intent.clone();
+            window.on_mouse_event(move |_: &MouseMoveEvent, phase, _, cx| {
+                if phase == DispatchPhase::Capture && moved.read(cx).outside {
+                    moved.update(cx, |state, _| state.outside = false);
+                }
+            });
+        },
+    )
+    .absolute()
+    .size_0()
 }
 
 #[cfg(test)]
