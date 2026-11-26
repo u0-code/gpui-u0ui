@@ -13,5 +13,6 @@ path = "src/main.rs"
 
 [dependencies]
 u0ui.workspace = true
-gpui-kit.workspace = true
+# `Window::render_to_image`, which `--capture` draws with, is behind test-support.
+gpui-kit = { workspace = true, features = ["test-support"] }
 anyhow.workspace = true
