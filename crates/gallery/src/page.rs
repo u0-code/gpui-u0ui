@@ -129,14 +129,10 @@ fn playground(
                             .child(hint),
                     )
                 })
-                .child(
-                    div()
-                        .flex_1()
-                        .flex()
-                        .flex_col()
-                        .justify_center()
-                        .child(stage),
-                ),
+                // Top-aligned: a component that grows (a Textarea dragged by
+                // its grip, an opened accordion) keeps its top edge still, so a
+                // resize tracks the pointer instead of moving by half of it.
+                .child(div().flex_1().flex().flex_col().child(stage)),
         )
         .when_some(config, |this, config| {
             this.child(
