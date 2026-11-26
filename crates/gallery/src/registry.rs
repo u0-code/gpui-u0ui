@@ -178,6 +178,13 @@ pub static PAGES: &[PageDef] = &[
         build: pages::radio_group::build,
     },
     PageDef {
+        id: "select",
+        title: "Select",
+        group: "Forms",
+        description: readme!("Select"),
+        build: pages::select::build,
+    },
+    PageDef {
         id: "input-group",
         title: "InputGroup",
         group: "Forms",

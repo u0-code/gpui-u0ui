@@ -23,6 +23,7 @@ pub mod menubar;
 pub mod motion;
 pub mod popover;
 pub mod radio_group;
+pub mod select;
 pub mod sheet;
 pub mod switch;
 pub mod tabs;
