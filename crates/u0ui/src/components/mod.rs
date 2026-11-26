@@ -8,6 +8,7 @@ pub mod breadcrumb;
 pub mod button;
 pub mod button_group;
 pub mod calendar;
+pub mod card;
 pub mod checkbox;
 pub mod collapsible;
 pub mod combobox;
@@ -57,6 +58,9 @@ pub use button_group::{
     ButtonGroup, ButtonGroupOrientation, ButtonGroupSeparator, ButtonGroupText,
 };
 pub use calendar::{Calendar, CalendarDate, CalendarLocale, CalendarMode, Selection};
+pub use card::{
+    Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, CardVariant,
+};
 pub use checkbox::{Checkbox, CheckboxState};
 pub use collapsible::Collapsible;
 pub use combobox::Combobox;
