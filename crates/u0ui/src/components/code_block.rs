@@ -30,6 +30,7 @@
 //!   clipboard. Kit's `Clipboard` button has no Carbon feedback, so it is drawn here.
 use super::form::rem;
 use super::overlay::floating_shadow;
+use super::scroll_area::{ScrollArea, ScrollAxes};
 use crate::{
     icons::{CarbonIcon, Icon, IconSize},
     motion::{self, Curve, Motion, Speed},
@@ -643,19 +644,17 @@ impl RenderOnce for CodeBlock {
                         }),
                 )
         });
-        let pre = div()
-            .id((self.id.clone(), "pre"))
-            .flex()
-            .flex_col()
-            .py(rem(pad_y))
-            .font(mono)
-            .text_size(rem(font_size))
-            .line_height(rem(line_height))
-            // A vertical wheel scrolls the page, not the code sideways.
-            .when(!wrap, |this| {
-                this.overflow_x_scroll().restrict_scroll_to_axis()
-            })
-            .children(rows);
+        // `.cu-code-pre { overflow-x: auto }`: a horizontal Carbon scroller.
+        let pre = code_scroller((self.id.clone(), "pre")).child(
+            div()
+                .flex()
+                .flex_col()
+                .py(rem(pad_y))
+                .font(mono)
+                .text_size(rem(font_size))
+                .line_height(rem(line_height))
+                .children(rows),
+        );
 
         div()
             .relative()
@@ -1039,27 +1038,35 @@ impl RenderOnce for CodeSnippet {
                     .bg(layer)
                     .text_color(text_color)
                     .child(
+                        // `.cds--snippet-container { max-height; overflow-y: auto }`
+                        // clips the rows; its `pre { overflow: auto }` scrolls
+                        // them sideways under a Carbon bar.
                         div()
-                            .id((id.clone(), "scroll"))
                             .w_full()
                             .h(rem(height))
                             .overflow_hidden()
-                            .when(!wrap, |this| {
-                                this.overflow_x_scroll().restrict_scroll_to_axis()
-                            })
-                            .pr(rem(24.))
-                            .font(mono)
-                            .text_size(size)
-                            .line_height(lh)
-                            .children(lines.into_iter().map(move |l| {
-                                div().when(!wrap, |this| this.whitespace_nowrap()).child(
-                                    if l.is_empty() {
-                                        SharedString::from(" ")
-                                    } else {
-                                        l
-                                    },
-                                )
-                            })),
+                            .flex()
+                            .flex_col()
+                            .child(
+                                code_scroller((id.clone(), "scroll")).h_full().child(
+                                    div()
+                                        .flex()
+                                        .flex_col()
+                                        .pr(rem(24.))
+                                        .font(mono)
+                                        .text_size(size)
+                                        .line_height(lh)
+                                        .children(lines.into_iter().map(move |l| {
+                                            div()
+                                                .when(!wrap, |this| this.whitespace_nowrap())
+                                                .child(if l.is_empty() {
+                                                    SharedString::from(" ")
+                                                } else {
+                                                    l
+                                                })
+                                        })),
+                                ),
+                            ),
                     )
                     .child(
                         div().absolute().top(rem(8.)).right(rem(8.)).child(
@@ -1076,6 +1083,17 @@ impl RenderOnce for CodeSnippet {
             }
         }
     }
+}
+
+/// A code scroller (`overflow-x: auto`): a horizontal [`ScrollArea`] with
+/// Carbon's 8px bar, scrolled by a horizontal wheel or trackpad, Shift+wheel
+/// and the bar. A vertical wheel passes through to the page.
+fn code_scroller(id: impl Into<ElementId>) -> ScrollArea {
+    ScrollArea::new(id)
+        .axes(ScrollAxes::Horizontal)
+        .focusable(false)
+        .restrict_wheel_to_axis()
+        .w_full()
 }
 
 /// The right-edge fade of a single snippet (`mask-image: linear-gradient(to
