@@ -562,6 +562,13 @@ pub static PAGES: &[PageDef] = &[
         description: readme!("Toast"),
         build: pages::toast::build,
     },
+    PageDef {
+        id: "questionnaire",
+        title: "Questionnaire",
+        group: "Chat & AI",
+        description: readme!("Questionnaire"),
+        build: pages::questionnaire::build,
+    },
 ];
 
 /// Look a page up by id.
