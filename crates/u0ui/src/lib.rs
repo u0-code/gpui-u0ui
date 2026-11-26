@@ -9,6 +9,7 @@
 //! | [`theme`] | Active [`CarbonTheme`], [`theme::color`], [`LayerLevel`], Kit theme bridge |
 //! | [`typography`] | Bundled IBM Plex, [`TypeStyled::type_style`] |
 //! | [`motion`] | Carbon curves and durations, reduced motion, state-change animation helpers |
+//! | [`clock`] | Local wall-clock time (`new Date()`): toast captions, today |
 //! | [`icons`] | Material Symbols Sharp [`Icon`], [`CarbonIcon`], asset source, Kit icon mapping |
 //! | [`density`] | [`Density`] (compact desktop default / comfortable) |
 //! | [`components`] | Carbon components ([`components::button`] is the reference) |
@@ -36,6 +37,7 @@
 //! ```
 #![warn(missing_docs)]
 
+pub mod clock;
 pub mod components;
 pub mod density;
 pub mod icons;
