@@ -43,6 +43,10 @@ use gpui_kit::{
 };
 use std::rc::Rc;
 
+/// Width in px of a tab's inset focus ring, drawn as a border inside the
+/// tab's padding (the padding gives up the same width).
+const FOCUS_RING: f32 = 2.;
+
 /// `.cds--tabs__nav-item { transition: background-color 70ms cubic-bezier(0.2, 0, 0.38, 0.9) }`.
 pub const TAB_MOTION: Motion = Motion::new(Curve::ProductiveStandard, Speed::Fast01);
 
@@ -458,8 +462,12 @@ impl RenderOnce for Tabs {
                 .flex_row()
                 .items_center()
                 .gap(rem(8.))
-                .px(rem(16.))
-                // A transparent 2px border reserves the focus outline's room.
+                // `.cds--tabs__nav-link { padding-inline: 1rem }`, less the
+                // transparent 2px border that draws the inset focus ring
+                // (`outline: 2px solid var(--focus); outline-offset: -2px`):
+                // the ring sits inside the tab, so the tab is as wide as
+                // Carbon's (label + 2rem), not 4px wider.
+                .px(rem(16. - FOCUS_RING))
                 .border_2()
                 .border_color(Hsla::transparent_black())
                 .focus_visible(|s| s.border_color(color(ColorRole::Focus)))
