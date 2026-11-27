@@ -1,7 +1,9 @@
 //! T3 · Timeline › ApprovalCard: a pending command with its reason and an
 //! approved file change (`components/ApprovalCard/preview.html`), plus a
 //! live card: Approve / Decline resolve it, and with shortcuts ⇧⌘↵ / ⇧⌘⌫
-//! work while focus is inside.
+//! work while focus is inside. The options variant (u0 board
+//! `PermissionCard`) shows the board's cases and a live card whose options
+//! answer it (Return takes the default, Esc the first reject).
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
@@ -9,7 +11,9 @@ use gpui_kit::{
     SharedString, Styled, Window, div,
 };
 use u0ui::prelude::*;
-use u0ui::t3::timeline::{ApprovalCard, ApprovalKind, ApprovalState};
+use u0ui::t3::timeline::{
+    ApprovalCard, ApprovalKind, ApprovalOption, ApprovalState, PermissionOptionKind,
+};
 
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
@@ -21,6 +25,9 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
         notes: true,
         always: true,
         last: "".into(),
+        picked: None,
+        show_kinds: true,
+        extras: true,
     })
     .into()
 }
@@ -33,6 +40,111 @@ struct ApprovalPage {
     notes: bool,
     always: bool,
     last: SharedString,
+    /// The live options card's answer.
+    picked: Option<usize>,
+    show_kinds: bool,
+    extras: bool,
+}
+
+fn agent_options() -> Vec<ApprovalOption> {
+    use PermissionOptionKind::*;
+    vec![
+        ApprovalOption::new("Allow once", AllowOnce),
+        ApprovalOption::new("Allow always", AllowAlways),
+        ApprovalOption::new("Reject once", RejectOnce),
+        ApprovalOption::new("Reject always", RejectAlways),
+    ]
+}
+
+/// The board's spoken words for an answer of `kind` (`doneWords`).
+fn spoken(kind: PermissionOptionKind) -> &'static str {
+    match kind {
+        PermissionOptionKind::AllowOnce => "You allowed it once",
+        PermissionOptionKind::AllowAlways => "You allowed it always",
+        PermissionOptionKind::RejectOnce => "You rejected it",
+        PermissionOptionKind::RejectAlways => "You rejected it always",
+    }
+}
+
+/// The u0 board `PermissionCard` cases.
+fn options_reference() -> impl IntoElement {
+    use PermissionOptionKind::*;
+    let tool = |t: &str| {
+        vec![
+            ApprovalOption::new("Allow", AllowOnce),
+            ApprovalOption::new(t.to_string(), AllowAlways),
+            ApprovalOption::new("Reject", RejectOnce),
+        ]
+    };
+    div()
+        .flex()
+        .flex_col()
+        .gap(tokens::SPACING_07)
+        .w_full()
+        .max_w(gpui_kit::rems(42.))
+        .child(
+            ApprovalCard::options("pmc-claude", agent_options())
+                .title("Run a command")
+                .provider("Claude · waiting 1m")
+                .detail("pnpm playwright test --project=visual")
+                .reason(
+                    "Runs the visual tests in Chromium on This Mac. Writes only to test-results/.",
+                )
+                .show_kinds(true)
+                .extra_action("No, and tell it…", CarbonIcon::Chat, |_, _| {})
+                .note("The options Claude sent, in its order. Return takes “Allow once”."),
+        )
+        .child(
+            ApprovalCard::options(
+                "pmc-codex",
+                vec![
+                    ApprovalOption::new("Yes", AllowOnce),
+                    ApprovalOption::new("Yes, and don’t ask again this session", AllowAlways),
+                    ApprovalOption::new("No, and tell Codex what to do differently", RejectOnce),
+                ],
+            )
+            .title("Run a command")
+            .provider("Codex · waiting 3m")
+            .detail("pnpm db:migrate --env=staging")
+            .context("build-box · 1 migration · 0042_redis_sessions.sql")
+            .show_kinds(true)
+            .note("The options Codex sent, in its order. Return takes “Yes”."),
+        )
+        .child(
+            ApprovalCard::options(
+                "pmc-edit",
+                vec![
+                    ApprovalOption::new("Allow", AllowOnce),
+                    ApprovalOption::new("Reject", RejectOnce),
+                ],
+            )
+            .kind(ApprovalKind::File)
+            .title("Edit src/tokens/g90.json")
+            .provider("Antigravity")
+            .detail("+8 −0")
+            .extra_action("Revise…", CarbonIcon::Edit, |_, _| {})
+            .note("The options Antigravity sent, in its order. Return takes “Allow”."),
+        )
+        .child(
+            ApprovalCard::options("pmc-tool", tool("Always allow"))
+                .tool(true)
+                .title("Open a pull request")
+                .provider("Claude asks to use u0’s open_pr")
+                .facts([
+                    ("Repository", "acme/carbon-ui"),
+                    ("From", "feat/dark-tokens → main"),
+                    ("Title", "Add dark theme tokens"),
+                    ("Draft", "No"),
+                ])
+                .note("“Always allow” lets open_pr act from this thread without asking again."),
+        )
+        .child(
+            ApprovalCard::options("pmc-done", agent_options())
+                .title("Run a command")
+                .provider("Claude")
+                .detail("pnpm test tokens")
+                .answered(true, "You allowed it once", "“Allow once” · 10:22"),
+        )
 }
 
 /// The reference preview (`cu-stack`, gap 12, max 640px).
@@ -118,6 +230,35 @@ impl Render for ApprovalPage {
                     .text_color(color(ColorRole::TextSecondary))
                     .child(self.last.clone()),
             );
+        let options = agent_options();
+        let mut live_options = ApprovalCard::options("pmc-live", options.clone())
+            .title("Run a command")
+            .provider("Claude · waiting 1m")
+            .detail("pnpm playwright test --project=visual")
+            .reason("Runs the visual tests in Chromium on This Mac.")
+            .show_kinds(self.show_kinds)
+            .note("The options Claude sent, in its order. Return takes “Allow once”.")
+            .on_pick({
+                let entity = entity.clone();
+                move |i, _, cx| {
+                    entity.update(cx, |this, cx| {
+                        this.picked = Some(i);
+                        this.last = format!("onPick({i})").into();
+                        cx.notify();
+                    })
+                }
+            });
+        if self.extras {
+            live_options = live_options
+                .extra_action("No, and tell it…", CarbonIcon::Chat, |_, _| {})
+                .extra_action("Revise…", CarbonIcon::Edit, |_, _| {});
+        }
+        if let Some(i) = self.picked {
+            let o = &options[i];
+            live_options =
+                live_options.answered(o.kind.allows(), spoken(o.kind), format!("“{}”", o.label));
+        }
+        let live = live.child(live_options);
         let kinds = ApprovalKind::ALL.map(|k| k.name());
         let states = ApprovalState::ALL.map(|s| s.name());
         let config = div()
@@ -165,12 +306,43 @@ impl Render for ApprovalPage {
                 "Always allow",
                 self.always,
                 controls::setter(&entity, |this: &mut Self, on| this.always = on),
-            ));
+            ))
+            .child(controls::section("Options variant"))
+            .child(controls::toggle(
+                "pmc-kinds",
+                "showKinds",
+                self.show_kinds,
+                controls::setter(&entity, |this: &mut Self, on| this.show_kinds = on),
+            ))
+            .child(controls::toggle(
+                "pmc-extras",
+                "extra actions",
+                self.extras,
+                controls::setter(&entity, |this: &mut Self, on| this.extras = on),
+            ))
+            .child(
+                Button::new("pmc-reset", "Ask again")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .on_click({
+                        let entity = entity.clone();
+                        move |_, _, cx| {
+                            entity.update(cx, |this, cx| {
+                                this.picked = None;
+                                cx.notify();
+                            })
+                        }
+                    }),
+            );
         Body::new()
             .playground(live)
             .hint("Tab into the card: ⇧⌘↵ approves, ⇧⌘⌫ declines.")
             .config(config)
             .example(controls::block("Reference preview", reference()))
+            .example(controls::block(
+                "Options (u0 PermissionCard)",
+                options_reference(),
+            ))
     }
 }
 

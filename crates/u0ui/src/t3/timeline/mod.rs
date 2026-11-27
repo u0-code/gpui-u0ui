@@ -31,7 +31,9 @@ mod work;
 mod worktree;
 
 pub use approval::{
-    ApprovalCard, ApprovalKind, ApprovalState, ApprovalTexts, approval_look, approval_shortcut,
+    ApprovalCard, ApprovalKind, ApprovalOption, ApprovalState, ApprovalTexts, PermissionOptionKind,
+    approval_head_icon, approval_look, approval_shortcut, default_option, escape_option,
+    option_tooltip,
 };
 pub use command::{CommandDuration, CommandOutputBlock, exit_tag};
 pub use messages::{
