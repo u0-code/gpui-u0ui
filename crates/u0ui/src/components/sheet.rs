@@ -9,7 +9,9 @@
 //! - **Appearance**: `layer-01` panel with the floating shadow on an `overlay`
 //!   scrim; heading-03 title, body-01 description in `text-secondary`, a 48px
 //!   ghost close button, a scrolling body, and a footer whose buttons split
-//!   the width like a Modal footer.
+//!   the width like a Modal footer. A `width` widens a side panel (a 600px
+//!   editor drawer), and `footer_row` lays the footer out as a row of
+//!   small buttons on a hairline (`.ap-foot`), each at its own width.
 //! - **Motion**: the scrim fades in over 110ms `cubic-bezier(0, 0, 0.38, 0.9)`
 //!   (`cu-fade`), the panel slides from its edge over 240ms
 //!   `cubic-bezier(0, 0, 0.3, 1)` (`cu-in-r/l/t/b`). Closing unmounts the
@@ -166,6 +168,8 @@ pub struct Sheet {
     contained: bool,
     close_label: SharedString,
     handle: bool,
+    width: Option<f32>,
+    footer_row: bool,
 }
 
 impl Sheet {
@@ -187,6 +191,8 @@ impl Sheet {
             // The reference IconButton's `label="Close"`; override per locale.
             close_label: "Close".into(),
             handle: false,
+            width: None,
+            footer_row: false,
         }
     }
 
@@ -254,6 +260,24 @@ impl Sheet {
     /// Accessible name of the close button.
     pub fn close_label(mut self, label: impl Into<SharedString>) -> Self {
         self.close_label = label.into();
+        self
+    }
+
+    /// The width in px of a left or right panel, in place of 30rem (still at
+    /// most the full width), e.g. 600 for an editor drawer (`.ap-drawer
+    /// { width: 600px }`).
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = Some(width);
+        self
+    }
+
+    /// Lay the footer out as one row at each element's own width (`.ap-foot
+    /// { display: flex; gap: 8px; align-items: center; padding: 16px 24px;
+    /// box-shadow: inset 0 1px 0 border-subtle-00 }`) instead of sharing the
+    /// width; put a `flex_1` spacer between the groups to push the last ones
+    /// to the end.
+    pub fn footer_row(mut self, row: bool) -> Self {
+        self.footer_row = row;
         self
     }
 
@@ -413,12 +437,27 @@ impl RenderOnce for Sheet {
             .flex_col()
             .children(self.children);
 
+        let footer_row = self.footer_row;
         let footer = (!self.footer.is_empty()).then(|| {
-            div().flex().flex_row().flex_shrink_0().children(
-                self.footer
-                    .into_iter()
-                    .map(|element| div().flex_1().child(element)),
-            )
+            if footer_row {
+                div()
+                    .flex()
+                    .flex_row()
+                    .flex_shrink_0()
+                    .items_center()
+                    .gap(rem(8.))
+                    .py(rem(16.))
+                    .px(rem(24.))
+                    .border_t_1()
+                    .border_color(color(ColorRole::BorderSubtle00))
+                    .children(self.footer)
+            } else {
+                div().flex().flex_row().flex_shrink_0().children(
+                    self.footer
+                        .into_iter()
+                        .map(|element| div().flex_1().child(element)),
+                )
+            }
         });
 
         let panel = div()
@@ -430,7 +469,10 @@ impl RenderOnce for Sheet {
             .shadow(overlay::floating_shadow())
             .occlude()
             .map(|this| match geometry.width {
-                Some(width) => this.w(rem(width)).max_w_full().h_full(),
+                Some(width) => this
+                    .w(rem(self.width.unwrap_or(width)))
+                    .max_w_full()
+                    .h_full(),
                 None => this.w_full(),
             })
             .when(!self.side.vertical(), |this| this.max_h_full())
