@@ -31,18 +31,16 @@
 //!
 //! Known limits of GPUI text: inline code scales with its paragraph outside
 //! 14px body text and 13px tables (runs cannot change size; see
-//! [`crate::components::inline_code`]), and footnote references use Unicode
-//! superscript digits (runs cannot shift their baseline).
+//! [`crate::components::inline_code`]), and runs cannot shift their
+//! baseline, so footnote references are laid out invisible and painted
+//! raised over the text ([`sup_raise`], [`sup_room`]).
 use crate::{
     components::{
         CopyButton,
-        inline_code::{push_inline_code, with_code_boxes},
+        inline_code::{box_height, inline_code_fill, push_inline_code, with_code_boxes},
     },
     ghost::{
-        panels::{
-            code_viewer::highlight,
-            head::{code_head, grow, head_icon},
-        },
+        panels::head::{code_head, grow, head_icon},
         primitives::{
             IconButton,
             parts::{flash, flash_on, flash_state},
@@ -55,10 +53,10 @@ use crate::{
     typography::font,
 };
 use gpui_kit::{
-    AnyElement, App, ClipboardItem, Div, ElementId, FontStyle, FontWeight, Hsla,
+    AnyElement, App, ClipboardItem, Div, ElementId, Font, FontStyle, FontWeight, Hsla,
     InteractiveElement as _, IntoElement, ParentElement, RenderOnce, SharedString,
-    StatefulInteractiveElement as _, Styled, StyledText, TextRun, UnderlineStyle, Window, div,
-    prelude::FluentBuilder as _, px,
+    StatefulInteractiveElement as _, Styled, StyledText, TextAlign, TextRun, UnderlineStyle,
+    Window, canvas, div, point, prelude::FluentBuilder as _, px,
 };
 use std::ops::Range;
 
@@ -438,33 +436,71 @@ pub fn heading_size(level: u8) -> (f32, u16) {
     }
 }
 
-/// `1` → `¹`: footnote references as superscript digits.
-pub fn superscript(s: &str) -> String {
-    s.chars()
-        .map(|c| match c {
-            '0' => '⁰',
-            '1' => '¹',
-            '2' => '²',
-            '3' => '³',
-            '4' => '⁴',
-            '5' => '⁵',
-            '6' => '⁶',
-            '7' => '⁷',
-            '8' => '⁸',
-            '9' => '⁹',
-            c => c,
-        })
-        .collect()
-}
-
 // ── Inline text ─────────────────────────────────────────────────────────
 
-/// The runs of `inlines` in `ink` at the body family in a paragraph of
-/// `body` px, plus the byte ranges of inline code (with its padding).
-fn runs(inlines: &[Inline], ink: Hsla, body: f32) -> (String, Vec<TextRun>, Vec<Range<usize>>) {
+/// What a block's inline runs inherit from it: CSS sets weight and colour on
+/// the block (`.g-prose h2 { font-weight: 600 }`, `th { font-weight: 600 }`,
+/// `blockquote` and `.footnotes { color: var(--text-secondary) }`) and plain
+/// text, links, `em`, inline code and math keep them; only `strong`
+/// (`strong { font-weight: 600 }`) and links (`a { color: link-primary }`)
+/// set their own.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RunBase {
+    /// The block's font weight.
+    pub weight: u16,
+    /// The block's text colour.
+    pub ink: Hsla,
+}
+
+impl RunBase {
+    /// Regular text in `role`.
+    pub fn regular(role: ColorRole) -> Self {
+        Self {
+            weight: 400,
+            ink: color(role),
+        }
+    }
+}
+
+/// `.g-prose sup a { padding: 0 1px }`: a hair space (U+200A, 59/1000 em in
+/// Plex Sans, 0.83px at 14px) on each side of a footnote reference.
+const SUP_PAD: &str = "\u{200A}";
+
+/// `sup { vertical-align: super }` (`components/bundle.css`): Blink raises the
+/// baseline by a third of the parent's font size plus 1px (5.67px at 14px).
+pub fn sup_raise(body: f32) -> f32 {
+    body / 3. + 1.
+}
+
+/// The extra room above a line holding a footnote reference: the raised
+/// box grows the line box (`.g-prose p` measures 28.66px instead of 22px in
+/// the reference render at 14px). GPUI lines are all one height, so the
+/// room goes above the block; exact when the reference sits on the first
+/// line, as it does in the reference document.
+pub fn sup_room(body: f32) -> f32 {
+    sup_raise(body) + 1.
+}
+
+/// The laid-out inline text of a block (see [`runs`]).
+struct InlineRuns {
+    text: String,
+    runs: Vec<TextRun>,
+    /// Inline code byte ranges.
+    code: Vec<Range<usize>>,
+    /// Footnote reference digits and their font.
+    sups: Vec<(Range<usize>, Font)>,
+}
+
+/// The runs of `inlines` on `base` at the body family in a paragraph of
+/// `body` px, plus the byte ranges of inline code (with its padding) and of
+/// footnote references. Footnote references are laid out invisible (GPUI
+/// runs cannot shift their baseline) and painted raised by [`inline_text`].
+fn runs(inlines: &[Inline], base: RunBase, body: f32) -> InlineRuns {
+    let ink = base.ink;
     let mut text = String::new();
     let mut runs = Vec::new();
     let mut code = Vec::new();
+    let mut sups = Vec::new();
     let sans = |w: u16, italic: bool| {
         let mut f = font(FontFamilyKey::Sans, w);
         if italic {
@@ -478,23 +514,48 @@ fn runs(inlines: &[Inline], ink: Hsla, body: f32) -> (String, Vec<TextRun>, Vec<
             continue;
         }
         let (s, f, c, underline) = match inline {
-            Inline::Text(s) => (s.to_string(), sans(400, false), ink, false),
+            Inline::Text(s) => (s.to_string(), sans(base.weight, false), ink, false),
             Inline::Strong(s) => (s.to_string(), sans(600, false), ink, false),
-            Inline::Em(s) => (s.to_string(), sans(400, true), ink, false),
+            Inline::Em(s) => (s.to_string(), sans(base.weight, true), ink, false),
             Inline::Link(t, _) => (
                 t.to_string(),
-                sans(400, false),
+                sans(base.weight, false),
                 color(ColorRole::LinkPrimary),
                 true,
             ),
-            Inline::FootnoteRef(n) => (
-                superscript(n),
-                sans(400, false),
-                color(ColorRole::LinkPrimary),
+            // `<sup><a>1</a></sup>`: the digits at the paragraph's size in
+            // `link-primary`, not underlined (`.g-prose sup a {
+            // text-decoration: none }`), hidden here and painted raised.
+            Inline::FootnoteRef(n) => {
+                let f = sans(base.weight, false);
+                for (s, hidden) in [(SUP_PAD, false), (n.as_ref(), true), (SUP_PAD, false)] {
+                    let start = text.len();
+                    text.push_str(s);
+                    if hidden {
+                        sups.push((start..text.len(), f.clone()));
+                    }
+                    runs.push(TextRun {
+                        len: s.len(),
+                        font: f.clone(),
+                        color: if hidden {
+                            gpui_kit::transparent_black()
+                        } else {
+                            ink
+                        },
+                        background_color: None,
+                        underline: None,
+                        strikethrough: None,
+                    });
+                }
+                continue;
+            }
+            Inline::Code(_) => continue,
+            Inline::Math(s) => (
+                s.to_string(),
+                font(FontFamilyKey::Mono, base.weight),
+                ink,
                 false,
             ),
-            Inline::Code(_) => continue,
-            Inline::Math(s) => (s.to_string(), font(FontFamilyKey::Mono, 400), ink, false),
         };
         text.push_str(&s);
         runs.push(TextRun {
@@ -510,14 +571,66 @@ fn runs(inlines: &[Inline], ink: Hsla, body: f32) -> (String, Vec<TextRun>, Vec<
             strikethrough: None,
         });
     }
-    (text, runs, code)
+    InlineRuns {
+        text,
+        runs,
+        code,
+        sups,
+    }
 }
 
 /// Inline prose in a paragraph of `body` px: a `StyledText` with the
-/// inline-code tint painted behind it.
-fn inline_text(inlines: &[Inline], ink: Hsla, body: f32) -> Div {
-    let (text, runs, code) = runs(inlines, ink, body);
-    with_code_boxes(StyledText::new(text).with_runs(runs), code, body)
+/// inline-code tint painted behind it and footnote references raised.
+fn inline_text(inlines: &[Inline], base: RunBase, body: f32) -> Div {
+    let InlineRuns {
+        text,
+        runs,
+        code,
+        sups,
+    } = runs(inlines, base, body);
+    let styled = StyledText::new(text.clone()).with_runs(runs);
+    if sups.is_empty() {
+        return with_code_boxes(styled, code, body);
+    }
+    let layout = styled.layout().clone();
+    let link = color(ColorRole::LinkPrimary);
+    let painted = canvas(
+        |_, _, _| (),
+        move |_, _, window, cx| {
+            let px_of = |v: f32| window.rem_size() * (v / 16.);
+            let (size, raise) = (px_of(body), px_of(sup_raise(body)));
+            for (r, f) in &sups {
+                let Some(at) = layout.position_for_index(r.start) else {
+                    continue;
+                };
+                let digits = SharedString::from(text[r.clone()].to_string());
+                let run = TextRun {
+                    len: digits.len(),
+                    font: f.clone(),
+                    color: link,
+                    background_color: None,
+                    underline: None,
+                    strikethrough: None,
+                };
+                let line = window.text_system().shape_line(digits, size, &[run], None);
+                let _ = line.paint(
+                    point(at.x, at.y - raise),
+                    layout.line_height(),
+                    TextAlign::Left,
+                    None,
+                    window,
+                    cx,
+                );
+            }
+        },
+    )
+    .absolute()
+    .top_0()
+    .left_0()
+    .size_full();
+    div()
+        .pt(rem(sup_room(body)))
+        .child(with_code_boxes(styled, code, body).child(painted))
 }
 
 // ── Blocks ──────────────────────────────────────────────────────────────
@@ -548,8 +661,9 @@ impl Default for ProseTexts {
 
 /// A fenced code block in prose (`ProseCodeBlock`, `.g-pcode`): the
 /// language in a `.g-codehead`, a copy button that turns into a checkmark
-/// for 1.5s, then the code in 12px mono at 1.5 line height in syntax colors,
-/// scrolling sideways.
+/// for 1.5s, then the code as the prose's inline `<code>` (13px mono in
+/// `text-primary` on the 60% `layer-accent-01` tint, 19.5px lines; no syntax
+/// colours), scrolling sideways.
 #[derive(IntoElement)]
 pub struct ProseCodeBlock {
     id: ElementId,
@@ -583,22 +697,51 @@ impl ProseCodeBlock {
 /// `useFlash()`: 1500ms.
 const FLASH_MS: u64 = 1500;
 
+/// A prose code block's line: the 13px `<code>` at the `<pre>`'s inherited
+/// `line-height: 1.5`.
+pub const CODE_LINE: f32 = 13. * 1.5;
+
 impl RenderOnce for ProseCodeBlock {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
         let state = flash_state((id.clone(), "flash"), window, cx);
         let copied = flash_on(&state, FLASH_MS, cx);
         let code = self.code.clone();
+        let count = self.code.split('\n').count();
+        let tint = inline_code_fill();
+        // The `<code>` inside the `<pre>`: an inline box, so each line's text
+        // carries the tint (as tall as the 13px content box plus `padding:
+        // 1px`, centred on the 19.5px line), with the 4px side padding only
+        // where the box starts and ends (`box-decoration-break: slice`).
         let lines: Vec<AnyElement> = self
             .code
             .split('\n')
-            .map(|l| {
+            .enumerate()
+            .map(|(i, l)| {
+                let (first, last) = (i == 0, i + 1 == count);
+                let inset = px((CODE_LINE - box_height(14.)) / 2.);
                 div()
-                    .min_h(rem(18.))
+                    .flex()
+                    .h(rem(CODE_LINE))
                     .whitespace_nowrap()
                     .child(
-                        StyledText::new(SharedString::from(l.to_string()))
-                            .with_highlights(highlight(l).into_iter().map(|(r, k)| (r, k.style()))),
+                        div()
+                            .relative()
+                            .flex_none()
+                            .when(first, |d| d.pl(px(4.)))
+                            .when(last, |d| d.pr(px(4.)))
+                            .when(first || last || !l.is_empty(), |d| {
+                                d.child(
+                                    div()
+                                        .absolute()
+                                        .left_0()
+                                        .right_0()
+                                        .top(inset)
+                                        .bottom(inset)
+                                        .bg(tint),
+                                )
+                            })
+                            .child(div().relative().child(SharedString::from(l.to_string()))),
                     )
                     .into_any_element()
             })
@@ -641,13 +784,17 @@ impl RenderOnce for ProseCodeBlock {
             )
             .child(
                 // `.g-pcode pre { padding: var(--spacing-04); overflow-x: auto;
-                // font-size: 0.75rem; line-height: 1.5 }`.
-                mono(div(), 12., 400)
+                // font-size: 0.75rem; line-height: 1.5 }`; the `<code>` in it
+                // follows the last `.g-prose code` rule (r2-desk, `src/t3.css`):
+                // 13px mono in the prose's `text-primary`, no syntax colours,
+                // on the 60% `layer-accent-01` tint, its 1.5 line height making
+                // each line 19.5px (`refrender --computed '.g-prose pre code'`).
+                mono(div(), 13., 400)
                     .id((id, "pre"))
                     .overflow_x_scroll()
                     .p(tokens::SPACING_04)
-                    .line_height(rem(18.))
-                    .text_color(color(ColorRole::SyntaxVariable))
+                    .line_height(rem(CODE_LINE))
+                    .text_color(color(ColorRole::TextPrimary))
                     .child(div().flex().flex_col().children(lines)),
             )
     }
@@ -790,8 +937,16 @@ impl MarkdownProse {
 
 /// A list's rows: a 1.5em marker column (`text-secondary` disc or number,
 /// right-aligned), then the item and its nested lists.
-fn list(ordered: bool, start: usize, items: &[ListItem], id: &ElementId, body: f32) -> Div {
-    let ink = color(ColorRole::TextPrimary);
+fn list(
+    ordered: bool,
+    start: usize,
+    items: &[ListItem],
+    id: &ElementId,
+    body: f32,
+    base: RunBase,
+) -> Div {
+    // `.g-prose li { margin: 0.2em 0 }` at the list's size.
+    let li_gap = px(0.2 * body);
     div()
         .flex()
         .flex_col()
@@ -801,10 +956,9 @@ fn list(ordered: bool, start: usize, items: &[ListItem], id: &ElementId, body: f
             } else {
                 "•".to_string()
             };
-            // `.g-prose li { margin: 0.2em 0 }`.
             div()
                 .flex()
-                .when(i > 0, |d| d.mt(px(2.8)))
+                .when(i > 0, |d| d.mt(li_gap))
                 .child(
                     // `.g-prose ul, ol { padding-left: 1.5em }`, `li::marker {
                     // color: var(--text-secondary) }`.
@@ -812,7 +966,7 @@ fn list(ordered: bool, start: usize, items: &[ListItem], id: &ElementId, body: f
                         .flex()
                         .flex_none()
                         .justify_end()
-                        .w(rem(21.))
+                        .w(rem(1.5 * body))
                         .pr(px(6.))
                         .text_color(color(ColorRole::TextSecondary))
                         .child(marker),
@@ -823,7 +977,7 @@ fn list(ordered: bool, start: usize, items: &[ListItem], id: &ElementId, body: f
                         .flex_col()
                         .flex_1()
                         .min_w_0()
-                        .child(inline_text(&it.content, ink, body))
+                        .child(inline_text(&it.content, base, body))
                         .children(it.children.iter().map(|b| {
                             match b {
                                 Block::List {
@@ -831,8 +985,8 @@ fn list(ordered: bool, start: usize, items: &[ListItem], id: &ElementId, body: f
                                     start,
                                     items,
                                 } => div()
-                                    .mt(px(2.8))
-                                    .child(list(*ordered, *start, items, id, body))
+                                    .mt(li_gap)
+                                    .child(list(*ordered, *start, items, id, body, base))
                                     .into_any_element(),
                                 other => render_block(other, id, 0, &ProseTexts::default()),
                             }
@@ -865,8 +1019,8 @@ fn task_box(checked: bool) -> Div {
 }
 
 fn render_block(block: &Block, id: &ElementId, i: usize, texts: &ProseTexts) -> AnyElement {
-    let ink = color(ColorRole::TextPrimary);
-    let secondary = color(ColorRole::TextSecondary);
+    let primary = RunBase::regular(ColorRole::TextPrimary);
+    let secondary = RunBase::regular(ColorRole::TextSecondary);
     let sub = |name: &str| -> ElementId {
         (id.clone(), SharedString::from(format!("{name}-{i}"))).into()
     };
@@ -877,15 +1031,22 @@ fn render_block(block: &Block, id: &ElementId, i: usize, texts: &ProseTexts) -> 
                 .text_size(rem(s))
                 .line_height(gpui_kit::relative(1.3))
                 .font_weight(FontWeight(w as f32))
-                .child(inline_text(inlines, ink, s))
+                .child(inline_text(
+                    inlines,
+                    RunBase {
+                        weight: w,
+                        ..primary
+                    },
+                    s,
+                ))
                 .into_any_element()
         }
-        Block::Paragraph(inlines) => inline_text(inlines, ink, BODY.0).into_any_element(),
+        Block::Paragraph(inlines) => inline_text(inlines, primary, BODY.0).into_any_element(),
         Block::List {
             ordered,
             start,
             items,
-        } => list(*ordered, *start, items, id, BODY.0).into_any_element(),
+        } => list(*ordered, *start, items, id, BODY.0, primary).into_any_element(),
         // `.g-prose ul.contains-task-list { list-style: none; padding-left:
         // 0.25em } .task-list-item { display: flex; gap: var(--spacing-03) }`.
         Block::TaskList(items) => div()
@@ -899,7 +1060,7 @@ fn render_block(block: &Block, id: &ElementId, i: usize, texts: &ProseTexts) -> 
                     .gap(tokens::SPACING_03)
                     .when(k > 0, |d| d.mt(px(2.8)))
                     .child(task_box(*done))
-                    .child(inline_text(inlines, ink, BODY.0))
+                    .child(inline_text(inlines, primary, BODY.0))
             }))
             .into_any_element(),
         // `.g-prose blockquote { padding: 0 var(--spacing-05); border-left: 3px
@@ -908,6 +1069,7 @@ fn render_block(block: &Block, id: &ElementId, i: usize, texts: &ProseTexts) -> 
             .px(tokens::SPACING_05)
             .border_l(px(3.))
             .border_color(color(ColorRole::BorderStrong01))
+            .text_color(secondary.ink)
             .child(inline_text(inlines, secondary, BODY.0))
             .into_any_element(),
         Block::Table(head, rows) => {
@@ -918,7 +1080,8 @@ fn render_block(block: &Block, id: &ElementId, i: usize, texts: &ProseTexts) -> 
             // content, so the table is laid out column by column.
             let cols = head.len().max(rows.iter().map(Vec::len).max().unwrap_or(0));
             let cell = |inlines: Option<&Vec<Inline>>, th: bool| {
-                sans(div(), 13., if th { 600 } else { 400 })
+                let weight = if th { 600 } else { 400 };
+                sans(div(), 13., weight)
                     .line_height(rem(20.))
                     .py(tokens::SPACING_02)
                     .px(tokens::SPACING_04)
@@ -926,7 +1089,11 @@ fn render_block(block: &Block, id: &ElementId, i: usize, texts: &ProseTexts) -> 
                     .border_color(color(ColorRole::BorderSubtle01))
                     .when(th, |d| d.bg(color(ColorRole::LayerAccent01)))
                     .whitespace_nowrap()
-                    .child(inline_text(inlines.map_or(&[][..], |v| v), ink, 13.))
+                    .child(inline_text(
+                        inlines.map_or(&[][..], |v| v),
+                        RunBase { weight, ..primary },
+                        13.,
+                    ))
             };
             div()
                 .id(sub("table"))
@@ -958,13 +1125,14 @@ fn render_block(block: &Block, id: &ElementId, i: usize, texts: &ProseTexts) -> 
             .into_any_element(),
         // `.g-prose .footnotes { padding-top: var(--spacing-04); border-top: 1px
         // solid var(--border-subtle-01); font-size: 0.75rem; color:
-        // var(--text-secondary) }`, an ordered list.
+        // var(--text-secondary) }`, an ordered list; the line height stays the
+        // prose's 1.375rem (`.g-prose, .t3-amsg-body`).
         Block::Footnotes(notes) => sans(div(), 12., 400)
             .pt(tokens::SPACING_04)
             .border_t_1()
             .border_color(color(ColorRole::BorderSubtle01))
-            .text_color(secondary)
-            .line_height(rem(16.))
+            .text_color(secondary.ink)
+            .line_height(rem(BODY.1))
             .child(list(
                 true,
                 1,
@@ -977,6 +1145,7 @@ fn render_block(block: &Block, id: &ElementId, i: usize, texts: &ProseTexts) -> 
                     .collect::<Vec<_>>(),
                 id,
                 12.,
+                secondary,
             ))
             .into_any_element(),
     }
@@ -1102,17 +1271,91 @@ mod tests {
         // h3's 8 vs hr's 21; hr's 21 vs footnotes' 18.
         assert_eq!(block_gaps(&blocks), vec![0., 10., 24., 21., 21.]);
         assert_eq!(heading_size(1), (24., 400));
-        assert_eq!(superscript("12"), "¹²");
     }
 
     #[test]
     fn inline_code_is_the_shared_tint() {
-        let (text, runs, code) = runs(
+        crate::theme::tests_set(crate::CarbonTheme::White);
+        let InlineRuns {
+            text, runs, code, ..
+        } = runs(
             &[t("a "), Inline::Code("x".into())],
-            color(ColorRole::TextPrimary),
+            RunBase::regular(ColorRole::TextPrimary),
             BODY.0,
         );
         assert_eq!(&text[code[0].clone()], "\u{202F}x\u{202F}");
         assert!(runs.iter().all(|r| r.background_color.is_none()));
+    }
+
+    #[test]
+    fn runs_inherit_the_block_weight_and_colour() {
+        crate::theme::tests_set(crate::CarbonTheme::White);
+        let secondary = color(ColorRole::TextSecondary);
+        let link = color(ColorRole::LinkPrimary);
+        let inlines = [
+            t("a"),
+            Inline::Em("b".into()),
+            Inline::Link("c".into(), "#".into()),
+            Inline::Strong("d".into()),
+            Inline::Math("e".into()),
+        ];
+        // `.g-prose h2 { font-weight: 600 }` / `th { font-weight: 600 }`:
+        // text, em, links and math are semibold too.
+        let InlineRuns { runs: r, .. } = runs(
+            &inlines,
+            RunBase {
+                weight: 600,
+                ink: color(ColorRole::TextPrimary),
+            },
+            20.,
+        );
+        assert!(r.iter().all(|r| r.font.weight == FontWeight(600.)));
+        // `.footnotes { color: var(--text-secondary) }`: plain text, em,
+        // strong and math take it; the link keeps `link-primary`.
+        let InlineRuns { runs: r, .. } =
+            runs(&inlines, RunBase::regular(ColorRole::TextSecondary), 12.);
+        let colours: Vec<Hsla> = r.iter().map(|r| r.color).collect();
+        assert_eq!(
+            colours,
+            vec![secondary, secondary, link, secondary, secondary]
+        );
+        assert_eq!(r[0].font.weight, FontWeight(400.));
+        // `strong { font-weight: 600 }` stays 600 in regular text.
+        assert_eq!(r[3].font.weight, FontWeight(600.));
+        assert_eq!(r[1].font.style, FontStyle::Italic);
+    }
+
+    #[test]
+    fn footnote_reference_is_a_raised_full_size_link() {
+        crate::theme::tests_set(crate::CarbonTheme::White);
+        let InlineRuns {
+            text,
+            runs: r,
+            sups,
+            ..
+        } = runs(
+            &[t("x"), Inline::FootnoteRef("1".into())],
+            RunBase::regular(ColorRole::TextPrimary),
+            BODY.0,
+        );
+        // The plain digit (not `¹`) between hair spaces, laid out hidden and
+        // painted raised at the paragraph's size.
+        assert_eq!(text, "x\u{200A}1\u{200A}");
+        assert_eq!(sups.len(), 1);
+        assert_eq!(&text[sups[0].0.clone()], "1");
+        assert_eq!(r[2].color.a, 0.);
+        assert!(r.iter().all(|r| r.underline.is_none()));
+        // Blink: `vertical-align: super` = font-size / 3 + 1 (5.67px at 14px,
+        // the reference's 75.66 → 70 box shift); the line box grows 6.66px.
+        assert!((sup_raise(14.) - 5.667).abs() < 1e-3);
+        assert!((sup_room(14.) - 6.667).abs() < 1e-3);
+    }
+
+    #[test]
+    fn code_block_lines_follow_the_prose_code_rule() {
+        // `.g-prose pre code`: 13px at the pre's 1.5 → 19.5px lines, the tint
+        // 18.9px tall (13 × 1.3 + 2) centred in them.
+        assert_eq!(CODE_LINE, 19.5);
+        assert!(box_height(14.) < CODE_LINE);
     }
 }
