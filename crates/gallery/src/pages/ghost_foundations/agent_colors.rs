@@ -9,7 +9,7 @@ use gpui_kit::{
 use u0ui::ghost::foundations::{AGENT_ACCENTS, TokenSwatches, agent_accent};
 use u0ui::ghost::thread::ContinueRow;
 use u0ui::prelude::*;
-use u0ui::t3::ProviderIcon;
+use u0ui::t3::{IdentitySize, ProviderIcon};
 
 const AGENTS: [(&str, u8); 5] = [
     ("Claude", 1),
@@ -84,35 +84,47 @@ impl Render for AgentColorsPage {
         let entity = cx.entity();
         let slot = self.slot + 1;
         let accent = agent_accent(slot);
-        // `.t3-provider--accent { background: var(--pa); color: var(--agent-accent-text) }`.
+        // The real mark and the real accent carrier: `ProviderIcon` draws the
+        // provider's own mark (the accent only grounds an image), and the
+        // ContinueRow paints the slot it is mapped to.
         let live = div()
             .flex()
-            .items_center()
-            .gap(tokens::SPACING_04)
+            .flex_col()
+            .gap(tokens::SPACING_05)
             .child(
                 div()
                     .flex()
                     .items_center()
-                    .justify_center()
-                    .size(rems(2.))
-                    .bg(color(accent))
-                    .text_color(color(ColorRole::AgentAccentText))
-                    .type_style(TypeStyle::HeadingCompact01)
-                    .child("C"),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .type_style(TypeStyle::BodyCompact01)
-                    .text_color(color(ColorRole::TextPrimary))
-                    .child("Claude")
+                    .gap(tokens::SPACING_04)
+                    .child(
+                        ProviderIcon::new("Claude")
+                            .id("agent-live-provider")
+                            .size(IdentitySize::Lg)
+                            .accent(Some(slot as u8)),
+                    )
                     .child(
                         div()
-                            .type_style(TypeStyle::Code01)
-                            .text_color(color(ColorRole::TextSecondary))
-                            .child(format!("{{ claude: {slot} }} → {}", accent.name())),
+                            .flex()
+                            .flex_col()
+                            .type_style(TypeStyle::BodyCompact01)
+                            .text_color(color(ColorRole::TextPrimary))
+                            .child("Claude")
+                            .child(
+                                div()
+                                    .type_style(TypeStyle::Code01)
+                                    .text_color(color(ColorRole::TextSecondary))
+                                    .child(format!("{{ claude: {slot} }} → {}", accent.name())),
+                            ),
                     ),
+            )
+            .child(
+                div().w(px(420.)).max_w_full().child(
+                    ContinueRow::new("agent-live-continue", "Add dark theme tokens")
+                        .project("carbon-ui")
+                        .agent("Claude")
+                        .accent(slot)
+                        .time("2m ago"),
+                ),
             );
         let config = controls::field(
             "slot",
