@@ -22,7 +22,7 @@ use super::overlay;
 use gpui_kit::{
     Anchor, AnyElement, App, Bounds, ElementId, InteractiveElement, IntoElement, KeyDownEvent,
     MouseButton, ParentElement, Pixels, Point, RenderOnce, SharedString, Styled,
-    TestSupportExt as _, Window, canvas, deferred, div, point, px,
+    TestSupportExt as _, Window, canvas, deferred, div, point, prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -115,6 +115,10 @@ impl RenderOnce for ContextMenu {
             .use_keyed_state((id.clone(), "area-focus"), cx, |_, cx| cx.focus_handle())
             .read(cx)
             .clone();
+        // The area is a tab stop of ours (the reference's `.cu-context-area`
+        // is not focusable), so keyboard focus shows the 2px `focus` ring
+        // every focusable element draws.
+        let ring = area_focus.is_focused(window) && window.last_input_was_keyboard();
         let (open, at) = {
             let p = placed.read(cx);
             (p.open, p.at)
@@ -196,6 +200,12 @@ impl RenderOnce for ContextMenu {
             })
             .child(self.area)
             .child(measure)
+            .when(ring, |d| {
+                d.child(super::form::inset_outline(
+                    2.,
+                    crate::theme::color(crate::tokens::ColorRole::Focus),
+                ))
+            })
             .children(surface.map(|surface| {
                 deferred(
                     gpui_kit::base::Positioner::corner(Anchor::TopLeft, at)
