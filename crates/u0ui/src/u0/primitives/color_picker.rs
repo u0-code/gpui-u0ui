@@ -197,6 +197,7 @@ pub struct ColorPicker {
     swatches: Vec<SharedString>,
     labels: [SharedString; 4],
     on_value_change: Option<Handler>,
+    full_width: bool,
 }
 
 impl ColorPicker {
@@ -219,7 +220,15 @@ impl ColorPicker {
                 "Swatches".into(),
             ],
             on_value_change: None,
+            full_width: false,
         }
+    }
+
+    /// Fill the parent's width instead of 15rem (`.ap-edit .g-color { width:
+    /// auto }`: the picker column of u0's theme editor drawer).
+    pub fn full_width(mut self, full_width: bool) -> Self {
+        self.full_width = full_width;
+        self
     }
 
     /// The label above.
@@ -672,7 +681,13 @@ impl RenderOnce for ColorPicker {
             .flex()
             .flex_col()
             .gap(rem(8.))
-            .w(rem(240.))
+            .map(|d| {
+                if self.full_width {
+                    d.w_full().min_w_0()
+                } else {
+                    d.w(rem(240.))
+                }
+            })
             .when_some(self.label.clone(), |d, l| d.child(parts::label(l)))
             .child(plane)
             .child(hue)
