@@ -76,7 +76,8 @@ impl ProviderStatus {
     /// A custom tag pair, where `t3.css` repaints the Carbon one:
     /// `.t3-provcard .cds--tag--warm-gray { background:
     /// var(--tag-background-yellow, #fcf4d6); color: var(--text-primary) }`.
-    /// There is no `tag-background-yellow` token, so the `#fcf4d6`
+    /// There is no `tag-background-yellow` token (still absent from
+    /// `tokens.json` in the 2026-11-27 reference), so the `#fcf4d6`
     /// fallback (Yellow 10, White's `notification-background-warning`)
     /// paints in every theme. Its ink is White's `text-primary` (`#161616`)
     /// in every theme too: the dark themes' white `text-primary` would
