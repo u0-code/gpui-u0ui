@@ -9,6 +9,8 @@
 //! - [`caption`]: the examples' caption line (`.cu-pcap`).
 //! - [`combo_button`]: [`ComboButton`] (`.cds--combo-button`), a primary
 //!   action with a menu of related actions.
+//! - [`empty_state`]: [`PatternEmptyState`] (`.cu-pempty`), the empty
+//!   state in its small- and large-space layouts.
 //! - [`frame`]: [`PatternFrame`], the static modal anatomy (`Frame`,
 //!   `.cu-pframe`) the dialog and form examples compare side by side.
 //! - [`grid`]: [`PatternGrid`] (`.cu-pgrid`), the examples' grid.
@@ -26,6 +28,7 @@ pub mod actionable_toast;
 pub mod badge;
 pub mod caption;
 pub mod combo_button;
+pub mod empty_state;
 pub mod frame;
 pub mod grid;
 pub mod menu;
@@ -40,6 +43,7 @@ pub use actionable_toast::ActionableToast;
 pub use badge::{BadgeIndicator, Badged};
 pub use caption::Caption;
 pub use combo_button::{ComboButton, ComboButtonSize};
+pub use empty_state::{EmptyStateGeometry, EmptyStateSize, PatternEmptyState};
 pub use frame::{FrameButton, FrameGeometry, PatternFrame};
 pub use grid::PatternGrid;
 pub use menu::{PatternMenu, PatternMenuItem};
