@@ -8,6 +8,14 @@
 //! the preview follows every pick. [`import_vscode`] maps a VS Code theme's
 //! `colors` onto the tokens and [`contrast_ratio`] is the check to run before
 //! saving (`text-primary` on `background` ≥ [`MIN_CONTRAST`]).
+//!
+//! [`ThemeEditorLayout::Customize`] lays the editor out as the body of u0's
+//! "Customize <theme>" drawer instead, with the caller holding the values;
+//! see [`customize`](self::customize).
+mod customize;
+
+pub use customize::{contrast_checks, on_color, ratio_text};
+
 use super::row::{Handler, ghost_button};
 use crate::{
     icons::CarbonIcon,
@@ -21,7 +29,7 @@ use gpui_kit::component::{
     color_picker::{ColorPicker, ColorPickerState},
 };
 use gpui_kit::{
-    App, AppContext as _, ElementId, Entity, Hsla, InteractiveElement as _, IntoElement,
+    App, AppContext as _, Div, ElementId, Entity, Hsla, InteractiveElement as _, IntoElement,
     ParentElement, RenderOnce, Rgba, SharedString, StatefulInteractiveElement as _, Styled, Window,
     canvas, div, prelude::FluentBuilder as _, px,
 };
@@ -156,6 +164,21 @@ pub struct ThemeEditorTexts {
     pub preview_body: SharedString,
     /// The preview's primary button ("Primary").
     pub preview_primary: SharedString,
+    /// Customize: the contrast checks' heading ("Contrast").
+    pub contrast: SharedString,
+    /// Customize: `text-primary` on `background` ("Text on background").
+    pub contrast_text: SharedString,
+    /// Customize: `text-secondary` on `layer-01` ("Secondary text on layer").
+    pub contrast_secondary: SharedString,
+    /// Customize: the text on `interactive` ("Button text on interactive").
+    pub contrast_button: SharedString,
+    /// Customize: the token list's heading ("Tokens").
+    pub tokens_title: SharedString,
+    /// Customize: the line under it.
+    pub tokens_description: SharedString,
+    /// Customize: the picker's accessible names (plane, hue bar, hex field,
+    /// swatch group).
+    pub picker: [SharedString; 4],
 }
 
 impl Default for ThemeEditorTexts {
@@ -167,8 +190,36 @@ impl Default for ThemeEditorTexts {
             preview_title: "Preview".into(),
             preview_body: "Secondary text on layer.".into(),
             preview_primary: "Primary".into(),
+            contrast: "Contrast".into(),
+            contrast_text: "Text on background".into(),
+            contrast_secondary: "Secondary text on layer".into(),
+            contrast_button: "Button text on interactive".into(),
+            tokens_title: "Tokens".into(),
+            tokens_description: "Each colour of the theme, as gpui-kit’s theme file names it. \
+                                 Pick a swatch or type a hex."
+                .into(),
+            picker: [
+                "Saturation and brightness".into(),
+                "Hue".into(),
+                "Hex colour".into(),
+                "Swatches".into(),
+            ],
         }
     }
+}
+
+/// How a [`ThemeEditor`] is laid out.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ThemeEditorLayout {
+    /// The swatch grid with a picker per token, under its name, Import and
+    /// Export (`.g-themeed`); the editor holds the values.
+    #[default]
+    Grid,
+    /// The body of u0's "Customize <theme>" drawer (board `SetAppearance`):
+    /// the primary tokens beside an inline picker and contrast checks, the
+    /// preview, and every token with a hex field; the caller holds the
+    /// values and takes each edit from `on_change`.
+    Customize,
 }
 
 /// The theme editor (`ThemeEditor`). See the module docs.
@@ -180,6 +231,9 @@ pub struct ThemeEditor {
     texts: ThemeEditorTexts,
     on_import: Option<Handler>,
     on_export: Option<Handler>,
+    layout: ThemeEditorLayout,
+    primary: Vec<usize>,
+    on_change: Option<customize::ChangeHandler>,
 }
 
 impl ThemeEditor {
@@ -192,7 +246,31 @@ impl ThemeEditor {
             texts: ThemeEditorTexts::default(),
             on_import: None,
             on_export: None,
+            layout: ThemeEditorLayout::Grid,
+            primary: Vec::new(),
+            on_change: None,
         }
+    }
+
+    /// The layout (default [`ThemeEditorLayout::Grid`]).
+    pub fn layout(mut self, layout: ThemeEditorLayout) -> Self {
+        self.layout = layout;
+        self
+    }
+
+    /// Customize: the tokens listed beside the picker, by index (e.g.
+    /// background, layer-01, text-primary, text-secondary, interactive,
+    /// support-error); the first is picked at first.
+    pub fn primary(mut self, indices: impl IntoIterator<Item = usize>) -> Self {
+        self.primary = indices.into_iter().collect();
+        self
+    }
+
+    /// Customize: a token was edited, in the picker or its hex field, to a
+    /// new value (`on_change(token_index, value)`).
+    pub fn on_change(mut self, f: impl Fn(usize, Hsla, &mut Window, &mut App) + 'static) -> Self {
+        self.on_change = Some(Rc::new(f));
+        self
     }
 
     /// The theme's name (`name`).
@@ -241,8 +319,52 @@ fn lookup(tokens: &[ThemeToken], values: &[Hsla], name: &str, fallback: Hsla) ->
         .unwrap_or(fallback)
 }
 
+/// `.g-themeed-preview { padding: var(--spacing-04); font-size: 0.875rem;
+/// box-shadow: inset 0 0 0 1px var(--border-subtle-01) }`, painted in the
+/// edited colors: `background`, `layer-01`, `text-primary`, `text-secondary`,
+/// `interactive` and the text on it (`ink`).
+fn preview(tokens: &[ThemeToken], values: &[Hsla], texts: &ThemeEditorTexts, ink: Hsla) -> Div {
+    let get = |name: &str, role: ColorRole| lookup(tokens, values, name, color(role));
+    div()
+        .p(tokens::SPACING_04)
+        .bg(get("background", ColorRole::Background))
+        .text_color(get("text-primary", ColorRole::TextPrimary))
+        .shadow(inset_frame(color(ColorRole::BorderSubtle01)))
+        .child(
+            // `style={{ background: vals['layer-01'], padding: 12 }}`.
+            div()
+                .flex()
+                .flex_col()
+                .items_start()
+                .p(rem(12.))
+                .bg(get("layer-01", ColorRole::Layer01))
+                // A bare `<b>` (Carbon's `b { font: inherit }`): 400.
+                .child(sans(div(), 14., 400).child(texts.preview_title.clone()))
+                .child(
+                    // `p { margin: 4px 0 8px; color: vals['text-secondary'] }`.
+                    div()
+                        .mt(rem(4.))
+                        .mb(rem(8.))
+                        .text_color(get("text-secondary", ColorRole::TextSecondary))
+                        .child(texts.preview_body.clone()),
+                )
+                .child(
+                    // `background: vals.interactive; padding: 4px 12px`.
+                    div()
+                        .px(rem(12.))
+                        .py(rem(4.))
+                        .bg(get("interactive", ColorRole::Interactive))
+                        .text_color(ink)
+                        .child(texts.preview_primary.clone()),
+                ),
+        )
+}
+
 impl RenderOnce for ThemeEditor {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        if self.layout == ThemeEditorLayout::Customize {
+            return self.render_customize(window, cx);
+        }
         let id = self.id.clone();
         // One Kit picker state per token, made once (`useState(() => …)`).
         let tokens = self.tokens.clone();
@@ -383,21 +505,6 @@ impl RenderOnce for ThemeEditor {
         }
 
         let fg = color(ColorRole::TextPrimary);
-        let bg_val = lookup(&tokens, &values, "background", color(ColorRole::Background));
-        let fg_val = lookup(&tokens, &values, "text-primary", fg);
-        let layer_val = lookup(&tokens, &values, "layer-01", color(ColorRole::Layer01));
-        let dim_val = lookup(
-            &tokens,
-            &values,
-            "text-secondary",
-            color(ColorRole::TextSecondary),
-        );
-        let accent_val = lookup(
-            &tokens,
-            &values,
-            "interactive",
-            color(ColorRole::Interactive),
-        );
 
         sans(div(), 14., 400)
             .id(id.clone())
@@ -445,45 +552,14 @@ impl RenderOnce for ThemeEditor {
                     .child(measure)
                     .children(rows),
             )
-            .child(
-                // `.g-themeed-preview { padding: var(--spacing-04); font-size: 0.875rem;
-                // box-shadow: inset 0 0 0 1px var(--border-subtle-01) }`, painted in the
-                // edited `background` / `text-primary`.
-                div()
-                    .p(tokens::SPACING_04)
-                    .bg(bg_val)
-                    .text_color(fg_val)
-                    .shadow(inset_frame(color(ColorRole::BorderSubtle01)))
-                    .child(
-                        // `style={{ background: vals['layer-01'], padding: 12 }}`.
-                        div()
-                            .flex()
-                            .flex_col()
-                            .items_start()
-                            .p(rem(12.))
-                            .bg(layer_val)
-                            // A bare `<b>` (Carbon's `b { font: inherit }`): 400.
-                            .child(sans(div(), 14., 400).child(self.texts.preview_title.clone()))
-                            .child(
-                                // `p { margin: 4px 0 8px; color: vals['text-secondary'] }`.
-                                div()
-                                    .mt(rem(4.))
-                                    .mb(rem(8.))
-                                    .text_color(dim_val)
-                                    .child(self.texts.preview_body.clone()),
-                            )
-                            .child(
-                                // `background: vals.interactive; color: #fff; padding: 4px 12px`
-                                // (`text-on-color`, white in every theme).
-                                div()
-                                    .px(rem(12.))
-                                    .py(rem(4.))
-                                    .bg(accent_val)
-                                    .text_color(color(ColorRole::TextOnColor))
-                                    .child(self.texts.preview_primary.clone()),
-                            ),
-                    ),
-            )
+            // `color: #fff` on `interactive` (`text-on-color`, white in every theme).
+            .child(preview(
+                &tokens,
+                &values,
+                &self.texts,
+                color(ColorRole::TextOnColor),
+            ))
+            .into_any_element()
     }
 }
 
@@ -539,6 +615,34 @@ mod tests {
         assert_eq!(to_hex(out[3].value), "#007fd4");
         assert_eq!(vscode_token("terminal.ansiRed"), Some("support-error"));
         assert_eq!(vscode_token("activityBar.background"), None);
+    }
+
+    #[test]
+    fn customize_checks_the_three_pairs() {
+        // The board's Midnight theme (its mock-up rounds the ratios loosely):
+        // all three pass, the button with dark text on the light
+        // `interactive`, as the theme has no `text-on-color`.
+        let midnight: Vec<ThemeToken> = [
+            ("background", "#0b1220"),
+            ("layer-01", "#121a2b"),
+            ("text-primary", "#e6edf3"),
+            ("text-secondary", "#9aa7b8"),
+            ("interactive", "#6ea8fe"),
+        ]
+        .into_iter()
+        .map(|(n, h)| ThemeToken::hex(n, h).unwrap())
+        .collect();
+        let [text, secondary, button] = contrast_checks(&midnight);
+        assert_eq!(ratio_text(text), "15.8:1");
+        assert!(secondary >= MIN_CONTRAST, "{secondary}");
+        assert_eq!(ratio_text(21.), "21.0:1");
+        assert!(button >= MIN_CONTRAST, "{button}");
+        assert_eq!(to_hex(on_color(&midnight)), "#0b1220");
+        // A `text-on-color` token wins, even when it fails.
+        let mut white_on = midnight.clone();
+        white_on.push(ThemeToken::hex("text-on-color", "#ffffff").unwrap());
+        assert_eq!(to_hex(on_color(&white_on)), "#ffffff");
+        assert!(contrast_checks(&white_on)[2] < MIN_CONTRAST);
     }
 
     #[test]
