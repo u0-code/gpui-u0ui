@@ -15,6 +15,7 @@
 //! exists ([`crate::icons::brands`]), and project monograms are neutral
 //! (`r2-desk`).
 use super::base::{EASE, EASE_IN_OUT, Status, Tone, pulse};
+use super::craft::rem;
 use crate::{
     components::{
         button::{Button, ButtonSize, ButtonVariant},
@@ -332,7 +333,7 @@ impl RenderOnce for ProviderIcon {
                 .into_any_element(),
             None => {
                 // `::before { width: 84%; height: 84% }` / `.t3-provider-generic { 84% }`.
-                let glyph = px(edge * 0.84);
+                let glyph = rem(edge * 0.84);
                 ProviderMark::of(&self.name)
                     .icon()
                     .size_length(glyph)
@@ -364,9 +365,9 @@ impl RenderOnce for ProviderIcon {
             // `.t3-provider-spin { position: absolute; right: -4px; bottom: -4px; 10×10 }`.
             div()
                 .absolute()
-                .right(px(-4.))
-                .bottom(px(-4.))
-                .size(px(10.))
+                .right(rem(-4.))
+                .bottom(rem(-4.))
+                .size(rem(10.))
                 .child(ring)
         });
         div()
@@ -376,8 +377,8 @@ impl RenderOnce for ProviderIcon {
             .flex_none()
             .items_center()
             .justify_center()
-            .size(px(edge))
-            .rounded(px(TILE_RADIUS))
+            .size(rem(edge))
+            .rounded(rem(TILE_RADIUS))
             .bg(ground)
             // `.t3-provider` does not clip: the starting ring overhangs the
             // tile by 4px (`right: -4px; bottom: -4px`).
@@ -530,8 +531,8 @@ fn tile(size: IdentitySize) -> gpui_kit::Div {
         .flex_none()
         .items_center()
         .justify_center()
-        .size(px(size.px()))
-        .rounded(px(TILE_RADIUS))
+        .size(rem(size.px()))
+        .rounded(rem(TILE_RADIUS))
 }
 
 impl RenderOnce for ProjectMonogram {
@@ -544,8 +545,8 @@ impl RenderOnce for ProjectMonogram {
             .text_color(fg)
             .font_family(crate::typography::font(crate::tokens::FontFamilyKey::Sans, 600).family)
             .font_weight(FontWeight::SEMIBOLD)
-            .text_size(px(font))
-            .line_height(px(font))
+            .text_size(rem(font))
+            .line_height(rem(font))
             .child(monogram_letters(&self.name))
     }
 }
@@ -595,7 +596,7 @@ impl ProjectFavicon {
 impl RenderOnce for ProjectFavicon {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let monogram = ProjectMonogram::new(self.name.clone()).size(self.size);
-        let edge = px(self.size.px());
+        let edge = rem(self.size.px());
         match (self.src, self.icon) {
             // `.t3-favicon { border-radius: var(--border-radius-04); object-fit: cover }`
             // with the `.t3-mono--<size>` box; `onError` falls back to the monogram.
@@ -605,7 +606,7 @@ impl RenderOnce for ProjectFavicon {
                 img(src)
                     .flex_none()
                     .size(edge)
-                    .rounded(px(TILE_RADIUS))
+                    .rounded(rem(TILE_RADIUS))
                     .object_fit(ObjectFit::Cover)
                     .with_fallback(move || match &fallback_icon {
                         Some(icon) => icon_tile(icon.clone(), size).into_any_element(),
@@ -622,7 +623,7 @@ impl RenderOnce for ProjectFavicon {
 fn icon_tile(icon: Icon, size: IdentitySize) -> gpui_kit::Div {
     // `.t3-mono--icon { background: var(--layer-accent-01); color: var(--icon-primary) }`.
     tile(size).bg(color(ColorRole::LayerAccent01)).child(
-        icon.size_length(px(16.))
+        icon.size_length(rem(16.))
             .color(color(ColorRole::IconPrimary)),
     )
 }
@@ -705,7 +706,7 @@ impl RenderOnce for EnvironmentMachineIcon {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         self.kind
             .icon()
-            .size_length(px(self.size))
+            .size_length(rem(self.size))
             .color(color(ColorRole::IconSecondary))
             .flex_none()
     }
@@ -845,7 +846,7 @@ impl RenderOnce for ConnectionStatusDot {
         }
         let dot = div()
             .flex_none()
-            .size(px(DOT_SIZE))
+            .size(rem(DOT_SIZE))
             .rounded_full()
             .bg(fill)
             .shadow(shadows);
@@ -956,9 +957,9 @@ impl RenderOnce for EnvironmentBadge {
             .flex()
             .flex_none()
             .items_center()
-            .gap(px(4.))
-            .h(px(height))
-            .px(px(pad))
+            .gap(rem(4.))
+            .h(rem(height))
+            .px(rem(pad))
             .min_w_0()
             .overflow_hidden()
             .bg(color(ColorRole::LayerAccent01))
@@ -1039,7 +1040,7 @@ impl RenderOnce for StatusPill {
             .unwrap_or_else(|| ElementId::Name(format!("t3-pill-{}", self.status.name()).into()));
         let dot = div()
             .flex_none()
-            .size(px(PILL_DOT))
+            .size(rem(PILL_DOT))
             .rounded_full()
             .bg(dot_color);
         let dot = if tone == Tone::Interactive {
@@ -1052,10 +1053,10 @@ impl RenderOnce for StatusPill {
             .flex()
             .flex_none()
             .items_center()
-            .gap(px(4.))
-            .h(px(PILL_HEIGHT))
-            .px(px(8.))
-            .rounded(px(16.))
+            .gap(rem(4.))
+            .h(rem(PILL_HEIGHT))
+            .px(rem(8.))
+            .rounded(rem(16.))
             .bg(bg)
             .text_color(fg)
             .type_style(TypeStyle::Label01)

@@ -153,7 +153,7 @@ impl RenderOnce for DiffStat {
             )
             .when(self.bar, |this| {
                 this.child(div().flex().gap(px(1.)).children(
-                    stat_blocks(self.added, self.removed).map(|b| div().size(px(6.)).bg(b.fill())),
+                    stat_blocks(self.added, self.removed).map(|b| div().size(rem(6.)).bg(b.fill())),
                 ))
             })
     }

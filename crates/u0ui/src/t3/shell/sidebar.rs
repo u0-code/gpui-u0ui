@@ -401,7 +401,7 @@ impl RenderOnce for ProjectFolderHeader {
             div()
                 .flex()
                 .flex_none()
-                .gap(px(2.))
+                .gap(rem(2.))
                 .children(self.counts.visible().into_iter().map(|(status, n)| {
                     let (bg, fg) = count_colors(status);
                     sans(div(), 11., 400)
@@ -410,7 +410,7 @@ impl RenderOnce for ProjectFolderHeader {
                         .px(rem(4.))
                         .flex()
                         .justify_center()
-                        .rounded(px(16.))
+                        .rounded(rem(16.))
                         .bg(bg)
                         .text_color(fg)
                         .child(n.to_string())
@@ -739,7 +739,7 @@ impl ThreadRow {
             _ if self.draft => icon(CarbonIcon::Edit, 16., secondary).into_any_element(),
             // `.t3-unread { width: 8px; height: 8px; border-radius: 50%; background: var(--interactive) }`.
             _ if self.unread => div()
-                .size(px(8.))
+                .size(rem(8.))
                 .rounded_full()
                 .bg(color(ColorRole::Interactive))
                 .into_any_element(),
@@ -905,7 +905,7 @@ impl RenderOnce for ThreadRow {
                         .top_0()
                         .bottom_0()
                         .left_0()
-                        .w(px(3.))
+                        .w(rem(3.))
                         .bg(color(ColorRole::BorderInteractive)),
                 )
             })

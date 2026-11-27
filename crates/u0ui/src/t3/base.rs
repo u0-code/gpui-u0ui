@@ -212,23 +212,24 @@ pub fn visually_hidden(text: impl Into<SharedString>) -> gpui_kit::Div {
 /// path[data-icon-path="inner-path"] { fill: #161616; opacity: 1 }`). The
 /// Material glyph's "!" is a cut-out, so a bar of ink sits behind it.
 pub fn warning_glyph(size: f32) -> gpui_kit::Div {
+    use super::craft::rem;
     let k = size / 16.;
     div()
         .relative()
         .flex_none()
-        .size(px(size))
+        .size(rem(size))
         .child(
             div()
                 .absolute()
-                .left(px(7. * k))
-                .top(px(6. * k))
-                .w(px(2. * k))
-                .h(px(7.5 * k))
+                .left(rem(7. * k))
+                .top(rem(6. * k))
+                .w(rem(2. * k))
+                .h(rem(7.5 * k))
                 .bg(ink()),
         )
         .child(
             crate::icons::Icon::carbon(crate::icons::CarbonIcon::WarningAltFilled)
-                .size_length(px(size))
+                .size_length(rem(size))
                 .color(color(ColorRole::SupportWarning))
                 .absolute()
                 .top_0()
@@ -588,7 +589,9 @@ impl RenderOnce for Spin {
             .track
             .unwrap_or_else(|| color(ColorRole::LayerAccent01));
         let frame = spin_frame_now(SPIN_PERIOD, motion::reduced_motion(cx), window);
-        let size = px(self.size);
+        // A rem length, so it scales with the text it sits in (zoom,
+        // `RemScale`); `paint_spin` scales the geometry to the box.
+        let size = super::craft::rem(self.size);
         div()
             .id(self.id)
             .relative()

@@ -292,7 +292,7 @@ impl RenderOnce for TerminalDrawer {
                 this.child(
                     div()
                         .flex_none()
-                        .size(px(6.))
+                        .size(rem(6.))
                         .rounded_full()
                         .bg(color(ColorRole::SupportSuccess)),
                 )
@@ -431,7 +431,7 @@ impl RenderOnce for TerminalDrawer {
                 // `.t3-term-cursor { display: inline-block; width: 7px; background:
                 // terminal-text; animation: cu-blink 1s steps(1) infinite }`; steady under
                 // reduced motion (blink stops).
-                let cursor = div().flex_none().w(px(7.)).h(rem(16.)).bg(ink);
+                let cursor = div().flex_none().w(rem(7.)).h(rem(16.)).bg(ink);
                 let cursor = if blink {
                     cursor
                         .with_animation(
