@@ -559,26 +559,31 @@ impl RenderOnce for Alert {
             .flex()
             .flex_row()
             .flex_wrap()
+            .flex_1()
             .min_w_0()
             .py(rem(15.))
             .text_color(look.text)
             .when_some(self.title.clone(), |d, t| {
                 d.child(
                     div()
+                        .flex_shrink_1()
+                        .min_w_0()
                         .type_style(TypeStyle::HeadingCompact01)
                         .mr(rem(4.))
                         .child(t),
                 )
             })
-            .children(
-                self.description
-                    .into_iter()
-                    .map(|c| div().type_style(TypeStyle::BodyCompact01).child(c)),
-            );
+            .children(self.description.into_iter().map(|c| {
+                div()
+                    .flex_shrink_1()
+                    .min_w_0()
+                    .type_style(TypeStyle::BodyCompact01)
+                    .child(c)
+            }));
         let details = div()
             .flex()
             .flex_row()
-            .flex_grow(1.)
+            .flex_1()
             .min_w_0()
             .ml(rem(DETAILS_MARGIN))
             .mr(rem(if wide || !closable {
@@ -650,8 +655,10 @@ impl RenderOnce for Alert {
             .flex_row()
             .when(!wide, |d| d.flex_wrap())
             .w_full()
-            .min_w(rem(288.))
-            .when(!self.full_width, |d| d.max_w(rem(max_width(vw))))
+            .when(self.full_width, |d| d.min_w_0())
+            .when(!self.full_width, |d| {
+                d.min_w(rem(288.)).max_w(rem(max_width(vw)))
+            })
             .min_h(rem(ROW_HEIGHT))
             .bg(look.background)
             .border_l(rem(ACCENT_WIDTH))

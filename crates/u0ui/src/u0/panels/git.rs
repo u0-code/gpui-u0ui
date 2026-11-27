@@ -21,7 +21,7 @@
 use super::head::{Handler, ghost_icon, ghost_text};
 use crate::u0::shell::{option_focus, toggles_checkbox};
 use crate::{
-    components::{Button, ButtonSize, ButtonVariant},
+    components::{Button, ButtonSize, ButtonVariant, textarea},
     density,
     icons::{CarbonIcon, Icon},
     t3::{
@@ -37,14 +37,14 @@ use crate::{
     u0::primitives::parts::{focus_ring, focus_visible, keyed_focus},
 };
 use gpui_kit::{
-    AnyElement, App, AppContext as _, CursorStyle, Div, ElementId, Entity, Focusable as _, Hsla,
-    InteractiveElement as _, IntoElement, MouseButton, ParentElement, RenderOnce, SharedString,
-    StatefulInteractiveElement as _, Styled, Window,
+    AnyElement, App, AppContext as _, Context, CursorStyle, Div, ElementId, Entity, Focusable as _,
+    Hsla, InteractiveElement as _, IntoElement, MouseButton, ParentElement, PathBuilder, Pixels,
+    Render, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, canvas,
     component::{
         Sizable as _, Size,
         input::{Textarea as KitTextarea, TextareaState},
     },
-    div,
+    div, point,
     prelude::FluentBuilder as _,
     px, relative,
 };
@@ -647,6 +647,94 @@ type CommitHandler = Rc<dyn Fn(SharedString, Vec<SharedString>, &mut Window, &mu
 struct ComposerModel {
     staged: BTreeSet<SharedString>,
     message: Entity<TextareaState>,
+    /// The message box height in design px (it is `resize: vertical`).
+    height: f32,
+    /// While the grip is dragged: the pointer y and height it started at.
+    drag: Option<(Pixels, f32)>,
+}
+
+/// `.g-cc-msg textarea` at its three rows: 3 × 18 + 8 + 32 padding + the 1px
+/// bottom rule (reference render: 95px).
+pub const MESSAGE_HEIGHT: f32 = 3. * 18. + 8. + 32. + 1.;
+/// The smallest height a drag leaves: one line plus the padding and rule.
+pub const MESSAGE_MIN_HEIGHT: f32 = 18. + 8. + 32. + 1.;
+/// The box less the Kit editor inside it: the padding and rule, less Kit's
+/// 2px block inset on each side.
+const MESSAGE_CHROME: f32 = MESSAGE_HEIGHT - (3. * 18. + 4.);
+
+/// The message box height after the grip moved `dy` design px from a drag
+/// that started at `start`; never below [`MESSAGE_MIN_HEIGHT`].
+pub fn resized_message_height(start: f32, dy: f32) -> f32 {
+    (start + dy).max(MESSAGE_MIN_HEIGHT)
+}
+
+/// The drag payload of the message box's resize grip (draws nothing).
+struct MessageResize;
+
+impl Render for MessageResize {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        gpui_kit::Empty
+    }
+}
+
+/// The resize grip of a `resize: vertical` `<textarea>` as Chromium draws it
+/// in the reference render: two diagonal 1px strokes in the bottom-right
+/// corner, a 60% black line with a 60% white line one device pixel below it
+/// (so it shows on light and dark fields), inside a 15px corner box. A drag
+/// changes the box height; the pointer shows `ns-resize`.
+fn message_grip(id: &ElementId, model: Entity<ComposerModel>) -> impl IntoElement {
+    let down = model.clone();
+    div()
+        .id((id.clone(), "msg-grip"))
+        .absolute()
+        .right_0()
+        .bottom_0()
+        .size(rem(15.))
+        .cursor(CursorStyle::ResizeUpDown)
+        .on_mouse_down(MouseButton::Left, move |e, _, cx| {
+            // A press on the grip resizes; it does not place the caret.
+            cx.stop_propagation();
+            down.update(cx, |m, _| m.drag = Some((e.position.y, m.height)));
+        })
+        .on_drag(MessageResize, |_, _, _, cx| cx.new(|_| MessageResize))
+        .on_drag_move::<MessageResize>(move |e, window, cx| {
+            let scale = f32::from(window.rem_size()) / 16.;
+            model.update(cx, |m, cx| {
+                if let Some((y, start)) = m.drag {
+                    let dy = f32::from(e.event.position.y - y) / scale;
+                    m.height = resized_message_height(start, dy);
+                    cx.notify();
+                }
+            });
+        })
+        .child(
+            canvas(
+                |_, _, _| (),
+                |b, _, window, _| {
+                    let s = f32::from(window.rem_size()) / 16.;
+                    let device = 1. / window.scale_factor();
+                    let (r, bottom) = (b.right(), b.bottom());
+                    let at =
+                        |x: f32, y: f32, dy: f32| point(r - px(x * s), bottom - px(y * s) + px(dy));
+                    for (ink, dy) in [
+                        (gpui_kit::hsla(0., 0., 0., 0.6), 0.),
+                        (gpui_kit::hsla(0., 0., 1., 0.6), device),
+                    ] {
+                        for ((x0, y0), (x1, y1)) in
+                            [((8.5, 2.5), (2.5, 8.5)), ((4.5, 2.5), (2.5, 4.5))]
+                        {
+                            let mut path = PathBuilder::stroke(px(s));
+                            path.move_to(at(x0, y0, dy));
+                            path.line_to(at(x1, y1, dy));
+                            if let Ok(path) = path.build() {
+                                window.paint_path(path, ink);
+                            }
+                        }
+                    }
+                },
+            )
+            .size_full(),
+        )
 }
 
 /// The commit panel. See the module docs.
@@ -777,6 +865,8 @@ impl RenderOnce for CommitComposer {
             move |window, cx| ComposerModel {
                 staged: paths.into_iter().collect(),
                 message: cx.new(|cx| TextareaState::new(window, cx)),
+                height: MESSAGE_HEIGHT,
+                drag: None,
             }
         });
         let (staged, message) = {
@@ -959,15 +1049,16 @@ impl RenderOnce for CommitComposer {
             })
             .when(gen_ring, |b| b.child(focus_ring()));
         let focus_box = field_focus.clone();
+        let height = model.read(cx).height;
         // `.g-cc-msg textarea { padding: var(--spacing-03) var(--spacing-04)
         // 2rem; border-bottom: 1px solid var(--border-strong-01); background:
         // var(--field-02); font-size: 0.875rem; outline: 2px solid transparent }`,
         // `:focus { outline-color: var(--focus) }`; three rows.
-        let field = div()
-            .id((id.clone(), "msg-box"))
+        // Tab and Shift+Tab leave the message, like the reference's `<textarea>`.
+        let field = textarea::tab_moves_focus(div().id((id.clone(), "msg-box")))
             .relative()
             .w_full()
-            .h(rem(3. * 18. + 8. + 32. + 1.))
+            .h(rem(height))
             .pt(rem(8. - 2.))
             .pb(rem(32.))
             .pl(rem(12. - 4.))
@@ -984,13 +1075,16 @@ impl RenderOnce for CommitComposer {
                     .appearance(false)
                     .with_size(Size::XSmall)
                     .aria_label(self.texts.message.clone())
-                    .h(rem(3. * 18. + 4.))
+                    .h(rem(height - MESSAGE_CHROME))
                     .w_full()
                     .text_size(rem(14.))
                     .line_height(rem(18.))
                     .text_color(color(ColorRole::TextPrimary)),
             )
             .children(placeholder)
+            // `resize: vertical` (`.g-cc-msg` is not in the craft pass's
+            // `resize: none` list, `t3.css` "no native resize grips").
+            .child(message_grip(&id, model.clone()))
             .when(focused, |d| d.child(focus_ring()));
         let msg = div()
             .relative()
