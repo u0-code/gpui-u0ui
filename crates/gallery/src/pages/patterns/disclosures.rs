@@ -5,9 +5,9 @@
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
-    AnyElement, AnyView, App, AppContext as _, Context, CursorStyle, Entity,
-    InteractiveElement as _, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
-    prelude::FluentBuilder as _, px, rems,
+    AnyElement, AnyView, App, AppContext as _, Context, CursorStyle, Entity, FocusHandle,
+    InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement, Render, SharedString,
+    Styled, Window, div, prelude::FluentBuilder as _, px, rems,
 };
 use u0ui::components::form::{self, inset_outline};
 use u0ui::components::{
@@ -272,6 +272,15 @@ fn combo(
     button.into_any_element()
 }
 
+/// The focus handle of live trigger `which`.
+fn trigger_focus(p: &str, which: usize, window: &mut Window, cx: &mut App) -> FocusHandle {
+    let key = id(p, &format!("trigger{which}"));
+    window
+        .use_keyed_state(id(&key, "focus"), cx, |_, cx| cx.focus_handle())
+        .read(cx)
+        .clone()
+}
+
 /// The live trigger: a 48px square (`size-lg`) (`触发按钮高 48`) holding the avatar or
 /// the settings icon, `layer-hover-01` on hover, the 2px focus ring;
 /// selected (`layer-selected-01`) while its panel is open.
@@ -287,10 +296,7 @@ fn trigger(
     cx: &mut App,
 ) -> AnyElement {
     let key = id(p, &format!("trigger{which}"));
-    let focus = window
-        .use_keyed_state(id(&key, "focus"), cx, |_, cx| cx.focus_handle())
-        .read(cx)
-        .clone();
+    let focus = trigger_focus(p, which, window, cx);
     let focused = focus.is_focused(window);
     let toggle = {
         let e = entity.clone();
@@ -368,10 +374,25 @@ impl Render for Page {
                         settings("disc-live", Some((self, &entity)))
                     }
                 });
+                // Escape anywhere in the trigger or its open panel closes the
+                // panel and puts focus back on the trigger (Carbon popovers
+                // and menus return focus on Escape).
+                let focus = trigger_focus("disc-live", which, window, cx);
+                let escape = entity.clone();
                 div()
                     .flex()
                     .flex_col()
                     .gap(tokens::SPACING_02)
+                    .on_key_down(move |e: &KeyDownEvent, window, cx| {
+                        if e.keystroke.key == "escape" && escape.read(cx).open == Some(which) {
+                            escape.update(cx, |this, cx| {
+                                this.open = None;
+                                cx.notify();
+                            });
+                            focus.focus(window, cx);
+                            cx.stop_propagation();
+                        }
+                    })
                     .child(trigger(
                         "disc-live",
                         which,
