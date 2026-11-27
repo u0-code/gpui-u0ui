@@ -16,7 +16,214 @@ use gpui_kit::{
     GlobalElementId, InspectorElementId, InteractiveElement, IntoElement, KeyDownEvent, LayoutId,
     MouseButton, ParentElement, Pixels, Point, Rems, Size, Styled, Window, canvas, div, point, px,
 };
+use gpui_kit::{KeyBinding, actions, prelude::FluentBuilder as _};
 use std::{cell::Cell, rc::Rc};
+
+actions!(
+    u0ui_floating,
+    [
+        /// Tab on the trigger of an open non-modal surface: into the surface.
+        IntoSurface,
+        /// Tab inside an open non-modal surface.
+        SurfaceTab,
+        /// Shift+Tab inside an open non-modal surface.
+        SurfaceTabPrev
+    ]
+);
+
+/// The key context of an open non-modal surface's trigger wrapper.
+pub(crate) const TRIGGER_CONTEXT: &str = "U0FloatingTrigger";
+/// The key context of an open non-modal surface.
+pub(crate) const SURFACE_CONTEXT: &str = "U0FloatingSurface";
+
+/// Bind Tab and Shift+Tab around open non-modal surfaces ([`TabFlow`]). A
+/// binding in the element's own key context is deeper than Base's
+/// window-level `root::Tab`, so it wins. Called by [`crate::init`].
+pub(crate) fn init(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("tab", IntoSurface, Some(TRIGGER_CONTEXT)),
+        KeyBinding::new("tab", SurfaceTab, Some(SURFACE_CONTEXT)),
+        KeyBinding::new("shift-tab", SurfaceTabPrev, Some(SURFACE_CONTEXT)),
+    ]);
+}
+
+/// Base's `root::Tab` from `from`, stepping on past any stop inside the
+/// closing `surface` (GPUI orders a floating surface's stops apart from the
+/// page's, as it paints last), so focus lands on the page's stop after
+/// `from`. Base's action keeps a focus trap around both in force.
+pub(crate) fn tab_past(
+    from: &FocusHandle,
+    surface: &FocusHandle,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    from.focus(window, cx);
+    let Ok(tab) = cx.build_action("root::Tab", None) else {
+        return;
+    };
+    let mut seen = Vec::new();
+    while let Some(at) = window.focused(cx) {
+        if seen.contains(&at) {
+            break;
+        }
+        at.dispatch_action(&*tab, window, cx);
+        seen.push(at);
+        if !surface.contains_focused(window, cx) {
+            break;
+        }
+    }
+}
+
+/// Base's root action `name` (`root::Tab` / `root::TabPrev`) from the
+/// focused element.
+fn step(name: &str, window: &mut Window, cx: &mut App) {
+    if let (Some(at), Ok(action)) = (window.focused(cx), cx.build_action(name, None)) {
+        at.dispatch_action(&*action, window, cx);
+    }
+}
+
+/// [`TabFlow`]'s keyed state: trigger handle, end anchor, focus has been
+/// inside since the surface opened.
+type FlowState = (FocusHandle, FocusHandle, bool);
+
+/// Whether focus is in the trigger wrapper tracked by `handles`.
+fn trigger_now(handles: &Entity<FlowState>, window: &Window, cx: &App) -> bool {
+    handles.read(cx).0.contains_focused(window, cx)
+}
+
+/// Tab order and focus-leave for a non-modal surface that follows its
+/// trigger in the reference's DOM (Carbon `Popover`): Tab on the open
+/// trigger enters the surface, Shift+Tab from its first stop returns to the
+/// trigger (still open), Tab from its last stop closes it and moves to the
+/// stop after the trigger, and focus leaving surface and trigger any other
+/// way closes it without pulling focus back (`onRequestClose` on
+/// `focusout` with a `relatedTarget` outside both).
+/// Nested surfaces (a popover, date picker or list opened inside) count as
+/// inside: their elements are descendants of this surface.
+pub(crate) struct TabFlow {
+    /// Tracked by the trigger wrapper (not a tab stop): focus inside it is
+    /// "on the trigger".
+    pub trigger: FocusHandle,
+    /// A zero-size, non-tab-stop anchor after the trigger: Tab and
+    /// Shift+Tab from it reach the stops after and on the trigger.
+    pub end: FocusHandle,
+}
+
+impl TabFlow {
+    /// The flow keyed by `id`; closes the surface (`set_open(false)`) when
+    /// focus has left it and its trigger this frame.
+    pub fn new(
+        id: &ElementId,
+        open: bool,
+        surface: &FocusHandle,
+        set_open: &OpenChange,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Self {
+        let handles: Entity<FlowState> =
+            window.use_keyed_state((id.clone(), "tab-flow"), cx, |_, cx| {
+                (cx.focus_handle(), cx.focus_handle(), false)
+            });
+        let (trigger, end, had) = handles.read(cx).clone();
+        let inside = surface.contains_focused(window, cx) || trigger.contains_focused(window, cx);
+        if !open {
+            if had {
+                handles.update(cx, |h, _| h.2 = false);
+            }
+        } else if inside {
+            if !had {
+                handles.update(cx, |h, _| h.2 = true);
+            }
+        } else if had {
+            // Decide once this frame's deferred focus moves have run: a
+            // nested surface that just closed (a popover in this one) is
+            // still handing focus back to its trigger in here, and until
+            // then focus sits on an element that is gone.
+            let set_open = set_open.clone();
+            let surface = surface.clone();
+            window.defer(cx, move |window, cx| {
+                let inside =
+                    surface.contains_focused(window, cx) || trigger_now(&handles, window, cx);
+                if !inside {
+                    handles.update(cx, |h, _| h.2 = false);
+                    set_open(false, window, cx);
+                }
+            });
+        }
+        Self { trigger, end }
+    }
+
+    /// Wrap the trigger: track [`Self::trigger`], add [`Self::end`], and
+    /// while `open` send Tab into `surface`.
+    pub fn trigger(
+        &self,
+        wrapper: gpui_kit::Stateful<gpui_kit::Div>,
+        open: bool,
+        surface: &FocusHandle,
+        set_open: &OpenChange,
+    ) -> gpui_kit::Stateful<gpui_kit::Div> {
+        let end = self.end.clone();
+        let into = {
+            let surface = surface.clone();
+            let set_open = set_open.clone();
+            let end = end.clone();
+            move |_: &IntoSurface, window: &mut Window, cx: &mut App| {
+                cx.stop_propagation();
+                surface.focus(window, cx);
+                step("root::Tab", window, cx);
+                if !surface.contains_focused(window, cx) || surface.is_focused(window) {
+                    // Nothing to stop on inside: Tab goes on past it.
+                    set_open(false, window, cx);
+                    tab_past(&end, &surface, window, cx);
+                }
+            }
+        };
+        wrapper
+            .track_focus(&self.trigger.clone().tab_stop(false))
+            .when(open, |this| {
+                this.key_context(TRIGGER_CONTEXT).on_action(into)
+            })
+            .child(div().track_focus(&end.tab_stop(false)).absolute().size_0())
+    }
+
+    /// Key handling for the surface element.
+    pub fn surface(
+        &self,
+        surface_el: gpui_kit::Stateful<gpui_kit::Div>,
+        surface: &FocusHandle,
+        set_open: &OpenChange,
+    ) -> gpui_kit::Stateful<gpui_kit::Div> {
+        let tab = {
+            let surface = surface.clone();
+            let set_open = set_open.clone();
+            let end = self.end.clone();
+            move |_: &SurfaceTab, window: &mut Window, cx: &mut App| {
+                cx.stop_propagation();
+                step("root::Tab", window, cx);
+                if !surface.contains_focused(window, cx) {
+                    set_open(false, window, cx);
+                    tab_past(&end, &surface, window, cx);
+                }
+            }
+        };
+        let back = {
+            let surface = surface.clone();
+            let end = self.end.clone();
+            move |_: &SurfaceTabPrev, window: &mut Window, cx: &mut App| {
+                cx.stop_propagation();
+                step("root::TabPrev", window, cx);
+                if !surface.contains_focused(window, cx) || surface.is_focused(window) {
+                    end.focus(window, cx);
+                    step("root::TabPrev", window, cx);
+                }
+            }
+        };
+        surface_el
+            .key_context(SURFACE_CONTEXT)
+            .on_action(tab)
+            .on_action(back)
+    }
+}
 
 /// `px` at 100% zoom as rems (Carbon's rem is 16px).
 pub(crate) fn rem(px_value: f32) -> Rems {

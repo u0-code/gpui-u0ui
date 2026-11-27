@@ -363,6 +363,16 @@ impl RenderOnce for Select {
             cx,
         );
         let focused = focus.is_focused(window);
+        // Focus that leaves the trigger (Tab, a click on another control)
+        // closes the menu, as Downshift's `ToggleButtonBlur` does in Carbon
+        // `Dropdown`; Base's Select leaves that to the app.
+        let was_focused = window.use_keyed_state((id.clone(), "was-focused"), cx, |_, _| false);
+        if *was_focused.read(cx) != focused {
+            was_focused.update(cx, |w, _| *w = focused);
+            if !focused && state.read(cx).open {
+                set_open(&state, false, None, cx);
+            }
+        }
         let validation = if inert {
             Validation::None
         } else {

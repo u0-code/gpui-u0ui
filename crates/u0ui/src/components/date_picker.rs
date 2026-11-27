@@ -9,6 +9,14 @@
 //!   by Kit's [`gpui_kit::base::Popup`] under the fields, or above them when
 //!   it only fits there (flatpickr's `position: "auto"`), never over them
 //!   ([`super::overlay::DropSide`]).
+//! - **Keyboard** (Carbon `DatePicker`'s input and calendar `keydown`
+//!   handlers): Tab from an open field moves into the calendar (its
+//!   selected day, or today); Shift+Tab there returns to that field. Tab in
+//!   the calendar goes on to the range's end field when it came from the
+//!   start, else it closes the calendar and moves to the stop after the
+//!   fields. Focus leaving the fields and the calendar any other way (Shift+Tab
+//!   from a field, a click elsewhere) closes it. The Tab bindings come from
+//!   [`init`] and beat Base's window-level Tab.
 //! - **Appearance**: Carbon date inputs in IBM Plex Mono (`code-02`) on the
 //!   field (`field` fill, `border-strong` rule, 2px `focus` outline, invalid
 //!   2px `support-error`), 16px calendar icon 1rem from the end
@@ -49,7 +57,36 @@ use gpui_kit::{
     prelude::FluentBuilder as _,
     px,
 };
+use gpui_kit::{FocusHandle, KeyBinding, TestSupportExt as _, actions};
 use std::rc::Rc;
+
+actions!(
+    u0ui_date_picker,
+    [
+        /// Tab from a field while the calendar is open: into the calendar.
+        IntoCalendar,
+        /// Tab in the calendar: on to the end field, or close and move on.
+        CalendarTab,
+        /// Shift+Tab in the calendar: back to the field it came from.
+        CalendarBack
+    ]
+);
+
+/// The key context of a field while its calendar is open.
+const FIELD_CONTEXT: &str = "U0DateField";
+/// The key context of the open calendar.
+const CALENDAR_CONTEXT: &str = "U0DateCalendar";
+
+/// Bind Tab and Shift+Tab between the fields and the calendar. A binding in
+/// the element's own key context is deeper than Base's window-level
+/// `root::Tab`, so it wins. Called by [`crate::init`].
+pub(crate) fn init(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("tab", IntoCalendar, Some(FIELD_CONTEXT)),
+        KeyBinding::new("tab", CalendarTab, Some(CALENDAR_CONTEXT)),
+        KeyBinding::new("shift-tab", CalendarBack, Some(CALENDAR_CONTEXT)),
+    ]);
+}
 
 /// `.flatpickr-calendar.animate.open { animation: fp-fade-in-down 110ms cubic-bezier(0, 0, 0.38, 0.9) }`.
 pub const PANEL_MOTION: Motion = Motion::new(Curve::ProductiveEntrance, Speed::Fast02);
@@ -111,6 +148,10 @@ type ChangeHandler = Rc<dyn Fn(Selection, &mut Window, &mut App)>;
 struct Fields {
     inputs: [Entity<InputState>; 2],
     was_focused: [bool; 2],
+    /// The field Tab last entered the calendar from.
+    origin: usize,
+    /// Focus has been in the fields or the open calendar since it opened.
+    had_focus: bool,
     open: bool,
     /// Counts openings, so each one replays the entrance animation.
     opened: u64,
@@ -336,6 +377,8 @@ impl RenderOnce for DatePicker {
                 cx.new(|cx| InputState::new(window, cx)),
             ],
             was_focused: [false, false],
+            origin: 0,
+            had_focus: false,
             open: false,
             opened: 0,
         });
@@ -366,7 +409,12 @@ impl RenderOnce for DatePicker {
                 parse_into(&editor, k, range, selection, &format, &commit, window, cx);
             }
             if was != focused {
-                fields.update(cx, |f, _| f.was_focused[k] = focused);
+                fields.update(cx, |f, _| {
+                    f.was_focused[k] = focused;
+                    if focused {
+                        f.origin = k;
+                    }
+                });
                 if focused && has_calendar && !inert {
                     set_open(&fields, true, cx);
                 }
@@ -383,6 +431,31 @@ impl RenderOnce for DatePicker {
             }
         }
         let open = fields.read(cx).open && has_calendar && !inert;
+        let calendar_id: ElementId = (id.clone(), "calendar").into();
+        let today = CalendarDate::today();
+        let calendar =
+            calendar::view_state(&calendar_id, selection.start.unwrap_or(today), window, cx);
+        let calendar_focus = calendar.read(cx).focus.clone();
+        let focuses: Vec<FocusHandle> = inputs
+            .iter()
+            .take(count)
+            .map(|i| i.read(cx).focus_handle(cx))
+            .collect();
+        // Focus leaving the fields and the open calendar closes it (Carbon's
+        // calendar closes on blur), once focus has been inside.
+        // Anything inside the calendar counts (its month arrows take focus
+        // on a press).
+        let inside = focuses.iter().any(|f| f.is_focused(window))
+            || calendar_focus.contains_focused(window, cx);
+        let had_focus = fields.read(cx).had_focus;
+        if !open || inside {
+            if had_focus != (open && inside) {
+                fields.update(cx, |f, _| f.had_focus = open && inside);
+            }
+        } else if had_focus {
+            fields.update(cx, |f, _| f.had_focus = false);
+            set_open(&fields, false, cx);
+        }
         let opened = fields.read(cx).opened;
         let slide = !motion::reduced_motion(cx);
         let anchor = super::overlay::drop_anchor((id.clone(), "drop"), window, cx);
@@ -498,6 +571,28 @@ impl RenderOnce for DatePicker {
                         set_open(&enter_fields, false, cx);
                     }
                 })
+                .when(open, |this| {
+                    let calendar = calendar.clone();
+                    let fields = fields.clone();
+                    this.key_context(FIELD_CONTEXT).on_action(
+                        move |_: &IntoCalendar, window, cx| {
+                            fields.update(cx, |f, _| f.origin = k);
+                            let day = if k == 0 {
+                                selection.start
+                            } else {
+                                selection.end.or(selection.start)
+                            };
+                            let focus = calendar.update(cx, |c, cx| {
+                                c.cursor = Some(day.unwrap_or(today));
+                                c.view = c.cursor.unwrap_or(c.view);
+                                cx.notify();
+                                c.focus.clone()
+                            });
+                            focus.focus(window, cx);
+                            cx.stop_propagation();
+                        },
+                    )
+                })
                 .capture_action(move |_: &Escape, _, cx| {
                     if escape_fields.read(cx).open {
                         set_open(&escape_fields, false, cx);
@@ -580,6 +675,8 @@ impl RenderOnce for DatePicker {
             .when(open, |this| {
                 let commit = commit.clone();
                 let pick_fields = fields.clone();
+                let pick_calendar = calendar_focus.clone();
+                let pick_focuses = focuses.clone();
                 let close_fields = fields.clone();
                 let panel = calendar::panel(
                     Panel {
@@ -605,6 +702,18 @@ impl RenderOnce for DatePicker {
                             };
                             if next.complete(mode) {
                                 set_open(&pick_fields, false, cx);
+                                // A pick in the calendar would leave focus on
+                                // it as it goes: back to the field it came
+                                // from (without reopening it), so a popover
+                                // holding the picker keeps focus inside.
+                                if pick_calendar.contains_focused(window, cx) {
+                                    let k = pick_fields.update(cx, |f, _| {
+                                        let k = f.origin.min(pick_focuses.len() - 1);
+                                        f.was_focused[k] = true;
+                                        k
+                                    });
+                                    pick_focuses[k].focus(window, cx);
+                                }
                             }
                         }),
                     },
@@ -613,7 +722,38 @@ impl RenderOnce for DatePicker {
                 )
                 // `.flatpickr-calendar.open { box-shadow: 0 2px 6px var(--shadow) }`.
                 .shadow(super::overlay::floating_shadow())
-                .on_mouse_down_out(move |_, _, cx| set_open(&close_fields, false, cx));
+                .on_mouse_down_out(move |_, _, cx| set_open(&close_fields, false, cx))
+                .key_context(CALENDAR_CONTEXT)
+                .on_action({
+                    let fields = fields.clone();
+                    let focuses = focuses.clone();
+                    let calendar_focus = calendar_focus.clone();
+                    move |_: &CalendarTab, window, cx| {
+                        cx.stop_propagation();
+                        let origin = fields.read(cx).origin;
+                        if origin + 1 < focuses.len() {
+                            focuses[origin + 1].focus(window, cx);
+                            return;
+                        }
+                        set_open(&fields, false, cx);
+                        super::overlay::tab_past(
+                            &focuses[focuses.len() - 1],
+                            &calendar_focus,
+                            window,
+                            cx,
+                        );
+                    }
+                })
+                .on_action({
+                    let fields = fields.clone();
+                    let focuses = focuses.clone();
+                    move |_: &CalendarBack, window, cx| {
+                        cx.stop_propagation();
+                        let origin = fields.read(cx).origin.min(focuses.len() - 1);
+                        focuses[origin].focus(window, cx);
+                    }
+                })
+                .test_support();
                 let measure = anchor.measure_surface();
                 this.content(div().relative().child(panel).child(measure).with_animation(
                     (id.clone(), format!("open-{opened}")),

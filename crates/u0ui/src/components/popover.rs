@@ -3,7 +3,9 @@
 //!
 //! - **Behavior**: pressing the trigger (pointer, Enter or Space) toggles it; a
 //!   press outside or Escape closes it; focus moves into the surface on open
-//!   and back to where it was on close. Positioning is Base's `Popup` via
+//!   and back to where it was on close. Focus leaving the surface and its
+//!   trigger closes it, and Tab runs in the reference's DOM order, content
+//!   right after the trigger ([`super::overlay::TabFlow`]). Positioning is Base's `Popup` via
 //!   [`super::floating`]. Base's own `Popover` is not used: it draws no caret
 //!   and cannot place Carbon's 12 alignments.
 //! - **Motion**: none; it shows and hides at once (see [`super::floating`]).
@@ -144,22 +146,27 @@ impl RenderOnce for Popover {
         let open = openness.open;
         let set_open = openness.setter();
         let focus = overlay::surface_focus(&id, open, None, window, cx);
+        // Carbon `Popover` closes on `focusout` to outside it and its
+        // trigger; Tab runs in its DOM order (content right after the
+        // trigger).
+        let flow = overlay::TabFlow::new(&id, open, &focus, &set_open, window, cx);
 
         let trigger = {
-            let set_open = set_open.clone();
-            overlay::trigger_wrapper(
+            let toggle = set_open.clone();
+            let wrapper = overlay::trigger_wrapper(
                 (id.clone(), "trigger"),
                 self.trigger,
-                Rc::new(move |window, cx| set_open(!open, window, cx)),
-            )
-            .into_any_element()
+                Rc::new(move |window, cx| toggle(!open, window, cx)),
+            );
+            flow.trigger(wrapper, open, &focus, &set_open)
+                .into_any_element()
         };
         let look = PopoverLook::current();
         let surface = open.then(|| {
             let set_escape = set_open.clone();
             let set_outside = set_open.clone();
-            div()
-                .id((id.clone(), "surface"))
+            let surface = div().id((id.clone(), "surface"));
+            flow.surface(surface, &focus, &set_open)
                 .track_focus(&focus)
                 .tab_group()
                 .rounded(px(RADIUS))

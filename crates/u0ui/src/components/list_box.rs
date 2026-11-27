@@ -29,6 +29,7 @@ use crate::{
     tokens::{self, ColorRole, TypeStyle},
     typography::TypeStyled as _,
 };
+use gpui_kit::TestSupportExt as _;
 use gpui_kit::{
     AnyElement, App, ElementId, Hsla, InteractiveElement as _, IntoElement, MouseButton,
     ParentElement, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
@@ -469,6 +470,7 @@ pub(crate) fn menu(menu: Menu<'_>, progress: f32) -> AnyElement {
 
     div()
         .id((id.clone(), "menu"))
+        .test_support()
         .w(px(width.max(1.)))
         .h(rem(full * progress.clamp(0., 1.)))
         .overflow_hidden()
