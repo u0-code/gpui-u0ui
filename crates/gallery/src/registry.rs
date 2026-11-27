@@ -292,8 +292,10 @@ pub static PAGES: &[PageDef] = &[
     // T3 · Timeline (src/t3/timeline.jsx, src/t3/chat.jsx)
     PageDef::new("approval-card", "ApprovalCard", "T3 · Timeline", Component::ApprovalCard.summary(), pages::t3_timeline::approval_card::build).thumbnail(pages::t3_timeline::approval_card::thumbnail),
     PageDef::new("assistant-message", "AssistantMessage", "T3 · Timeline", Component::AssistantMessage.summary(), pages::t3_timeline::assistant_message::build).thumbnail(pages::t3_timeline::assistant_message::thumbnail),
+    PageDef::new("command-output-block", "CommandOutputBlock", "T3 · Timeline", Component::CommandOutputBlock.summary(), pages::t3_timeline::command_output_block::build).thumbnail(pages::t3_timeline::command_output_block::thumbnail),
     PageDef::new("proposed-plan-card", "ProposedPlanCard", "T3 · Timeline", Component::ProposedPlanCard.summary(), pages::t3_timeline::proposed_plan_card::build).thumbnail(pages::t3_timeline::proposed_plan_card::thumbnail),
     PageDef::new("secret-request-card", "SecretRequestCard", "T3 · Timeline", Component::SecretRequestCard.summary(), pages::t3_timeline::secret_request_card::build).thumbnail(pages::t3_timeline::secret_request_card::thumbnail),
+    PageDef::new("subagent-row", "SubagentRow", "T3 · Timeline", Component::SubagentRow.summary(), pages::t3_timeline::subagent_row::build).thumbnail(pages::t3_timeline::subagent_row::thumbnail),
     PageDef::new("thread-error-banner", "ThreadErrorBanner", "T3 · Timeline", Component::ThreadErrorBanner.summary(), pages::t3_timeline::thread_error_banner::build).thumbnail(pages::t3_timeline::thread_error_banner::thumbnail),
     PageDef::new("thread-navigation", "ThreadNavigation", "T3 · Timeline", Component::ThreadNavigation.summary(), pages::t3_timeline::thread_navigation::build).thumbnail(pages::t3_timeline::thread_navigation::thumbnail),
     PageDef::new("timeline-divider", "TimelineDivider", "T3 · Timeline", Component::TimelineDivider.summary(), pages::t3_timeline::timeline_divider::build).thumbnail(pages::t3_timeline::timeline_divider::thumbnail),
@@ -301,6 +303,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("user-message", "UserMessage", "T3 · Timeline", Component::UserMessage.summary(), pages::t3_timeline::user_message::build).thumbnail(pages::t3_timeline::user_message::thumbnail),
     PageDef::new("work-log", "WorkLog", "T3 · Timeline", Component::WorkLog.summary(), pages::t3_timeline::work_log::build).thumbnail(pages::t3_timeline::work_log::thumbnail),
     PageDef::new("working-indicator", "WorkingIndicator", "T3 · Timeline", Component::WorkingIndicator.summary(), pages::t3_timeline::working_indicator::build).thumbnail(pages::t3_timeline::working_indicator::thumbnail),
+    PageDef::new("worktree-setup-card", "WorktreeSetupCard", "T3 · Timeline", Component::WorktreeSetupCard.summary(), pages::t3_timeline::worktree_setup_card::build).thumbnail(pages::t3_timeline::worktree_setup_card::thumbnail),
     PageDef::new("provider-icon", "ProviderIcon", "T3 · Identity & status", Component::ProviderIcon.summary(), pages::t3_shell::identity::build_provider_icon).thumbnail(pages::t3_shell::identity::provider_thumbnail),
     PageDef::new("project-identity", "ProjectIdentity", "T3 · Identity & status", Component::ProjectIdentity.summary(), pages::t3_shell::identity::build_project_identity).thumbnail(pages::t3_shell::identity::identity_thumbnail),
     PageDef::new("status-indicators", "StatusIndicators", "T3 · Identity & status", Component::StatusIndicators.summary(), pages::t3_shell::identity::build_status_indicators).thumbnail(pages::t3_shell::identity::status_thumbnail),
