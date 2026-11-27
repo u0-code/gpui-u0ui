@@ -231,6 +231,9 @@ impl RenderOnce for FluidTextInput {
             .aria_label(self.label.clone())
             .p_0()
             .w_full()
+            // One 18px line: Kit's `XSmall` input is 20px tall (`h_5`), which
+            // made the row 66px instead of `.cds--text-input--fluid`'s 64.
+            .h(rems(18. / REM_PX))
             .text_size(rems(14. / REM_PX))
             .line_height(rems(18. / REM_PX))
             .text_color(look.text);
@@ -424,7 +427,10 @@ impl RenderOnce for FluidDropdown {
             .w_full()
             .min_h(rems(g.min_height))
             .pt(rems(g.dropdown_top))
-            .pb(rems(g.input_bottom + FIELD_RULE / REM_PX))
+            // `.cds--list-box__field { padding-block: 2.0625rem 0.8125rem }`
+            // fills the 64px box: the list box's 1px bottom border lies under
+            // it, not after it (computed: field and list box both 64px).
+            .pb(rems(g.input_bottom))
             .pl(rems(g.inline))
             .pr(rems(g.inline * 3.))
             .bg(look.background)
@@ -524,6 +530,8 @@ mod tests {
         assert_eq!(g.toggle, (2., 1.625, 0.5));
         // 32 + 18 (body-compact-01 line) + 13 + the 1px rule fill the 64px box.
         assert_eq!(32. + 18. + 13. + FIELD_RULE, 64.);
+        // The dropdown: 33 + 18 + 13, the rule under the padding.
+        assert_eq!(33. + 18. + 13., 64.);
     }
 
     #[test]

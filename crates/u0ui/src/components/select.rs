@@ -684,12 +684,18 @@ impl RenderOnce for Select {
                     self.disabled,
                 ));
         }
+        // `.cds--dropdown__wrapper` is a block whose `.cds--label` is
+        // `inline-block`: the label sits on the wrapper's 14px / 18px line,
+        // 2px below the wrapper's top (computed in PatternFiltering and
+        // PatternFluidForm: the wrapper 58px, the label at +2).
+        let strut = label.is_some() && !self.native;
         form::labeled(
             label.as_ref(),
             self.disabled,
             field,
             form::message(&validation, self.helper_text.as_ref(), self.disabled),
         )
+        .when(strut, |d| d.pt(gpui_kit::px(2.)))
     }
 }
 
