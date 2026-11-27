@@ -26,12 +26,12 @@ use crate::{
     t3::craft::{rem, sans},
     theme::{color, color_in},
     tokens::{self, CarbonTheme, ColorRole},
-    u0::primitives::parts::{editor, focus_ring, focus_visible, keyed_focus},
+    u0::primitives::parts::{editor, focus_ring, focus_visible, keyed_focus, nav_anchor},
 };
 use gpui_kit::{
     AnyElement, App, AppContext as _, BoxShadow, Context, CursorStyle, ElementId, Entity,
-    Focusable as _, Hsla, InteractiveElement as _, IntoElement, ParentElement, RenderOnce,
-    SharedString, StatefulInteractiveElement as _, Styled, Subscription, Window,
+    FocusHandle, Focusable as _, Hsla, InteractiveElement as _, IntoElement, ParentElement,
+    RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Subscription, Window,
     component::input::{InputEvent, InputState},
     div, hsla, point,
     prelude::FluentBuilder as _,
@@ -131,6 +131,8 @@ struct Model {
     controlled: bool,
     input: Entity<InputState>,
     on_change: Option<PageHandler>,
+    /// Where Enter leaves focus (see [`nav_anchor`]).
+    anchor: FocusHandle,
     _subscription: Subscription,
 }
 
@@ -282,9 +284,11 @@ impl RenderOnce for PdfViewer {
                     match e {
                         InputEvent::Blur => m.commit(window, cx),
                         // `onKeyDown: e.key === 'Enter' && e.currentTarget.blur()`.
+                        // Chromium keeps the Tab starting point at the blurred
+                        // input, so focus rests on an anchor beside it.
                         InputEvent::PressEnter { .. } => {
                             m.commit(window, cx);
-                            window.blur(cx);
+                            m.anchor.focus(window, cx);
                         }
                         _ => {}
                     }
@@ -296,6 +300,7 @@ impl RenderOnce for PdfViewer {
                 controlled: false,
                 input,
                 on_change: None,
+                anchor: cx.focus_handle(),
                 _subscription: subscription,
             }
         });
@@ -314,9 +319,9 @@ impl RenderOnce for PdfViewer {
                 }
             }
         });
-        let (page, zoom, input) = {
+        let (page, zoom, input, anchor) = {
             let m = model.read(cx);
-            (m.page, m.zoom, m.input.clone())
+            (m.page, m.zoom, m.input.clone(), m.anchor.clone())
         };
         let go = |to: u32| {
             let model = model.clone();
@@ -354,7 +359,13 @@ impl RenderOnce for PdfViewer {
             .border_b_1()
             .border_color(color(ColorRole::BorderStrong01))
             .child(editor(&input).text_size(rem(12.)).text_center())
-            .when(field_focus.is_focused(window), |d| d.child(focus_ring()));
+            .when(field_focus.is_focused(window), |d| d.child(focus_ring()))
+            .child(nav_anchor(
+                (id.clone(), "anchor"),
+                &anchor,
+                Some(field_focus.clone()),
+                cx,
+            ));
         let head = code_head()
             .child(head_icon(CarbonIcon::DocumentPdf))
             .child(head_name(self.name.clone(), ColorRole::TextSecondary))
