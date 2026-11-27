@@ -32,7 +32,8 @@ use crate::{
 use gpui_kit::{
     Anchor, AnyElement, App, BoxShadow, CursorStyle, ElementId, Entity, FocusHandle, FontWeight,
     Hsla, InteractiveElement, IntoElement, KeyDownEvent, ParentElement, RenderOnce, SharedString,
-    StatefulInteractiveElement as _, Styled, Window, div, hsla, prelude::FluentBuilder as _, px,
+    StatefulInteractiveElement as _, Styled, TestSupportExt as _, Window, div, hsla,
+    prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -414,10 +415,15 @@ impl RenderOnce for NavigationMenu {
                     let set_open = set_open.clone();
                     Rc::new(
                         move |event: &KeyDownEvent, window: &mut Window, cx: &mut App| {
-                            if event.keystroke.key == "down" {
-                                set_open(true, Some(0), window, cx);
-                                cx.stop_propagation();
+                            match event.keystroke.key.as_str() {
+                                "down" => set_open(true, Some(0), window, cx),
+                                // Opened with the pointer, focus stays on the
+                                // title: Escape still closes the menu
+                                // (`HeaderMenu` handles Escape on the whole item).
+                                "escape" if open => set_open(false, None, window, cx),
+                                _ => return,
                             }
+                            cx.stop_propagation();
                         },
                     )
                 }),
@@ -491,7 +497,7 @@ impl RenderOnce for NavigationMenu {
                 .pl(pad)
                 .pr(pad)
                 .pb(pad)
-                .child(menu);
+                .child(menu.test_support());
             nav = nav.child(popup.content(menu));
         }
 
