@@ -18,7 +18,7 @@ use crate::{
 };
 use gpui_kit::{
     AnyElement, App, IntoElement, ParentElement, RenderOnce, SharedString, Styled, Window, div,
-    prelude::FluentBuilder as _, rems,
+    prelude::FluentBuilder as _, relative, rems,
 };
 
 /// Which space the empty state fills.
@@ -66,6 +66,11 @@ pub struct EmptyStateGeometry {
     /// The title type: `.cu-pempty h4 { font-size: 1rem }`, `h3 { font-size:
     /// 1.25rem }`, both `font-weight: 400`.
     pub title: TypeStyle,
+    /// The title's line height as a multiple of its font size: the global
+    /// heading rules the size override keeps (computed `.cu-pempty h4`:
+    /// 16px / 22.4px, `h4 { line-height: 1.4 }`; `.cu-pempty h3`: 20px /
+    /// 25.71px and 16px / 20.57px, `h3 { line-height: 1.28572 }`).
+    pub title_line_height: f32,
 }
 
 impl EmptyStateGeometry {
@@ -89,6 +94,7 @@ impl EmptyStateGeometry {
             } else {
                 TypeStyle::Body02
             },
+            title_line_height: if lg { 1.28572 } else { 1.4 },
         }
     }
 }
@@ -181,6 +187,7 @@ impl RenderOnce for PatternEmptyState {
             .when_some(g.title_margin_top, |d, m| d.mt(m))
             .mb(g.title_margin_bottom)
             .type_style(self.title_style.unwrap_or(g.title))
+            .line_height(relative(g.title_line_height))
             .text_color(look.title)
             .child(self.title);
         let body = self.body.map(|b| {
@@ -248,6 +255,10 @@ mod tests {
         assert_eq!(lg.title_margin_bottom.px_value(), 8.);
         assert_eq!(lg.body_margin_bottom.px_value(), 16.);
         assert_eq!(lg.body_max_width_rem, 32.);
+        // 16px h4 → 22.4px; 20px h3 → 25.71px; the error tile's 16px h3 → 20.57px.
+        assert!((16. * sm.title_line_height - 22.4).abs() < 0.01);
+        assert!((20. * lg.title_line_height - 25.714).abs() < 0.01);
+        assert!((16. * lg.title_line_height - 20.571).abs() < 0.01);
     }
 
     #[test]

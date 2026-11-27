@@ -922,18 +922,29 @@ impl RenderOnce for Button {
             });
 
         if kind == ButtonKind::Link {
-            // `.cds--link`: inline text, icon after it, no box.
+            // `.cds--link { border: 0 }`: inline text, icon after it, no box,
+            // one 18px line tall.
             button = button
                 .items_center()
                 .gap(rem(8.))
-                .border_color(Hsla::transparent_black())
+                .border_0()
                 .when(look.underline, |this| this.underline())
                 .child(label.clone())
                 .when_some(icon, |this, icon| this.child(icon));
-            // Focus: 1px `focus` outline around the text (`.cds--link:focus`).
+            // Focus: 1px `focus` outline around the text (`.cds--link:focus
+            // { outline: 1px solid }`), outside the box so it takes no space.
             return button
                 .when(state.focused || state.pressed, |this| {
-                    this.border_color(border)
+                    this.child(
+                        div()
+                            .absolute()
+                            .top(px(-1.))
+                            .left(px(-1.))
+                            .right(px(-1.))
+                            .bottom(px(-1.))
+                            .border_1()
+                            .border_color(border),
+                    )
                 })
                 .into_any_element();
         }
