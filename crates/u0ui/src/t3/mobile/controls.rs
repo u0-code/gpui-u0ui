@@ -8,7 +8,10 @@ use crate::{
     icons::{CarbonIcon, Icon},
     motion::{self, Curve, Speed},
     t3::{
-        base::{Spin, fmt_elapsed, use_ticker},
+        base::{
+            REDUCED_PULSE_PERIOD, Spin, endless_phase, fmt_elapsed, reduced_pulse_opacity,
+            use_ticker,
+        },
         craft::{self, focus_handle, focus_visible, press, rem, sans, sub},
         shell::IconMenu,
     },
@@ -823,7 +826,7 @@ pub fn loading_left(t: f32) -> f32 {
 
 /// The 2px indeterminate page-top progress strip (`.t3-lstrip`): a 30%
 /// `interactive` bar sweeping over `layer-accent-01` every 1.2s. Under
-/// reduced motion the bar stays centred and pulses instead.
+/// reduced motion the bar rests at the start, still.
 #[derive(IntoElement)]
 pub struct LoadingStrip {
     id: ElementId,
@@ -853,18 +856,22 @@ impl RenderOnce for LoadingStrip {
                     .bottom_0()
                     .w(relative(0.3))
                     .bg(bar)
-                    .with_animation(
-                        self.id,
-                        Animation::new(Duration::from_millis(1200)).repeat(),
-                        move |el, t| {
-                            if reduced {
-                                el.left(relative(0.35))
-                                    .opacity(0.4 + 0.6 * (1. - (t * 2. - 1.).abs()))
-                            } else {
-                                el.left(relative(loading_left(t)))
-                            }
-                        },
-                    ),
+                    .map(|bar| {
+                        if reduced {
+                            // `ghost.css`: `@media (prefers-reduced-motion: reduce) { * {
+                            // animation-duration: 1ms !important; animation-iteration-count:
+                            // 1 !important } }`: `t3-load` ends at once and the bar rests
+                            // at its base box (`left: auto` → 0, width 30%).
+                            bar.left_0().into_any_element()
+                        } else {
+                            bar.with_animation(
+                                self.id,
+                                Animation::new(Duration::from_millis(1200)).repeat(),
+                                |el, t| el.left(relative(loading_left(t))),
+                            )
+                            .into_any_element()
+                        }
+                    }),
             )
     }
 }
@@ -893,12 +900,22 @@ fn mix_color(a: Hsla, b: Hsla, t: f32) -> Hsla {
     .into()
 }
 
-/// Shimmering status text (`.t3-shimmer`); plain `text-secondary` under
+/// Shimmering status text (`.t3-shimmer`); `text-secondary`, pulsing, under
 /// reduced motion.
-fn shimmer(id: ElementId, label: SharedString, cx: &App) -> AnyElement {
+fn shimmer(id: ElementId, label: SharedString, window: &mut Window, cx: &App) -> AnyElement {
     let secondary = color(ColorRole::TextSecondary);
     if motion::reduced_motion(cx) {
-        return div().text_color(secondary).child(label).into_any_element();
+        // `t3.css`: `@media (prefers-reduced-motion: reduce) { .t3-shimmer { color:
+        // text-secondary; background: none } }`, and `ghost.css` (later, `!important`):
+        // `.t3-shimmer { animation: g-pulse 1.4s ease-in-out infinite }`. GPUI freezes
+        // `with_animation` loops under reduced motion, so the pulse runs on
+        // `endless_phase`.
+        let opacity = reduced_pulse_opacity(endless_phase(REDUCED_PULSE_PERIOD, window));
+        return div()
+            .text_color(secondary)
+            .opacity(opacity)
+            .child(label)
+            .into_any_element();
     }
     let primary = color(ColorRole::TextPrimary);
     let font = crate::typography::font(crate::tokens::FontFamilyKey::Sans, 400);
@@ -1018,6 +1035,7 @@ impl RenderOnce for FloatingWorkingControl {
             .child(shimmer(
                 (id.clone(), "shimmer").into(),
                 self.label.clone(),
+                window,
                 cx,
             ))
             // `.t3-working-time { tabular-nums; text-helper; 12px }`.

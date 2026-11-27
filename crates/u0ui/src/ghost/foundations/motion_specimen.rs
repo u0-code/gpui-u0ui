@@ -144,12 +144,13 @@ impl MotionSpecimen {
 
 impl RenderOnce for MotionSpecimen {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let r = self.reduced.unwrap_or_else(|| motion::reduced_motion(cx));
+        let system = motion::reduced_motion(cx);
+        let r = self.reduced.unwrap_or(system);
         // ghost.css: `@media (prefers-reduced-motion: reduce) { .g-motion-spin
         // { animation: g-pulse 1.4s ease-in-out infinite !important } }`, so
         // the full row pulses too when the app reduces motion. Driven by
         // `spin_frame_now`, which (unlike `with_animation`) keeps running then.
-        let spin = spin_frame_now(SPIN_PERIOD, r || motion::reduced_motion(cx), window);
+        let spin = spin_frame_now(SPIN_PERIOD, r || system, window);
         let id = self.id.clone();
         let interactive = color(ColorRole::Interactive);
         let track_fill = color(ColorRole::Layer01);
@@ -197,7 +198,14 @@ impl RenderOnce for MotionSpecimen {
             .bottom(px(4.))
             .w(relative(0.3))
             .bg(interactive);
-        let panel = if r {
+        // When the app reduces motion, `ghost.css`'s `* { animation-duration: 1ms
+        // !important; animation-iteration-count: 1 !important }` ends `g-slide`,
+        // `g-fade` and `g-sweep` at once: the panel and band rest at their base
+        // boxes, fully opaque (only the spinner is in the `g-pulse` list).
+        let panel = if system {
+            bar.left(relative(if r { 0.35 } else { 0. }))
+                .into_any_element()
+        } else if r {
             bar.left(relative(0.35))
                 .with_animation(
                     (id.clone(), "fade"),
@@ -240,6 +248,8 @@ impl RenderOnce for MotionSpecimen {
         let shimmer = if r {
             // `.g-motion--reduced .g-motion-shimmer { animation: none; opacity: .6 }`.
             band(0.).opacity(0.6).into_any_element()
+        } else if system {
+            band(0.).into_any_element()
         } else {
             div()
                 .absolute()

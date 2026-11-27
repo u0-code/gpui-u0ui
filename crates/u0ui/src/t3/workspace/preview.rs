@@ -10,7 +10,7 @@ use crate::{
     icons::{CarbonIcon, Icon},
     motion::{self, cubic_bezier_at},
     t3::{
-        base::{EASE_IN_OUT, pulse},
+        base::EASE_IN_OUT,
         craft::{mono, sans},
         press::{self, Handler, rem},
         shell::{ConnectionStatus, ConnectionStatusDot},
@@ -282,13 +282,12 @@ impl RenderOnce for PreviewChrome {
                 .h(px(2.))
                 .bg(color(ColorRole::Interactive));
             if reduced {
-                // Reduced motion: the slide becomes a fade in place.
-                pulse(
-                    bar.left_0().w_full(),
-                    (id.clone(), "load-fade"),
-                    EASE_IN_OUT,
-                )
-                .into_any_element()
+                // `ghost.css`: `@media (prefers-reduced-motion: reduce) { * {
+                // animation-duration: 1ms !important; animation-iteration-count: 1
+                // !important } }` (`.t3-pchrome-load` is not in its `g-pulse` list):
+                // `t3-load` ends at once and the bar rests at its base box,
+                // `left: 0; width: 40%`.
+                bar.left_0().w(relative(LOAD_WIDTH)).into_any_element()
             } else {
                 // `.t3-pchrome-load { position: absolute; left: 0; bottom: -1px; height: 2px;
                 // width: 40%; background: interactive; animation: t3-load 1.2s ease-in-out infinite }`.
