@@ -68,7 +68,8 @@ short doc comment next to the value.
 ## Carbon rules (enforce everywhere)
 
 - Square corners by default. Rounded only where the reference says: Tag/switch track 16 (pill),
-  radio/switch knob/avatar full, checkbox 2, Kbd 4, chat bubble 8.
+  radio/switch knob/avatar full, checkbox 2, Kbd 4. Chat bubbles and attachment chips are square
+  (the design's 2026-11-27 craft pass removed their radius); the later rule in cascade order wins.
 - Fields: filled `field-0x`, 1px `border-strong-0x` bottom line, no four-sided border; focus = 2px `focus`
   inset outline; error = 2px `support-error` outline plus the error icon.
 - Only floating layers (menus, popovers, toasts, sheets, dialogs) have a shadow, `0 2px 6px shadow`.
