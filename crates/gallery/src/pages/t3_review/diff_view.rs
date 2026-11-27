@@ -108,15 +108,19 @@ pub fn thumbnail(_: &mut Window, _: &mut App) -> AnyElement {
 impl Render for Page {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let entity = cx.entity();
-        let reference = frame(DiffView::new("dv-ref").hunks([hunk(false)]).annotation(
-            0,
-            2,
-            ReviewThreadCard::new("dv-ref-thread").comments([ReviewComment::new(
-                "jd",
-                "2m",
-                "Should null be allowed here? The form expects a date.",
-            )]),
-        ));
+        let reference = frame(
+            DiffView::new("dv-ref").hunks([hunk(false)]).annotation(
+                0,
+                2,
+                ReviewThreadCard::new("dv-ref-thread")
+                    .in_diff(true)
+                    .comments([ReviewComment::new(
+                        "jd",
+                        "2m",
+                        "Should null be allowed here? The form expects a date.",
+                    )]),
+            ),
+        );
 
         let mut view = DiffView::new("dv-live")
             .hunks([hunk(self.words)])
@@ -133,13 +137,16 @@ impl Render for Page {
             });
         for (i, (h, l)) in self.drafts.iter().copied().enumerate() {
             let thread = if (h, l) == (0, 2) {
-                ReviewThreadCard::new(("dv-live-thread", i)).comments([ReviewComment::new(
-                    "jd",
-                    "2m",
-                    "Should null be allowed here? The form expects a date.",
-                )])
+                ReviewThreadCard::new(("dv-live-thread", i))
+                    .in_diff(true)
+                    .comments([ReviewComment::new(
+                        "jd",
+                        "2m",
+                        "Should null be allowed here? The form expects a date.",
+                    )])
             } else {
                 ReviewThreadCard::new(("dv-live-thread", i))
+                    .in_diff(true)
                     .pending(true)
                     .comments([ReviewComment::new(
                         "you",

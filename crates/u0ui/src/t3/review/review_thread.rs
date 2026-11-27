@@ -8,7 +8,8 @@ use crate::{
     icons::CarbonIcon,
     t3::craft::{self, AvatarTone, rem, sans},
     theme::{LayerLevel, color},
-    tokens::ColorRole,
+    tokens::{ColorRole, FontFamilyKey},
+    typography::font,
 };
 use gpui_kit::{
     AnyElement, App, AppContext as _, ElementId, InteractiveElement as _, IntoElement,
@@ -94,6 +95,7 @@ pub struct ReviewThreadCard {
     comments: Vec<ReviewComment>,
     resolved: bool,
     pending: bool,
+    in_diff: bool,
     on_resolve: Option<Handler>,
     on_add_to_chat: Option<Handler>,
     texts: ReviewThreadTexts,
@@ -107,6 +109,7 @@ impl ReviewThreadCard {
             comments: Vec::new(),
             resolved: false,
             pending: false,
+            in_diff: false,
             on_resolve: None,
             on_add_to_chat: None,
             texts: ReviewThreadTexts::default(),
@@ -131,6 +134,15 @@ impl ReviewThreadCard {
         self
     }
 
+    /// Shown inside a [`DiffView`](crate::t3::review::DiffView) annotation (`.t3-dl-anno`): the
+    /// thread inherits the diff's text (`.t3-diff { font-size: 0.75rem;
+    /// line-height: 1.25rem }`) instead of the page's 14px / 1.28572, so the
+    /// comment head sits on a 20px line.
+    pub fn in_diff(mut self, in_diff: bool) -> Self {
+        self.in_diff = in_diff;
+        self
+    }
+
     /// Resolve / Unresolve pressed (`onResolve`).
     pub fn on_resolve(mut self, f: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         self.on_resolve = Some(Rc::new(f));
@@ -150,7 +162,7 @@ impl ReviewThreadCard {
     }
 }
 
-fn comment(c: &ReviewComment, pending_tag: Option<SharedString>) -> AnyElement {
+fn comment(c: &ReviewComment, pending_tag: Option<SharedString>, in_diff: bool) -> AnyElement {
     // `.t3-rcomment { display: flex; gap: 12px; padding: 12px; border-bottom: 1px subtle-01 }`.
     div()
         .flex()
@@ -168,14 +180,22 @@ fn comment(c: &ReviewComment, pending_tag: Option<SharedString>) -> AnyElement {
                 .flex_1()
                 .min_w_0()
                 .child(
-                    // `.t3-rcomment-head { gap: 8px; 12px; text-secondary } b { text-primary }`.
-                    sans(div(), 12., 400)
+                    // `.t3-rcomment-head { gap: 8px; 12px; text-secondary } b { text-primary }`;
+                    // the line height is inherited (20px inside a diff).
+                    div()
+                        .font(font(FontFamilyKey::Sans, 400))
+                        .text_size(rem(12.))
+                        .when(!in_diff, |this| {
+                            this.line_height(relative(craft::BODY_LINE))
+                        })
                         .flex()
                         .items_center()
                         .gap(rem(8.))
                         .text_color(color(ColorRole::TextSecondary))
+                        // No weight rule on the `<b>`: Carbon's `b { font: inherit }`
+                        // keeps it 400.
                         .child(
-                            sans(div(), 12., 600)
+                            div()
                                 .text_color(color(ColorRole::TextPrimary))
                                 .child(c.author.clone()),
                         )
@@ -215,6 +235,7 @@ impl RenderOnce for ReviewThreadCard {
             comment(
                 c,
                 (self.pending && i == 0).then(|| self.texts.pending.clone()),
+                self.in_diff,
             )
         });
         // `.t3-rthread-foot { gap: 4px; padding: 8px 4px 8px 12px; flex-wrap: wrap }`.
@@ -263,7 +284,14 @@ impl RenderOnce for ReviewThreadCard {
                     .icon(CarbonIcon::Chat)
                     .when_some(on_chat, |b, f| b.on_click(move |_, w, cx| f(w, cx))),
             );
-        sans(div(), 14., 400)
+        // Outside a diff the thread inherits the page's `body { 14px; 1.28572 }`;
+        // inside one, `.t3-dl-anno`'s 12px / 20px.
+        div()
+            .font(font(FontFamilyKey::Sans, 400))
+            .when(!self.in_diff, |this| {
+                this.text_size(rem(14.))
+                    .line_height(relative(craft::BODY_LINE))
+            })
             .id(id)
             .relative()
             .flex()
