@@ -305,6 +305,11 @@ impl<F: AssetSource> AssetSource for Assets<F> {
         {
             return Ok(glyph_svg(name).map(|svg| Cow::Owned(svg.into_bytes())));
         }
+        if path == crate::patterns::indicator::INCOMPLETE_ASSET {
+            return Ok(Some(Cow::Borrowed(
+                crate::patterns::indicator::INCOMPLETE_SVG.as_bytes(),
+            )));
+        }
         if let Some(slug) = path
             .strip_prefix(brands::ASSET_PREFIX)
             .and_then(|p| p.strip_suffix(".svg"))

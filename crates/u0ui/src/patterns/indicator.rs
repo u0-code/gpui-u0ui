@@ -273,26 +273,34 @@ impl ShapeIndicatorKind {
         }
     }
 
-    /// Carbon's shape for the kind (`ShapeIndicator` `shapeTypes`).
+    /// Carbon's shape for the kind: the bundle's `shapeTypes` map (`dR`:
+    /// `cautious` shares `high`'s triangle, `informative` shares `low`'s
+    /// glyph, `undefined` shares `medium`'s diamond). `incomplete` is
+    /// Carbon's own two-path SVG, drawn by [`Self::icon_element`].
     pub const fn icon(self) -> CarbonIcon {
         match self {
             Self::Failed => CarbonIcon::Critical,
             Self::Critical => CarbonIcon::CriticalSeverity,
-            Self::High => CarbonIcon::Caution,
+            Self::High | Self::Cautious => CarbonIcon::Caution,
             Self::Medium | Self::Undefined => CarbonIcon::DiamondFill,
-            Self::Low | Self::Cautious | Self::Informative => CarbonIcon::LowSeverity,
+            Self::Low | Self::Informative => CarbonIcon::LowSeverity,
             Self::Stable => CarbonIcon::CircleFill,
             Self::Incomplete => CarbonIcon::Incomplete,
             Self::Draft => CarbonIcon::CircleStroke,
         }
     }
 
-    /// The shape's fill role (`.cds--shape-indicator--<kind> { fill: … }`).
+    /// The shape's fill role. Each glyph is one path, so the
+    /// `path:first-of-type` rules win where they exist: `.cds--shape-indicator
+    /// --medium path:first-of-type { fill: status-orange-outline }` and
+    /// `--cautious path:first-of-type { fill: status-yellow-outline }`; `low`'s
+    /// `path:nth-of-type(2)` rule matches nothing, so it stays `status-yellow`.
     pub const fn role(self) -> ColorRole {
         match self {
             Self::Failed | Self::Critical | Self::High => ColorRole::StatusRed,
-            Self::Medium => ColorRole::StatusOrange,
-            Self::Low | Self::Cautious => ColorRole::StatusYellow,
+            Self::Medium => ColorRole::StatusOrangeOutline,
+            Self::Low => ColorRole::StatusYellow,
+            Self::Cautious => ColorRole::StatusYellowOutline,
             Self::Undefined => ColorRole::StatusPurple,
             Self::Stable => ColorRole::StatusGreen,
             // `.cds--shape-indicator--incomplete path:nth-of-type(2) { fill: status-blue }`.
@@ -300,7 +308,24 @@ impl ShapeIndicatorKind {
             Self::Draft => ColorRole::StatusGray,
         }
     }
+
+    /// The 16px shape in its color.
+    pub fn icon_element(self) -> Icon {
+        let icon = match self {
+            Self::Incomplete => Icon::from_path(INCOMPLETE_ASSET),
+            _ => Icon::carbon(self.icon()),
+        };
+        icon.size(IconSize::S16).color(color(self.role()))
+    }
 }
+
+/// The asset path of Carbon's `incomplete` shape, served by [`crate::Assets`].
+pub const INCOMPLETE_ASSET: &str = "u0ui/shapes/incomplete.svg";
+
+/// Carbon's `incomplete` shape (`uR` in the bundle): a 12px disc with the top
+/// half of its inner 8px circle cut out. Its first path is a transparent
+/// 16px square; the second, this one, is filled `status-blue`.
+pub const INCOMPLETE_SVG: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path fill=\"#161616\" d=\"M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2Zm0 2a4.004 4.004 0 0 1 4 4H4a4.004 4.004 0 0 1 4-4Z\"/></svg>";
 
 /// `ShapeIndicator textSize`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -361,9 +386,7 @@ impl ShapeIndicator {
 impl RenderOnce for ShapeIndicator {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         row(
-            Icon::carbon(self.kind.icon())
-                .size(IconSize::S16)
-                .color(color(self.kind.role())),
+            self.kind.icon_element(),
             self.label,
             self.text_size.style(),
             GAP,
@@ -446,8 +469,21 @@ mod tests {
     fn shape_kinds_take_their_status_colors() {
         use ShapeIndicatorKind::*;
         assert_eq!(Critical.role(), ColorRole::StatusRed);
-        assert_eq!(Medium.role(), ColorRole::StatusOrange);
+        // `path:first-of-type` outline colors on single-path glyphs.
+        assert_eq!(Medium.role(), ColorRole::StatusOrangeOutline);
+        assert_eq!(Cautious.role(), ColorRole::StatusYellowOutline);
         assert_eq!(Low.role(), ColorRole::StatusYellow);
+        assert_eq!(Undefined.role(), ColorRole::StatusPurple);
+        assert_eq!(Incomplete.role(), ColorRole::StatusBlue);
+        // The bundle's `shapeTypes`.
+        assert_eq!(Cautious.icon(), High.icon());
+        assert_eq!(Informative.icon(), Low.icon());
+        assert_eq!(Undefined.icon(), Medium.icon());
+        assert_eq!(
+            Incomplete.icon_element().asset_path().as_ref(),
+            INCOMPLETE_ASSET
+        );
+        assert!(INCOMPLETE_SVG.contains("H4a4.004"));
         assert_eq!(Stable.role(), ColorRole::StatusGreen);
         assert_eq!(Draft.role(), ColorRole::StatusGray);
         assert_eq!(Medium.icon(), CarbonIcon::DiamondFill);
