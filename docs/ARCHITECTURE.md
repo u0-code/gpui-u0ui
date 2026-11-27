@@ -56,6 +56,21 @@ Kit icons. Applications serve icons with
   to their children.
 - **Letter spacing** is recorded in `TypeSpec` but not applied: GPUI has no
   tracking control yet.
+- **Font smoothing (platform limitation).** Light text on a dark fill (button
+  labels, inverse surfaces, G90/G100) renders heavier than the reference. The
+  weight is right (body-compact-01, 400, IBM Plex Sans Regular); the difference
+  is rasterization. Carbon sets `-webkit-font-smoothing: antialiased` on `body`,
+  which turns off macOS's stem darkening, while GPUI on macOS copies
+  CoreGraphics font smoothing and dilates each glyph by its color's luminance
+  (`glyph_dilation_for_color`: white text gets the maximum, level 4; dark text
+  gets 0). GPUI has no per-window or per-text switch. Its only off switch is
+  the `AppleFontSmoothing` preference read once per process (`0` turns
+  dilation off for every glyph). An app can pass `-AppleFontSmoothing 0` at
+  launch (argument domain) or write it to its own defaults domain. Measured on
+  the primary "Create project" label at 1x: the reference has 258 units of
+  white ink, u0ui has 377 by default and 265 with `AppleFontSmoothing` set
+  to 0. A library should not change a process-wide preference, so u0ui leaves
+  it alone and reviews do not flag it. Dark text on light fills matches.
 - **Motion on state change.** Compute the target value from state, then ask
   `motion::animate_color((id, "channel"), target, Motion::HOVER, window, cx)`;
   Base's keyed transition retargets mid-flight and stops requesting frames when
