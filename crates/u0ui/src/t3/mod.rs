@@ -7,8 +7,10 @@
 //! - [`composer`]: the composer (`composer.jsx`).
 //! - [`review`]: diffs and review threads (`review.jsx`).
 //! - [`timeline`]: the thread timeline (`timeline.jsx`).
+//! - [`chat`]: chat extensions (`chat.jsx`): [`chat::TurnChanges`].
 mod action;
 pub mod base;
+pub mod chat;
 pub mod composer;
 pub(crate) mod craft;
 pub mod mobile;

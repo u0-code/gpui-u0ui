@@ -8,6 +8,7 @@ pub mod subagent_row;
 pub mod thread_error_banner;
 pub mod thread_navigation;
 pub mod timeline_divider;
+pub mod turn_changes;
 pub mod user_input_card;
 pub mod user_message;
 pub mod work_log;

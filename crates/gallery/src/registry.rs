@@ -299,6 +299,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("thread-error-banner", "ThreadErrorBanner", "T3 · Timeline", Component::ThreadErrorBanner.summary(), pages::t3_timeline::thread_error_banner::build).thumbnail(pages::t3_timeline::thread_error_banner::thumbnail),
     PageDef::new("thread-navigation", "ThreadNavigation", "T3 · Timeline", Component::ThreadNavigation.summary(), pages::t3_timeline::thread_navigation::build).thumbnail(pages::t3_timeline::thread_navigation::thumbnail),
     PageDef::new("timeline-divider", "TimelineDivider", "T3 · Timeline", Component::TimelineDivider.summary(), pages::t3_timeline::timeline_divider::build).thumbnail(pages::t3_timeline::timeline_divider::thumbnail),
+    PageDef::new("turn-changes", "TurnChanges", "T3 · Timeline", pages::t3_timeline::turn_changes::DESCRIPTION, pages::t3_timeline::turn_changes::build).thumbnail(pages::t3_timeline::turn_changes::thumbnail),
     PageDef::new("user-input-card", "UserInputCard", "T3 · Timeline", Component::UserInputCard.summary(), pages::t3_timeline::user_input_card::build).thumbnail(pages::t3_timeline::user_input_card::thumbnail),
     PageDef::new("user-message", "UserMessage", "T3 · Timeline", Component::UserMessage.summary(), pages::t3_timeline::user_message::build).thumbnail(pages::t3_timeline::user_message::thumbnail),
     PageDef::new("work-log", "WorkLog", "T3 · Timeline", Component::WorkLog.summary(), pages::t3_timeline::work_log::build).thumbnail(pages::t3_timeline::work_log::thumbnail),
