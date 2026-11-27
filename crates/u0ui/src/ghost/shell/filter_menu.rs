@@ -9,11 +9,13 @@
 //! box, optional icon, fuzzy-highlighted label and count, "No matching
 //! projects" when none match, and "Select all" / "Clear" links. Escape
 //! closes it and returns focus to the trigger; a press outside closes it.
-//! Positioning, focus return and outside presses are Base's `Popup` via
-//! [`crate::components::floating`].
+//! The panel hangs from the trigger's start edge 4px below it (flipping
+//! above it when only that side has room), like a Carbon dropdown
+//! ([`crate::components::overlay::DropAnchor`]); positioning, focus return
+//! and outside presses are Base's `Popup`.
 use super::super::panels::git::check_box;
 use crate::{
-    components::{floating, floating::Align, overlay},
+    components::overlay,
     density,
     ghost::primitives::{
         HighlightedText,
@@ -31,6 +33,9 @@ use gpui_kit::{
     div, prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
+
+/// `.g-fmenu-pop { top: calc(100% + 4px) }`: the gap under the trigger.
+pub const POP_GAP: f32 = 4.;
 
 /// One filter option (`items[i]`).
 #[derive(Clone, Debug, PartialEq)]
@@ -517,17 +522,22 @@ impl RenderOnce for FilterMenu {
                         )),
                 )
         });
-        // `.g-fmenu-pop { top: calc(100% + 4px); left: 0 }`.
-        floating::anchored(
-            (id, "popup"),
-            trigger,
-            surface,
-            Align::BottomLeft,
-            None,
-            4.,
-            window,
-            cx,
-        )
+        // `.g-fmenu-pop { position: absolute; top: calc(100% + 4px); left: 0 }`:
+        // the panel's start edge on the trigger's, not a popover's
+        // `bottom-start` (which starts 1rem before the trigger's center).
+        let anchor = overlay::drop_anchor((id.clone(), "drop"), window, cx);
+        let trigger = div()
+            .relative()
+            .child(trigger)
+            .child(anchor.measure_trigger());
+        let side = anchor.place_measured(window);
+        let popup = gpui_kit::base::Popup::new((id, "popup"), trigger)
+            .anchor(side.anchor())
+            .offset(px(POP_GAP));
+        match surface {
+            Some(surface) => popup.content(anchor.surface(surface)).into_any_element(),
+            None => popup.into_any_element(),
+        }
     }
 }
 
