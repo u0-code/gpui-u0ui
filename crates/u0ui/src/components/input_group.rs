@@ -342,6 +342,9 @@ impl RenderOnce for InputGroup {
         // in `src/ghost.css` do not touch `.cu-ig`).
         let height = group_height();
         let hovered = window.use_keyed_state((id.clone(), "hover"), cx, |_, _| false);
+        if let Some(Editor::Input(i)) = &self.editor {
+            super::form::select_all_on_tab_in(&i.state, window, cx);
+        }
         let (focus, empty) = match &self.editor {
             Some(Editor::Input(i)) => (
                 Some(i.state.read(cx).focus_handle(cx)),

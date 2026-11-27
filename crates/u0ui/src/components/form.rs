@@ -41,6 +41,41 @@ pub(crate) fn controlled<T: Clone + 'static>(
     (shown, store)
 }
 
+thread_local! {
+    /// Whether the last keystroke the app received was Tab (or Shift-Tab).
+    static LAST_KEY_TAB: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Watch keystrokes for [`select_all_on_tab_in`] (called by [`crate::init`]).
+pub(crate) fn init(cx: &mut gpui_kit::App) {
+    cx.intercept_keystrokes(|event, _, _| {
+        LAST_KEY_TAB.with(|t| t.set(event.keystroke.key == "tab"));
+    })
+    .detach();
+}
+
+/// Select all of a single-line field's text when Tab (or Shift-Tab) moves
+/// focus into it, as a browser does for `<input>`; a click, or focus moved
+/// by code, keeps the caret where it lands. Call it while rendering a field
+/// that shows `state`; it notices the focus arriving between frames.
+pub fn select_all_on_tab_in(
+    state: &gpui_kit::Entity<gpui_kit::component::input::InputState>,
+    window: &mut gpui_kit::Window,
+    cx: &mut gpui_kit::App,
+) {
+    use gpui_kit::Focusable as _;
+    let focused = state.read(cx).focus_handle(cx).is_focused(window);
+    let key = gpui_kit::ElementId::NamedInteger("u0ui-tab-in".into(), state.entity_id().as_u64());
+    let was = window.use_keyed_state(key, cx, |_, _| focused);
+    if *was.read(cx) == focused {
+        return;
+    }
+    was.update(cx, |w, _| *w = focused);
+    if focused && window.last_input_was_keyboard() && LAST_KEY_TAB.with(|t| t.get()) {
+        state.update(cx, |s, cx| s.select_all(window, cx));
+    }
+}
+
 /// `index.d.ts` `Size` (`'sm' | 'md' | 'lg'`) for fields and field-like controls.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum FieldSize {

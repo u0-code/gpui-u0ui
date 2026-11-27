@@ -200,6 +200,7 @@ impl RenderOnce for FluidTextInput {
         let g = FluidGeometry::REFERENCE;
         let id = self.id;
         let state = self.state;
+        crate::components::form::select_all_on_tab_in(&state, window, cx);
         let focused = state.read(cx).focus_handle(cx).is_focused(window);
         let empty = state.read(cx).value().is_empty();
         if self.password {

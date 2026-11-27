@@ -90,6 +90,7 @@ pub fn init(cx: &mut gpui_kit::App) {
     components::navigation_menu::init(cx);
     components::date_picker::init(cx);
     components::overlay::init(cx);
+    components::form::init(cx);
     u0::shell::filter_menu::init(cx);
     if cx.try_global::<density::ActiveDensity>().is_none() {
         cx.set_global(density::ActiveDensity(density::current()));

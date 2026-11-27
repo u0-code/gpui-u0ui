@@ -879,6 +879,7 @@ fn toolbar_search(
 ) -> impl IntoElement {
     let pointer = window.use_keyed_state((id.clone(), "pointer"), cx, |_, _| false);
     let hovered = *pointer.read(cx);
+    super::form::select_all_on_tab_in(&state, window, cx);
     let focus = state.read(cx).focus_handle(cx);
     let focused = focus.is_focused(window);
     let value = state.read(cx).value();
