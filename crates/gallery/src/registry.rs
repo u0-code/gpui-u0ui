@@ -414,6 +414,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("permission-checklist", "PermissionChecklist", "T3 · Onboarding & feedback", Component::PermissionChecklist.summary(), pages::t3_workspace::onboarding::build_permission_checklist).thumbnail(pages::t3_workspace::onboarding::permission_checklist_thumbnail),
     PageDef::new("truncated-text", "TruncatedText", "T3 · Onboarding & feedback", Component::TruncatedText.summary(), pages::t3_workspace::onboarding::build_truncated_text).thumbnail(pages::t3_workspace::onboarding::truncated_text_thumbnail),
     // Ghost · Thread (src/ghost/workspace.jsx)
+    PageDef::new("transcript-view-switch", "TranscriptViewSwitch", GHOST_THREAD, Component::TranscriptViewSwitch.summary(), pages::ghost_thread::transcript_view_switch::build).thumbnail(pages::ghost_thread::transcript_view_switch::thumbnail),
     PageDef::new("turn-footer", "TurnFooter", GHOST_THREAD, Component::TurnFooter.summary(), pages::ghost_thread::turn_footer::build).thumbnail(pages::ghost_thread::turn_footer::thumbnail),
 ];
 
