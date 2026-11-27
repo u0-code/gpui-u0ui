@@ -582,8 +582,9 @@ impl RenderOnce for CodeViewer {
         let key_scroll = scroll.clone();
         let body = mono(div(), 12., 400)
             .id((id.clone(), "body"))
-            .track_focus(&focus)
-            .tab_stop(true)
+            // A tracked handle carries its own tab-stop flag; the div's
+            // `.tab_stop` does not reach it.
+            .track_focus(&focus.clone().tab_index(0).tab_stop(true))
             .relative()
             .max_h(rem(self.max_height))
             .overflow_y_scroll()

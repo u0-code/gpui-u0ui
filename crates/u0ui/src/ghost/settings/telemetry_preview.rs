@@ -5,15 +5,18 @@
 //! button. The body scrolls past 10rem.
 use crate::{
     components::CopyButton,
+    ghost::panels::code_viewer::scroll_target,
     ghost::panels::head::{code_head, grow, head_icon},
+    ghost::primitives::parts::{focus_ring, focus_visible, keyed_focus},
     icons::CarbonIcon,
     t3::craft::{mono, rem},
     theme::{LayerLevel, color},
     tokens::{self, ColorRole},
 };
 use gpui_kit::{
-    App, ElementId, InteractiveElement as _, IntoElement, ParentElement, RenderOnce, ScrollHandle,
-    SharedString, StatefulInteractiveElement as _, Styled, Window, div,
+    App, ElementId, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement, RenderOnce,
+    ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled, Window, div, point,
+    prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -309,8 +312,29 @@ impl RenderOnce for TelemetryPreview {
         // var(--spacing-03) var(--spacing-04); background: var(--background);
         // font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.4;
         // color: var(--syntax-variable) }`.
+        // Chromium makes an overflowing scroller a tab stop of its own (the
+        // reference's Tab walk: copy, then the JSON); ↑/↓, PageUp/PageDown,
+        // Home/End scroll it. The ring is the library's 2px inset `focus`.
+        let focus = keyed_focus((id.clone(), "pre-focus"), window, cx);
+        let ring = focus_visible(&focus, window);
+        let scrolls = f32::from(scroll.max_offset().y) > 0.;
+        let key_scroll = scroll.clone();
         let pre = mono(div(), 12., 400)
             .id((id.clone(), "pre"))
+            .track_focus(&focus.clone().tab_index(0).tab_stop(scrolls))
+            .on_key_down(move |e: &KeyDownEvent, window, cx| {
+                let s = &key_scroll;
+                if let Some(y) = scroll_target(
+                    e.keystroke.key.as_str(),
+                    f32::from(s.offset().y),
+                    f32::from(s.bounds().size.height),
+                    f32::from(s.max_offset().y),
+                ) {
+                    s.set_offset(point(s.offset().x, px(y)));
+                    window.refresh();
+                    cx.stop_propagation();
+                }
+            })
             .max_h(rem(MAX_HEIGHT))
             .overflow_scroll()
             .track_scroll(&scroll)
@@ -329,7 +353,12 @@ impl RenderOnce for TelemetryPreview {
             .min_w_0()
             .bg(color(ColorRole::Layer01))
             .child(head)
-            .child(pre)
+            .child(
+                div()
+                    .relative()
+                    .child(pre)
+                    .when(ring, |d| d.child(focus_ring())),
+            )
     }
 }
 

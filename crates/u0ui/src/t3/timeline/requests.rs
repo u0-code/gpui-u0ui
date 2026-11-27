@@ -25,10 +25,10 @@ use crate::{
 use gpui_kit::Focusable as _;
 use gpui_kit::component::Sizable as _;
 use gpui_kit::{
-    AnyElement, App, AppContext as _, BoxShadow, CursorStyle, ElementId, Entity, FocusHandle,
-    FontWeight, InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton, ParentElement,
-    RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
-    prelude::FluentBuilder as _, px,
+    AnyElement, App, AppContext as _, BoxShadow, ClickEvent, CursorStyle, ElementId, Entity,
+    FocusHandle, FontWeight, InteractiveElement as _, IntoElement, KeyDownEvent, KeyboardButton,
+    KeyboardClickEvent, MouseButton, ParentElement, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled, Window, div, prelude::FluentBuilder as _, px,
 };
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -403,9 +403,30 @@ impl RenderOnce for UserInputCard {
                 option_row(
                     div()
                         .id((id.clone(), SharedString::from(format!("opt-{i}-{k}"))))
-                        .track_focus(&focus)
+                        // The options are one native radio group (`<input
+                        // type="radio" name=…>`): the checked one is its tab stop,
+                        // the first when none is. A tracked handle carries its
+                        // own tab-stop flag.
+                        .track_focus(
+                            &focus
+                                .clone()
+                                .tab_index(0)
+                                .tab_stop(on || (chosen.is_none() && k == 0)),
+                        )
                         .on_hover(press::track_hover(hover))
-                        .on_click(move |_, window, cx| {
+                        // Space picks the focused radio (GPUI's keyboard click);
+                        // Enter is the card's submit key, so its keyboard click
+                        // must not also pick the option under focus.
+                        .on_click(move |e, window, cx| {
+                            if matches!(
+                                e,
+                                ClickEvent::Keyboard(KeyboardClickEvent {
+                                    button: KeyboardButton::Enter,
+                                    ..
+                                })
+                            ) {
+                                return;
+                            }
                             window.focus(&focus, cx);
                             choose(Answer::Option(label.clone()), cx)
                         }),
