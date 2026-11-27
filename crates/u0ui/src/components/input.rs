@@ -266,7 +266,6 @@ impl RenderOnce for Input {
         let density = self.density.unwrap_or_else(density::current);
         let height = self.size.height(density);
         let state = self.state.clone();
-        form::select_all_on_tab_in(&state, window, cx);
         let focus = state.read(cx).focus_handle(cx);
         let focused = focus.is_focused(window);
         let empty = state.read(cx).value().is_empty();

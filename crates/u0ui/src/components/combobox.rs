@@ -363,7 +363,6 @@ impl RenderOnce for Combobox {
         let list = window.use_keyed_state((id.clone(), "list"), cx, |_, _| ListState::default());
         let typing = window.use_keyed_state((id.clone(), "typing"), cx, |_, _| Typing::default());
         let hovered = window.use_keyed_state((id.clone(), "hover"), cx, |_, _| false);
-        form::select_all_on_tab_in(&input, window, cx);
         let focus = input.read(cx).focus_handle(cx);
         let focused = focus.is_focused(window);
         // Focus that leaves the field (a global shortcut opening a dialog,

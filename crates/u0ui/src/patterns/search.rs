@@ -207,7 +207,6 @@ impl RenderOnce for PatternSearch {
         let g = SearchGeometry::of(self.size, self.density.unwrap_or_else(density::current));
         let look = SearchLook::of(self.level, self.disabled);
         let state = self.state.clone();
-        crate::components::form::select_all_on_tab_in(&state, window, cx);
         let focus = state.read(cx).focus_handle(cx);
         let focused = focus.is_focused(window) && !self.disabled;
         let empty = state.read(cx).value().is_empty();

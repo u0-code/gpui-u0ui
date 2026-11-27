@@ -233,7 +233,6 @@ impl RenderOnce for NumberInput {
             let m = model.read(cx);
             (m.value, m.input.clone())
         };
-        crate::components::form::select_all_on_tab_in(&input, window, cx);
         let focused = input.read(cx).focus_handle(cx).is_focused(window);
         let level = self.level;
         let readonly = self.readonly && !self.disabled;

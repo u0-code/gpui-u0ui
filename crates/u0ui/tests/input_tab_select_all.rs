@@ -67,6 +67,9 @@ fn open(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Page>) {
         .expect("open test window")
     });
     let page = handle.1.clone();
+    // Focus events (Kit's `InputEvent::Focus`) fire only in an active window.
+    cx.update_window(handle.0, |_, window, _| window.activate_window())
+        .unwrap();
     (handle.0, page)
 }
 

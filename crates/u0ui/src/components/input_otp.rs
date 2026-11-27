@@ -171,6 +171,9 @@ impl RenderOnce for InputOtp {
                 s.set_validator(move |text, _| accepts(text, length, pattern), cx)
             });
         }
+        // The caret marks the next slot (`input-otp` places it on focus), so
+        // Tab into the slots does not select the whole code.
+        super::form::keep_caret_on_tab_in(&self.state);
         let value: Vec<char> = self.state.read(cx).value().chars().collect();
         let focus = self.state.read(cx).focus_handle(cx);
         let focused = focus.is_focused(window) && !self.disabled;

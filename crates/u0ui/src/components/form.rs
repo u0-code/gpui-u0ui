@@ -44,36 +44,76 @@ pub(crate) fn controlled<T: Clone + 'static>(
 thread_local! {
     /// Whether the last keystroke the app received was Tab (or Shift-Tab).
     static LAST_KEY_TAB: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// Fields that keep their caret when Tab moves focus into them
+    /// ([`keep_caret_on_tab_in`]).
+    static KEEP_CARET: std::cell::RefCell<std::collections::HashSet<gpui_kit::EntityId>> =
+        std::cell::RefCell::new(std::collections::HashSet::new());
 }
 
-/// Watch keystrokes for [`select_all_on_tab_in`] (called by [`crate::init`]).
+/// Install the Tab-in rule (called by [`crate::init`]): watch keystrokes, and
+/// subscribe to the focus event of every single-line field ([`InputState`])
+/// created from now on, selecting all of its text when Tab (or Shift-Tab)
+/// moved focus into it, as a browser does for `<input>`. A click, or focus moved by code,
+/// keeps the caret where it lands. Multi-line fields (`TextareaState`, a
+/// `<textarea>`) and code editors are other types and keep their caret, as a
+/// browser does.
+///
+/// It hangs off the state's creation rather than off a component's render, so
+/// no field can miss it: core fields, u0/T3 parts, Kit's own inputs and an
+/// application's fields all behave the same.
+///
+/// [`InputState`]: gpui_kit::component::input::InputState
 pub(crate) fn init(cx: &mut gpui_kit::App) {
+    use gpui_kit::component::input::{InputEvent, InputState};
     cx.intercept_keystrokes(|event, _, _| {
         LAST_KEY_TAB.with(|t| t.set(event.keystroke.key == "tab"));
     })
     .detach();
+    cx.observe_new(|_: &mut InputState, _, cx| {
+        let state = cx.entity();
+        // An app-level subscription: it holds the state weakly and needs no
+        // window at creation (a state built while its window opens has none);
+        // the event runs in the window that last drew the field. Kit emits
+        // `Focus` from a window focus listener, so only in an active window.
+        let app: &mut gpui_kit::App = cx;
+        app.subscribe(&state, |state, event: &InputEvent, cx| {
+            if !matches!(event, InputEvent::Focus)
+                || KEEP_CARET.with(|k| k.borrow().contains(&state.entity_id()))
+            {
+                return;
+            }
+            cx.with_window(state.entity_id(), |window, cx| {
+                if tab_moved_focus(window) {
+                    state.update(cx, |s, cx| s.select_all(window, cx));
+                }
+            });
+        })
+        .detach();
+    })
+    .detach();
+}
+
+/// Whether the focus change being handled came from Tab or Shift-Tab.
+fn tab_moved_focus(window: &gpui_kit::Window) -> bool {
+    window.last_input_was_keyboard() && LAST_KEY_TAB.with(|t| t.get())
+}
+
+/// Opt a field out of the Tab-in select-all rule: Tab into it keeps the caret
+/// (InputOTP's slots, where the caret marks the next slot, as `input-otp`
+/// does on focus).
+pub fn keep_caret_on_tab_in(state: &gpui_kit::Entity<gpui_kit::component::input::InputState>) {
+    KEEP_CARET.with(|k| k.borrow_mut().insert(state.entity_id()));
 }
 
 /// Select all of a single-line field's text when Tab (or Shift-Tab) moves
-/// focus into it, as a browser does for `<input>`; a click, or focus moved
-/// by code, keeps the caret where it lands. Call it while rendering a field
-/// that shows `state`; it notices the focus arriving between frames.
+/// focus into it. [`crate::init`] now does this for every `InputState`, so
+/// this call is no longer needed and does nothing (kept so callers still
+/// build).
 pub fn select_all_on_tab_in(
-    state: &gpui_kit::Entity<gpui_kit::component::input::InputState>,
-    window: &mut gpui_kit::Window,
-    cx: &mut gpui_kit::App,
+    _state: &gpui_kit::Entity<gpui_kit::component::input::InputState>,
+    _window: &mut gpui_kit::Window,
+    _cx: &mut gpui_kit::App,
 ) {
-    use gpui_kit::Focusable as _;
-    let focused = state.read(cx).focus_handle(cx).is_focused(window);
-    let key = gpui_kit::ElementId::NamedInteger("u0ui-tab-in".into(), state.entity_id().as_u64());
-    let was = window.use_keyed_state(key, cx, |_, _| focused);
-    if *was.read(cx) == focused {
-        return;
-    }
-    was.update(cx, |w, _| *w = focused);
-    if focused && window.last_input_was_keyboard() && LAST_KEY_TAB.with(|t| t.get()) {
-        state.update(cx, |s, cx| s.select_all(window, cx));
-    }
 }
 
 /// `index.d.ts` `Size` (`'sm' | 'md' | 'lg'`) for fields and field-like controls.
