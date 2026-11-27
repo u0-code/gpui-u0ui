@@ -8,6 +8,7 @@ pub mod disclosures;
 pub mod empty_states;
 pub mod filtering;
 pub mod fluid_form;
+pub mod forms;
 pub mod global_header;
 pub mod loading;
 pub mod login;
