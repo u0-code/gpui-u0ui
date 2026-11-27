@@ -89,18 +89,33 @@ impl IssueState {
 #[derive(IntoElement, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IssueStateGlyph {
     state: IssueState,
+    interactive_progress: bool,
 }
 
 impl IssueStateGlyph {
     /// A glyph.
     pub fn new(state: IssueState) -> Self {
-        Self { state }
+        Self {
+            state,
+            interactive_progress: false,
+        }
+    }
+
+    /// Paint `IssueState::Progress` in `ColorRole::Interactive` (`Issues` board).
+    pub fn interactive_progress(mut self, interactive: bool) -> Self {
+        self.interactive_progress = interactive;
+        self
     }
 }
 
 impl RenderOnce for IssueStateGlyph {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
-        super::pull_request::glyph(self.state.icon(), self.state.ink(), 16., self.state.label())
+        let ink = if self.interactive_progress && self.state == IssueState::Progress {
+            color(ColorRole::Interactive)
+        } else {
+            self.state.ink()
+        };
+        super::pull_request::glyph(self.state.icon(), ink, 16., self.state.label())
     }
 }
 
@@ -171,6 +186,10 @@ pub struct IssueRow {
     time: SharedString,
     linked_threads: usize,
     selected: bool,
+    divided: bool,
+    dash_when_unprioritized: bool,
+    show_assignee_avatar: bool,
+    interactive_progress: bool,
     trailing: Vec<AnyElement>,
     on_click: Option<Handler>,
 }
@@ -193,6 +212,10 @@ impl IssueRow {
             time: SharedString::default(),
             linked_threads: 0,
             selected: false,
+            divided: true,
+            dash_when_unprioritized: false,
+            show_assignee_avatar: true,
+            interactive_progress: false,
             trailing: Vec::new(),
             on_click: None,
         }
@@ -201,6 +224,30 @@ impl IssueRow {
     /// Mark this row selected (`layer-selected-01` + 3px interactive bar).
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    /// Show the bottom divider rule (`true` by default; `false` inside project-grouped lists).
+    pub fn divided(mut self, divided: bool) -> Self {
+        self.divided = divided;
+        self
+    }
+
+    /// Show an em-dash (`—`) when no priority is set (`Issues` board).
+    pub fn dash_when_unprioritized(mut self, dash: bool) -> Self {
+        self.dash_when_unprioritized = dash;
+        self
+    }
+
+    /// Show the assignee avatar circle (`true` by default).
+    pub fn show_assignee_avatar(mut self, show: bool) -> Self {
+        self.show_assignee_avatar = show;
+        self
+    }
+
+    /// Paint `IssueState::Progress` in `ColorRole::Interactive` (`Issues` board).
+    pub fn interactive_progress(mut self, interactive: bool) -> Self {
+        self.interactive_progress = interactive;
         self
     }
 
@@ -260,16 +307,45 @@ impl RenderOnce for IssueRow {
         let ring = focus_visible(&focus, window);
         let on_click = self.on_click.clone();
         let bars = priority_bars(self.priority);
+        let priority_el: AnyElement = if self.priority.is_none() && self.dash_when_unprioritized {
+            craft::titled(div(), "priority", "Priority: none")
+                .flex()
+                .flex_none()
+                .items_center()
+                .justify_center()
+                .w(px(11.))
+                .h(px(12.))
+                .child(craft::text("—", 12., ColorRole::TextHelper))
+                .into_any_element()
+        } else {
+            craft::titled(
+                div(),
+                "priority",
+                format!(
+                    "Priority: {}",
+                    self.priority.map(Priority::name).unwrap_or("none")
+                ),
+            )
+            .flex()
+            .flex_none()
+            .items_end()
+            .gap(px(1.))
+            .h(px(12.))
+            .children((0..3).map(|i| div().w(px(3.)).h(px(PRIORITY_HEIGHTS[i])).bg(bars[i])))
+            .into_any_element()
+        };
         sans(press(id, &focus), 14., 400)
             .accessibility_label(self.title.clone())
             .relative()
             .w_full()
             .items_center()
             .gap(rem(12.))
-            .h(rem(40.))
-            .px(rem(16.))
-            .border_b_1()
-            .border_color(color(ColorRole::BorderSubtle01))
+            .h(rem(if self.divided { 40. } else { 36. }))
+            .px(rem(if self.divided { 16. } else { 12. }))
+            .when(self.divided, |this| {
+                this.border_b_1()
+                    .border_color(color(ColorRole::BorderSubtle01))
+            })
             .text_color(color(ColorRole::TextPrimary))
             .when(self.selected, |this| {
                 this.bg(color(ColorRole::LayerSelected01)).child(
@@ -286,22 +362,7 @@ impl RenderOnce for IssueRow {
                 this.hover(|s| s.bg(color(ColorRole::LayerHover01)))
             })
             .when_some(on_click, |this, f| this.on_click(move |_, w, cx| f(w, cx)))
-            .child(
-                craft::titled(
-                    div(),
-                    "priority",
-                    format!(
-                        "Priority: {}",
-                        self.priority.map(Priority::name).unwrap_or("none")
-                    ),
-                )
-                .flex()
-                .flex_none()
-                .items_end()
-                .gap(px(1.))
-                .h(px(12.))
-                .children((0..3).map(|i| div().w(px(3.)).h(px(PRIORITY_HEIGHTS[i])).bg(bars[i]))),
-            )
+            .child(priority_el)
             .child(
                 mono(div(), 12., 400)
                     .flex_none()
@@ -309,7 +370,7 @@ impl RenderOnce for IssueRow {
                     .text_color(color(ColorRole::TextSecondary))
                     .child(self.key.clone()),
             )
-            .child(IssueStateGlyph::new(self.state))
+            .child(IssueStateGlyph::new(self.state).interactive_progress(self.interactive_progress))
             .child(
                 div()
                     .min_w_0()
@@ -333,14 +394,17 @@ impl RenderOnce for IssueRow {
                     format!("{n} linked thread{}", if n == 1 { "" } else { "s" }),
                 ))
             })
-            .when_some(self.assignee.clone(), |this, a| {
-                // `.t3-issue .cu-avatar--sm { 1.25rem }`; the fallback text stays 12px.
-                this.child(craft::initials(
-                    a,
-                    craft::AvatarTone::Avatar(AvatarColor::Blue),
-                    20.,
-                ))
-            })
+            .when_some(
+                self.assignee.clone().filter(|_| self.show_assignee_avatar),
+                |this, a| {
+                    // `.t3-issue .cu-avatar--sm { 1.25rem }`; the fallback text stays 12px.
+                    this.child(craft::initials(
+                        a,
+                        craft::AvatarTone::Avatar(AvatarColor::Blue),
+                        20.,
+                    ))
+                },
+            )
             .child(craft::text(self.time.clone(), 12., ColorRole::TextSecondary).flex_none())
             .when(ring, |this| this.child(craft::focus_ring()))
     }
@@ -369,5 +433,13 @@ mod tests {
         assert_eq!(IssueState::Backlog.icon(), CarbonIcon::CircleDash);
         assert_eq!(IssueState::Done.ink(), color(ColorRole::TagColorPurple));
         assert_eq!(IssueState::Cancelled.ink(), color(ColorRole::TextDisabled));
+        let glyph = IssueStateGlyph::new(IssueState::Progress).interactive_progress(true);
+        assert_eq!(
+            glyph,
+            IssueStateGlyph {
+                state: IssueState::Progress,
+                interactive_progress: true
+            }
+        );
     }
 }

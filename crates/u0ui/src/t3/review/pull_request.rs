@@ -13,7 +13,8 @@ use crate::{
 };
 use gpui_kit::{
     AnyElement, App, ElementId, Hsla, InteractiveElement, IntoElement, ParentElement, RenderOnce,
-    SharedString, Styled, Window, div, prelude::FluentBuilder as _, px,
+    SharedString, StatefulInteractiveElement as _, Styled, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -428,6 +429,8 @@ pub struct PullRequestRow {
     conflict_title: SharedString,
     unread: bool,
     selected: bool,
+    divided: bool,
+    show_avatar: bool,
     on_click: Option<Handler>,
 }
 
@@ -454,6 +457,8 @@ impl PullRequestRow {
             conflict_title: "Has conflicts".into(),
             unread: false,
             selected: false,
+            divided: true,
+            show_avatar: true,
             on_click: None,
         }
     }
@@ -552,6 +557,18 @@ impl PullRequestRow {
         self
     }
 
+    /// Show the bottom divider rule (`true` by default; `false` inside role-grouped lists).
+    pub fn divided(mut self, divided: bool) -> Self {
+        self.divided = divided;
+        self
+    }
+
+    /// Show the 16px author avatar in the metadata row (`true` by default).
+    pub fn show_avatar(mut self, show: bool) -> Self {
+        self.show_avatar = show;
+        self
+    }
+
     /// Activation (click, Enter, Space).
     pub fn on_click(mut self, f: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         self.on_click = Some(Rc::new(f));
@@ -601,15 +618,17 @@ impl RenderOnce for PullRequestRow {
             })
             .child(
                 meta_item()
-                    .child(small_avatar(
-                        if self.author.is_empty() {
-                            "?"
-                        } else {
-                            &self.author
-                        },
-                        AvatarColor::Teal,
-                        16.,
-                    ))
+                    .when(self.show_avatar, |m| {
+                        m.child(small_avatar(
+                            if self.author.is_empty() {
+                                "?"
+                            } else {
+                                &self.author
+                            },
+                            AvatarColor::Teal,
+                            16.,
+                        ))
+                    })
                     .child(self.author.clone()),
             )
             .child(
@@ -662,8 +681,10 @@ impl RenderOnce for PullRequestRow {
             .gap(rem(12.))
             .px(rem(16.))
             .py(rem(12.))
-            .border_b_1()
-            .border_color(color(ColorRole::BorderSubtle01))
+            .when(self.divided, |this| {
+                this.border_b_1()
+                    .border_color(color(ColorRole::BorderSubtle01))
+            })
             .text_color(color(ColorRole::TextPrimary))
             .when(self.selected, |this| {
                 this.bg(color(ColorRole::LayerSelected01))
@@ -732,12 +753,16 @@ pub fn stack_indent(depth: usize) -> f32 {
     depth as f32 * 16.
 }
 
+type StackSelectHandler = Rc<dyn Fn(u32, &mut Window, &mut App)>;
+
 /// Stacked pull requests (`.t3-stack`): each layer 40px on `layer-01`,
 /// indented 16px per depth; the current one selected with a 3px bar.
-#[derive(IntoElement, Clone, Debug, Default)]
+#[derive(IntoElement, Clone, Default)]
 pub struct PullRequestStack {
     layers: Vec<StackLayer>,
     current: Option<u32>,
+    flat: bool,
+    on_select: Option<StackSelectHandler>,
 }
 
 impl PullRequestStack {
@@ -757,52 +782,94 @@ impl PullRequestStack {
         self.current = Some(number);
         self
     }
+
+    /// Flat sidebar layout (`margin-left: 0` and wrapping multi-line titles).
+    pub fn flat(mut self, flat: bool) -> Self {
+        self.flat = flat;
+        self
+    }
+
+    /// Layer selected (`onSelect(number)`).
+    pub fn on_select(mut self, f: impl Fn(u32, &mut Window, &mut App) + 'static) -> Self {
+        self.on_select = Some(Rc::new(f));
+        self
+    }
 }
 
 impl RenderOnce for PullRequestStack {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+        let flat = self.flat;
+        let on_select = self.on_select;
         div()
             .flex()
             .flex_col()
             .gap(px(2.))
-            .w(rem(384.))
-            .max_w_full()
+            .map(|d| {
+                if flat {
+                    d.w_full()
+                } else {
+                    d.w(rem(384.)).max_w_full()
+                }
+            })
             .children(self.layers.iter().enumerate().map(|(i, l)| {
                 let on = Some(l.number) == self.current;
-                sans(div(), 14., 400)
+                let num = l.number;
+                let cb = on_select.clone();
+                let mut row = sans(div(), 14., 400)
+                    .id(SharedString::from(format!("t3-stack-{num}")))
                     .relative()
                     .flex()
-                    .items_center()
                     .gap(rem(8.))
-                    .h(rem(40.))
-                    .ml(rem(stack_indent(i)))
                     .px(rem(12.))
                     .bg(color(if on {
                         ColorRole::LayerSelected01
                     } else {
                         ColorRole::Layer01
                     }))
-                    .text_color(color(ColorRole::TextPrimary))
-                    .when(on, |this| {
-                        this.child(start_bar(color(ColorRole::BorderInteractive)))
-                    })
-                    .child(PullRequestStateGlyph::new(l.state))
-                    .child(
+                    .text_color(color(ColorRole::TextPrimary));
+                row = if flat {
+                    row.items_start().min_h(rem(40.)).py(rem(8.))
+                } else {
+                    row.items_center().h(rem(40.)).ml(rem(stack_indent(i)))
+                };
+                if let Some(f) = cb {
+                    row = row
+                        .cursor_pointer()
+                        .hover(|s| s.bg(color(ColorRole::LayerHover01)))
+                        .on_click(move |_, w, cx| f(num, w, cx));
+                }
+                row.when(on, |this| {
+                    this.child(start_bar(color(ColorRole::BorderInteractive)))
+                })
+                .child(
+                    div()
+                        .when(flat, |d| d.mt(px(2.)))
+                        .child(PullRequestStateGlyph::new(l.state)),
+                )
+                .child(
+                    div()
+                        .flex_none()
+                        .text_color(color(ColorRole::TextSecondary))
+                        .child(format!("#{}", l.number)),
+                )
+                .child(if flat {
+                    div().flex_1().min_w_0().child(l.title.clone())
+                } else {
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .overflow_hidden()
+                        .whitespace_nowrap()
+                        .text_ellipsis()
+                        .child(l.title.clone())
+                })
+                .when_some(l.checks, |this, c| {
+                    this.child(
                         div()
-                            .flex_none()
-                            .text_color(color(ColorRole::TextSecondary))
-                            .child(format!("#{}", l.number)),
+                            .when(flat, |d| d.mt(px(2.)))
+                            .child(ChecksGlyph::new(c)),
                     )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .overflow_hidden()
-                            .whitespace_nowrap()
-                            .text_ellipsis()
-                            .child(l.title.clone()),
-                    )
-                    .when_some(l.checks, |this, c| this.child(ChecksGlyph::new(c)))
+                })
             }))
     }
 }
@@ -865,6 +932,9 @@ pub struct ChecksList {
     id: ElementId,
     checks: Vec<Check>,
     details_label: SharedString,
+    show_header: bool,
+    compact: bool,
+    details_failed_only: bool,
     on_details: Option<CheckHandler>,
 }
 
@@ -875,8 +945,29 @@ impl ChecksList {
             id: id.into(),
             checks: Vec::new(),
             details_label: "Details".into(),
+            show_header: true,
+            compact: false,
+            details_failed_only: false,
             on_details: None,
         }
+    }
+
+    /// Show the summary header row (`true` by default; `false` inside a titled card).
+    pub fn show_header(mut self, show: bool) -> Self {
+        self.show_header = show;
+        self
+    }
+
+    /// Compact card layout (`px: 0`, `36px` rows, transparent background).
+    pub fn compact(mut self, compact: bool) -> Self {
+        self.compact = compact;
+        self
+    }
+
+    /// Show the `Details` link only on failed checks (`false` by default).
+    pub fn details_failed_only(mut self, failed_only: bool) -> Self {
+        self.details_failed_only = failed_only;
+        self
     }
 
     /// The checks.
@@ -902,45 +993,65 @@ impl RenderOnce for ChecksList {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let (status, head) = checks_summary(&self.checks);
         let id = self.id.clone();
+        let compact = self.compact;
+        let failed_only = self.details_failed_only;
         sans(div(), 14., 400)
             .flex()
             .flex_col()
-            .bg(color(ColorRole::Layer01))
+            .when(!compact, |d| d.bg(color(ColorRole::Layer01)))
             .text_color(color(ColorRole::TextPrimary))
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(rem(8.))
-                    .p(rem(12.))
-                    .border_b_1()
-                    .border_color(color(ColorRole::BorderSubtle01))
-                    .child(ChecksGlyph::new(status))
-                    // A bare `<b>`: Carbon's reset (`b { font: inherit }`) keeps it 400.
-                    .child(sans(div(), 14., 400).child(head)),
-            )
+            .when(self.show_header, |d| {
+                d.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(rem(8.))
+                        .p(rem(12.))
+                        .border_b_1()
+                        .border_color(color(ColorRole::BorderSubtle01))
+                        .child(ChecksGlyph::new(status))
+                        // A bare `<b>`: Carbon's reset (`b { font: inherit }`) keeps it 400.
+                        .child(sans(div(), 14., 400).child(head)),
+                )
+            })
             .children(self.checks.iter().enumerate().map(|(i, c)| {
                 let on_details = self.on_details.clone();
-                div()
+                let show_details = !failed_only || c.status == ChecksStatus::Failed;
+                let details_btn = show_details.then(|| {
+                    Button::new(craft::sub(&id, "details", i), self.details_label.clone())
+                        .variant(ButtonVariant::Link)
+                        .when_some(on_details, |b, f| b.on_click(move |_, w, cx| f(i, w, cx)))
+                });
+                let mut row = div()
                     .id(craft::sub(&id, "row", i))
                     .flex()
                     .items_center()
                     .gap(rem(8.))
-                    .min_h(rem(40.))
-                    .px(rem(12.))
+                    .min_h(rem(if compact { 36. } else { 40. }))
+                    .when(!compact, |r| r.px(rem(12.)))
                     .hover(|s| s.bg(color(ColorRole::LayerHover01)))
-                    .child(ChecksGlyph::new(c.status))
-                    .child(div().flex_1().min_w_0().child(c.name.clone()))
-                    .child(craft::text(
-                        c.duration.clone(),
-                        12.,
-                        ColorRole::TextSecondary,
-                    ))
-                    .child(
-                        Button::new(craft::sub(&id, "details", i), self.details_label.clone())
-                            .variant(ButtonVariant::Link)
-                            .when_some(on_details, |b, f| b.on_click(move |_, w, cx| f(i, w, cx))),
-                    )
+                    .child(ChecksGlyph::new(c.status));
+                if failed_only && show_details {
+                    row = row
+                        .child(div().flex_none().child(c.name.clone()))
+                        .children(details_btn)
+                        .child(div().flex_1())
+                        .child(craft::text(
+                            c.duration.clone(),
+                            12.,
+                            ColorRole::TextSecondary,
+                        ));
+                } else {
+                    row = row
+                        .child(div().flex_1().min_w_0().child(c.name.clone()))
+                        .child(craft::text(
+                            c.duration.clone(),
+                            12.,
+                            ColorRole::TextSecondary,
+                        ))
+                        .children(details_btn);
+                }
+                row
             }))
     }
 }

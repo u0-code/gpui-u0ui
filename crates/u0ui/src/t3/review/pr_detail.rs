@@ -10,7 +10,7 @@ use crate::{
 };
 use gpui_kit::{
     AnyElement, App, ElementId, Hsla, InteractiveElement, IntoElement, ParentElement, RenderOnce,
-    SharedString, Styled, Window, div, prelude::FluentBuilder as _, px, relative,
+    SharedString, Styled, Window, div, prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -69,6 +69,10 @@ pub struct PullRequestDetailHeader {
     tabs: Vec<SharedString>,
     tab: Option<SharedString>,
     primary: Option<AnyElement>,
+    top_action: Option<AnyElement>,
+    show_crumbs: bool,
+    title_large: bool,
+    divided: bool,
     on_tab: Option<TabHandler>,
     on_back: Option<Handler>,
     on_edit: Option<Handler>,
@@ -93,6 +97,10 @@ impl PullRequestDetailHeader {
                 .to_vec(),
             tab: None,
             primary: None,
+            top_action: None,
+            show_crumbs: true,
+            title_large: false,
+            divided: true,
             on_tab: None,
             on_back: None,
             on_edit: None,
@@ -145,6 +153,30 @@ impl PullRequestDetailHeader {
     /// Primary actions at the meta row's end.
     pub fn primary(mut self, primary: impl IntoElement) -> Self {
         self.primary = Some(primary.into_any_element());
+        self
+    }
+
+    /// Action aligned at the top-right of the title row (`Check out in a worktree`).
+    pub fn top_action(mut self, action: impl IntoElement) -> Self {
+        self.top_action = Some(action.into_any_element());
+        self
+    }
+
+    /// Show the built-in crumb row (`true` by default; `false` when the page bar shows `WorkspaceBreadcrumb`).
+    pub fn show_crumbs(mut self, show: bool) -> Self {
+        self.show_crumbs = show;
+        self
+    }
+
+    /// Use the 28px/36px workspace heading scale (`false` by default).
+    pub fn title_large(mut self, large: bool) -> Self {
+        self.title_large = large;
+        self
+    }
+
+    /// Show the bottom border (`true` by default; `false` when custom tabs follow).
+    pub fn divided(mut self, divided: bool) -> Self {
+        self.divided = divided;
         self
     }
 
@@ -221,15 +253,17 @@ impl RenderOnce for PullRequestDetailHeader {
                     .variant(ButtonVariant::Link)
                     .when_some(f, |b, f| b.on_click(move |_, w, cx| f(w, cx)))
             });
+        let title_size = if self.title_large { 28. } else { 20. };
+        let title_lh = if self.title_large { rem(36.) } else { rem(28.) };
         let title = div()
             .flex()
             .items_center()
             .gap(rem(8.))
             .child(PullRequestStateGlyph::new(self.state).size(20.))
             .child(
-                sans(div(), 20., 300)
+                sans(div(), title_size, 300)
                     .font_weight(gpui_kit::FontWeight(400.))
-                    .line_height(relative(1.4))
+                    .line_height(title_lh)
                     .text_color(color(ColorRole::TextPrimary))
                     .child(self.title.clone()),
             )
@@ -238,7 +272,10 @@ impl RenderOnce for PullRequestDetailHeader {
                 self.texts.edit_title.clone(),
                 CarbonIcon::Edit,
                 self.on_edit.clone(),
-            ));
+            ))
+            .when_some(self.top_action, |row, act| {
+                row.child(div().flex_1()).child(act)
+            });
         let meta = sans(div(), 14., 400)
             .flex()
             .flex_wrap()
@@ -300,17 +337,20 @@ impl RenderOnce for PullRequestDetailHeader {
                     .child(t.clone())
                     .when(ring, |this| this.child(craft::focus_ring()))
             }));
+        let has_tabs = !self.tabs.is_empty();
         div()
             .id(id)
             .flex()
             .flex_col()
-            .gap(rem(8.))
-            .border_b_1()
-            .border_color(color(ColorRole::BorderSubtle01))
-            .child(crumbs)
+            .gap(rem(if self.title_large { 12. } else { 8. }))
+            .when(self.divided, |d| {
+                d.border_b_1()
+                    .border_color(color(ColorRole::BorderSubtle01))
+            })
+            .when(self.show_crumbs, |d| d.child(crumbs))
             .child(title)
             .child(meta)
-            .child(tabs)
+            .when(has_tabs, |d| d.child(tabs))
     }
 }
 

@@ -13,6 +13,7 @@ use u0ui::t3::review::ReviewForm;
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
     cx.new(|_| Page {
         disabled: false,
+        flat: false,
         submitted: None,
     })
     .into()
@@ -20,6 +21,7 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
 
 struct Page {
     disabled: bool,
+    flat: bool,
     submitted: Option<SharedString>,
 }
 
@@ -44,6 +46,7 @@ impl Render for Page {
             .child(
                 ReviewForm::new("rf-live")
                     .submit_disabled(self.disabled)
+                    .flat(self.flat)
                     .on_submit(controls::setter(
                         &entity,
                         |this: &mut Page, v: u0ui::t3::review::ReviewVerdict| {
@@ -59,12 +62,22 @@ impl Render for Page {
                         .child(format!("onSubmit(\"{v}\")")),
                 )
             });
-        let config = controls::toggle(
-            "rf-disabled",
-            "submitDisabled",
-            self.disabled,
-            controls::setter(&entity, |this: &mut Page, v| this.disabled = v),
-        );
+        let config = div()
+            .flex()
+            .flex_col()
+            .gap(tokens::SPACING_05)
+            .child(controls::toggle(
+                "rf-disabled",
+                "submitDisabled",
+                self.disabled,
+                controls::setter(&entity, |this: &mut Page, v| this.disabled = v),
+            ))
+            .child(controls::toggle(
+                "rf-flat",
+                "flat",
+                self.flat,
+                controls::setter(&entity, |this: &mut Page, v| this.flat = v),
+            ));
         Body::new()
             .playground(live)
             .hint("Arrow keys move between the verdicts; Submit reports the choice")

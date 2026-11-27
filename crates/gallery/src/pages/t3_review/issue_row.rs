@@ -17,6 +17,8 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
         label: true,
         assignee: true,
         links: 1,
+        dash_unprioritized: false,
+        interactive_progress: false,
     })
     .into()
 }
@@ -27,6 +29,8 @@ struct Page {
     label: bool,
     assignee: bool,
     links: usize,
+    dash_unprioritized: bool,
+    interactive_progress: bool,
 }
 
 /// `components/IssueRow/preview.html`.
@@ -80,6 +84,8 @@ impl Render for Page {
             .when_some(priority, |r, p| r.priority(p))
             .when(self.label, |r| r.labels([Label::new("bug", rgb(0xda1e28))]))
             .when(self.assignee, |r| r.assignee("JD"))
+            .dash_when_unprioritized(self.dash_unprioritized)
+            .interactive_progress(self.interactive_progress)
             .linked_threads(self.links)
             .time("2d"),
         );
@@ -125,6 +131,18 @@ impl Render for Page {
                 "assignee",
                 self.assignee,
                 controls::setter(&entity, |this: &mut Page, v| this.assignee = v),
+            ))
+            .child(controls::toggle(
+                "ir-dash",
+                "dashWhenUnprioritized",
+                self.dash_unprioritized,
+                controls::setter(&entity, |this: &mut Page, v| this.dash_unprioritized = v),
+            ))
+            .child(controls::toggle(
+                "ir-interactive-progress",
+                "interactiveProgress",
+                self.interactive_progress,
+                controls::setter(&entity, |this: &mut Page, v| this.interactive_progress = v),
             ));
         let glyphs =
             div()

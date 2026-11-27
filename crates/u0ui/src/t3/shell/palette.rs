@@ -10,7 +10,7 @@ use crate::{
             AddonAlign, InputGroup, InputGroupAddon, InputGroupInput, input_group_button,
         },
         kbd::Kbd,
-        menu::MenuItem,
+        menu::{self, MenuItem, MenuSize},
         overlay,
     },
     icons::{CarbonIcon, Icon},
@@ -522,6 +522,7 @@ impl RenderOnce for CommandPalette {
 pub struct ListFilter {
     label: SharedString,
     value: Option<SharedString>,
+    menu: Vec<MenuItem>,
     on_click: Option<Handler>,
 }
 
@@ -531,6 +532,7 @@ impl ListFilter {
         Self {
             label: label.into(),
             value: None,
+            menu: Vec::new(),
             on_click: None,
         }
     }
@@ -538,6 +540,12 @@ impl ListFilter {
     /// Its current value (`value`).
     pub fn value(mut self, value: impl Into<SharedString>) -> Self {
         self.value = Some(value.into());
+        self
+    }
+
+    /// Menu items opened beneath this filter chip when clicked.
+    pub fn menu(mut self, items: impl IntoIterator<Item = MenuItem>) -> Self {
+        self.menu = items.into_iter().collect();
         self
     }
 
@@ -577,6 +585,8 @@ type ViewChange = Rc<dyn Fn(SharedString, &mut Window, &mut App)>;
 pub struct ListToolbar {
     id: ElementId,
     placeholder: SharedString,
+    search_width: f32,
+    nowrap_filters: bool,
     filters: Vec<ListFilter>,
     views: Vec<SharedString>,
     view: Option<SharedString>,
@@ -592,6 +602,8 @@ impl ListToolbar {
         Self {
             id: id.into(),
             placeholder: "Search".into(),
+            search_width: 256.,
+            nowrap_filters: false,
             filters: Vec::new(),
             views: Vec::new(),
             view: None,
@@ -604,6 +616,18 @@ impl ListToolbar {
                 "Clear".into(),
             ],
         }
+    }
+
+    /// Search field width in px (default `256.` = `16rem`).
+    pub fn search_width(mut self, width: f32) -> Self {
+        self.search_width = width;
+        self
+    }
+
+    /// Keep the filter chip row unwrapped on narrow columns.
+    pub fn nowrap_filters(mut self, nowrap: bool) -> Self {
+        self.nowrap_filters = nowrap;
+        self
     }
 
     /// The search placeholder (`placeholder`).
@@ -695,33 +719,70 @@ impl RenderOnce for ListToolbar {
             // `.t3-filter { gap: var(--spacing-02); height: var(--size-sm); padding: 0
             // var(--spacing-03); font-size: 0.75rem }`; `b { font-weight: 600;
             // margin-left: calc(-1 * var(--spacing-02)) }`.
-            chips.push(
-                sans(press(chip_id.clone(), &handle), 12., 400)
-                    .flex()
-                    .items_center()
-                    .gap(rem(4.))
-                    .h(SIZE_SM.rems())
-                    .px(rem(8.))
-                    .border_1()
-                    .border_color(gpui_kit::transparent_black())
-                    .bg(bg)
-                    .text_color(fg)
-                    .on_hover(track_hover(store))
-                    .when_some(f.on_click, |b, h| b.on_click(move |_, w, cx| h(w, cx)))
-                    .child(f.label)
-                    .children(f.value.map(|v| {
-                        div()
-                            .ml(rem(-4.))
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child(format!(": {v}"))
-                    }))
-                    .child(icon(CarbonIcon::ChevronDown, 14., fg))
-                    .when(focused, |b| b.child(ring()))
+            let has_menu = !f.menu.is_empty();
+            let menu_label = f.label.clone();
+            let chip = sans(press(chip_id.clone(), &handle), 12., 400)
+                .flex()
+                .items_center()
+                .gap(rem(4.))
+                .h(SIZE_SM.rems())
+                .px(rem(8.))
+                .border_1()
+                .border_color(gpui_kit::transparent_black())
+                .bg(bg)
+                .text_color(fg)
+                .on_hover(track_hover(store))
+                .when_some(f.on_click.filter(|_| !has_menu), |b, h| {
+                    b.on_click(move |_, w, cx| h(w, cx))
+                })
+                .child(f.label)
+                .children(f.value.map(|v| {
+                    div()
+                        .ml(rem(-4.))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(format!(": {v}"))
+                }))
+                .child(icon(CarbonIcon::ChevronDown, 14., fg))
+                .when(focused, |b| b.child(ring()));
+            if has_menu {
+                let openness = overlay::openness(&chip_id, None, false, None, window, cx);
+                let open = openness.open;
+                let set_open = openness.setter();
+                let trigger = overlay::trigger_wrapper(
+                    (chip_id.clone(), "trigger"),
+                    chip.into_any_element(),
+                    {
+                        let set_open = set_open.clone();
+                        Rc::new(move |w, cx| set_open(!open, w, cx))
+                    },
+                )
+                .into_any_element();
+                chips.push(
+                    menu::anchored_menu(
+                        &chip_id,
+                        trigger,
+                        menu::MenuSpec {
+                            items: f.menu,
+                            size: MenuSize::Sm,
+                            label: menu_label,
+                            open,
+                            set_open,
+                            min_width: None,
+                            on_unhandled_key: None,
+                        },
+                        window,
+                        cx,
+                    )
                     .into_any_element(),
-            );
+                );
+            } else {
+                chips.push(chip.into_any_element());
+            }
         }
         let views = (!self.views.is_empty()).then(|| {
             let on_change = self.on_view_change.clone();
+            let on_save = on_change.clone();
+            let save_text = save_label.clone();
             DropdownMenu::new((id.clone(), "views"))
                 .label(self.view.clone().unwrap_or(views_label))
                 .kind(DropdownMenuKind::Ghost)
@@ -735,7 +796,11 @@ impl RenderOnce for ListToolbar {
                     })
                 }))
                 .item(MenuItem::divider())
-                .item(MenuItem::item(save_label))
+                .item(MenuItem::item(save_label).on_select(move |w, cx| {
+                    if let Some(f) = &on_save {
+                        f(save_text.clone(), w, cx)
+                    }
+                }))
         });
         // `.t3-listbar { flex-wrap: wrap; gap: var(--spacing-03); padding: var(--spacing-03) 0 }`.
         div()
@@ -745,13 +810,19 @@ impl RenderOnce for ListToolbar {
             .gap(rem(8.))
             .py(rem(8.))
             // `.t3-listbar-search { width: 16rem }`.
-            .child(div().w(rem(256.)).max_w_full().child(group))
+            .child(
+                div()
+                    .w(rem(self.search_width))
+                    .max_w_full()
+                    .flex_none()
+                    .child(group),
+            )
             // `.t3-listbar-filters { flex-wrap: wrap; gap: var(--spacing-03); flex: 1 }`.
             .child(
                 div()
                     .flex()
                     .flex_1()
-                    .flex_wrap()
+                    .when(!self.nowrap_filters, |d| d.flex_wrap())
                     .gap(rem(8.))
                     .children(chips),
             )

@@ -58,6 +58,7 @@ type EmojiHandler = Rc<dyn Fn(SharedString, &mut Window, &mut App)>;
 pub struct ReactionBar {
     id: ElementId,
     reactions: Vec<Reaction>,
+    square: bool,
     on_react: Option<EmojiHandler>,
     on_add: Option<Handler>,
     add_label: SharedString,
@@ -69,10 +70,17 @@ impl ReactionBar {
         Self {
             id: id.into(),
             reactions: Vec::new(),
+            square: false,
             on_react: None,
             on_add: None,
             add_label: "Add reaction".into(),
         }
+    }
+
+    /// Square reaction chips (`border-radius: 0` on PR detail).
+    pub fn square(mut self, square: bool) -> Self {
+        self.square = square;
+        self
     }
 
     /// The reactions.
@@ -144,11 +152,12 @@ impl RenderOnce for ReactionBar {
                 let (fill, ink, edge) = reaction_look(r.mine, *hovered.read(cx));
                 let on_react = self.on_react.clone();
                 let emoji = r.emoji.clone();
+                let pill_radius = if self.square { rem(0.) } else { rem(16.) };
                 sans(press(rid, &focus), 12., 400)
                     .gap(rem(4.))
                     .h(rem(24.))
                     .px(rem(8.))
-                    .rounded(rem(16.))
+                    .rounded(pill_radius)
                     .bg(fill)
                     .text_color(ink)
                     .when_some(edge, |this, c| this.border_1().border_color(c).px(rem(7.)))
@@ -171,7 +180,7 @@ impl RenderOnce for ReactionBar {
                                 .left(px(-2.))
                                 .right(px(-2.))
                                 .bottom(px(-2.))
-                                .rounded(rem(16.))
+                                .rounded(pill_radius)
                                 .border_2()
                                 .border_color(color(ColorRole::Focus)),
                         )
@@ -328,6 +337,7 @@ pub struct PullRequestTimeline {
     id: ElementId,
     events: Vec<TimelineEvent>,
     add_label: SharedString,
+    square_reactions: bool,
     on_add_to_thread: Option<IndexHandler>,
     on_react: Option<EventEmojiHandler>,
 }
@@ -339,9 +349,16 @@ impl PullRequestTimeline {
             id: id.into(),
             events: Vec::new(),
             add_label: "Add to thread".into(),
+            square_reactions: false,
             on_add_to_thread: None,
             on_react: None,
         }
+    }
+
+    /// Square reaction pills (`true` on PR detail).
+    pub fn square_reactions(mut self, square: bool) -> Self {
+        self.square_reactions = square;
+        self
     }
 
     /// The events, oldest first.
@@ -375,6 +392,7 @@ impl PullRequestTimeline {
 impl RenderOnce for PullRequestTimeline {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let id = self.id.clone();
+        let square_reactions = self.square_reactions;
         let secondary = color(ColorRole::TextSecondary);
         let items = self.events.into_iter().enumerate().map(|(i, e)| {
             let marker = if e.kind.is_card() {
@@ -450,6 +468,7 @@ impl RenderOnce for PullRequestTimeline {
                         this.child(
                             div().px(rem(12.)).pb(rem(12.)).child(
                                 ReactionBar::new(craft::sub(&id, "reactions", i))
+                                    .square(square_reactions)
                                     .reactions(reactions)
                                     .when_some(on_react, |bar, f| {
                                         bar.on_react(move |emoji, w, cx| f(i, emoji, w, cx))
@@ -567,6 +586,7 @@ impl Default for ReviewFormTexts {
 }
 
 type VerdictHandler = Rc<dyn Fn(ReviewVerdict, &mut Window, &mut App)>;
+type ReviewSubmitHandler = Rc<dyn Fn(ReviewVerdict, SharedString, &mut Window, &mut App)>;
 
 /// Submit a review (`.t3-reviewform`, `layer-01`, 30rem): the summary text
 /// area on `field-02`, three radio cards (Comment / Approve / Request
@@ -576,7 +596,12 @@ pub struct ReviewForm {
     id: ElementId,
     submit_label: SharedString,
     submit_disabled: bool,
+    flat: bool,
+    hint: Option<SharedString>,
+    require_content_unless_approve: bool,
+    has_line_comments: bool,
     on_submit: Option<VerdictHandler>,
+    on_submit_review: Option<ReviewSubmitHandler>,
     texts: ReviewFormTexts,
 }
 
@@ -587,7 +612,12 @@ impl ReviewForm {
             id: id.into(),
             submit_label: "Submit review".into(),
             submit_disabled: false,
+            flat: false,
+            hint: None,
+            require_content_unless_approve: false,
+            has_line_comments: false,
             on_submit: None,
+            on_submit_review: None,
             texts: ReviewFormTexts::default(),
         }
     }
@@ -604,9 +634,42 @@ impl ReviewForm {
         self
     }
 
+    /// Flat full-width layout on `background` (`PullRequestDetail` board).
+    pub fn flat(mut self, flat: bool) -> Self {
+        self.flat = flat;
+        self
+    }
+
+    /// Helper hint placed to the left of `Submit review`.
+    pub fn hint(mut self, hint: impl Into<SharedString>) -> Self {
+        self.hint = Some(hint.into());
+        self
+    }
+
+    /// Disable submit for `Comment` / `Changes` when both summary text and line comments are empty.
+    pub fn require_content_unless_approve(mut self, require: bool) -> Self {
+        self.require_content_unless_approve = require;
+        self
+    }
+
+    /// Whether pending line comments are attached to this review.
+    pub fn has_line_comments(mut self, has: bool) -> Self {
+        self.has_line_comments = has;
+        self
+    }
+
     /// Submit pressed with the chosen verdict (`onSubmit(type)`).
     pub fn on_submit(mut self, f: impl Fn(ReviewVerdict, &mut Window, &mut App) + 'static) -> Self {
         self.on_submit = Some(Rc::new(f));
+        self
+    }
+
+    /// Submit pressed with both chosen verdict and summary text, clearing the field.
+    pub fn on_submit_review(
+        mut self,
+        f: impl Fn(ReviewVerdict, SharedString, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_submit_review = Some(Rc::new(f));
         self
     }
 
@@ -639,9 +702,12 @@ fn radio_circle(checked: bool) -> gpui_kit::Div {
 impl RenderOnce for ReviewForm {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
+        let flat = self.flat;
         let text = window
             .use_keyed_state((id.clone(), "text"), cx, |window, cx| {
-                cx.new(|cx| TextareaState::new(window, cx))
+                let ts = cx.new(|cx| TextareaState::new(window, cx));
+                cx.observe(&ts, |_, _, cx| cx.notify()).detach();
+                ts
             })
             .read(cx)
             .clone();
@@ -649,6 +715,11 @@ impl RenderOnce for ReviewForm {
             .use_keyed_state((id.clone(), "verdict"), cx, |_, _| ReviewVerdict::Comment)
             .clone();
         let chosen = *verdict.read(cx);
+        let empty_blocked = self.require_content_unless_approve
+            && chosen != ReviewVerdict::Approve
+            && !self.has_line_comments
+            && text.read(cx).value().trim().is_empty();
+        let submit_disabled = self.submit_disabled || empty_blocked;
         let handles: Vec<FocusHandle> = (0..3)
             .map(|i| focus_handle(&craft::sub(&id, "opt", i), window, cx))
             .collect();
@@ -663,6 +734,19 @@ impl RenderOnce for ReviewForm {
                 .use_keyed_state(craft::sub(&id, "opt-hover", i), cx, |_, _| false)
                 .clone();
             let is_hovered = *hovered.read(cx);
+            let card_bg = if flat {
+                if is_hovered {
+                    ColorRole::LayerHover01
+                } else if on {
+                    ColorRole::LayerSelected01
+                } else {
+                    ColorRole::Layer01
+                }
+            } else if is_hovered {
+                ColorRole::LayerHover02
+            } else {
+                ColorRole::Layer02
+            };
             press(craft::sub(&id, "opt", i), &focus)
                 .role(gpui_kit::Role::RadioButton)
                 .accessibility_label(title.clone())
@@ -671,12 +755,9 @@ impl RenderOnce for ReviewForm {
                 .w_full()
                 .items_start()
                 .gap(rem(12.))
-                .p(rem(12.))
-                .bg(color(if is_hovered {
-                    ColorRole::LayerHover02
-                } else {
-                    ColorRole::Layer02
-                }))
+                .py(rem(12.))
+                .px(rem(if flat { 16. } else { 12. }))
+                .bg(color(card_bg))
                 .on_hover(move |h, _, cx| {
                     hovered.update(cx, |x, cx| {
                         *x = *h;
@@ -698,18 +779,24 @@ impl RenderOnce for ReviewForm {
                         .child(sans(div(), 14., 600).child(title))
                         .child(craft::text(desc, 12., ColorRole::TextSecondary).mt(px(2.))),
                 )
-                // `.t3-opt--on { box-shadow: inset 0 0 0 2px var(--border-interactive) }`.
                 .when(on, |this| {
-                    this.child(
-                        div()
-                            .absolute()
-                            .top_0()
-                            .left_0()
-                            .right_0()
-                            .bottom_0()
-                            .border_2()
-                            .border_color(color(ColorRole::BorderInteractive)),
-                    )
+                    if flat {
+                        this.child(super::pull_request::start_bar(color(
+                            ColorRole::BorderInteractive,
+                        )))
+                    } else {
+                        // `.t3-opt--on { box-shadow: inset 0 0 0 2px var(--border-interactive) }`.
+                        this.child(
+                            div()
+                                .absolute()
+                                .top_0()
+                                .left_0()
+                                .right_0()
+                                .bottom_0()
+                                .border_2()
+                                .border_color(color(ColorRole::BorderInteractive)),
+                        )
+                    }
                 })
                 // `.t3-opt:focus-within { outline: 2px solid var(--focus); outline-offset: -2px }`.
                 .when(ring, |this| this.child(craft::focus_ring()))
@@ -735,28 +822,35 @@ impl RenderOnce for ReviewForm {
             }
         };
         let on_submit = self.on_submit.clone();
+        let on_submit_review = self.on_submit_review.clone();
+        let text_for_submit = text.clone();
+        let has_submit_cb = on_submit.is_some() || on_submit_review.is_some();
         sans(div(), 14., 400)
             .id(id.clone())
             .flex()
             .flex_col()
             .gap(rem(16.))
             .w_full()
-            .max_w(rem(480.))
-            .p(rem(16.))
-            .bg(color(ColorRole::Layer01))
+            .when(!flat, |d| {
+                d.max_w(rem(480.)).p(rem(16.)).bg(color(ColorRole::Layer01))
+            })
             .child(
                 Textarea::new((id.clone(), "summary"), &text)
                     .label(self.texts.summary.clone())
                     .placeholder(self.texts.placeholder.clone())
                     .rows(3)
-                    .layer(LayerLevel::Two),
+                    .layer(if flat {
+                        LayerLevel::One
+                    } else {
+                        LayerLevel::Two
+                    }),
             )
             .child(
                 div()
                     .id((id.clone(), "group"))
                     .flex()
                     .flex_col()
-                    .gap(px(1.))
+                    .map(|d| if flat { d.gap(rem(8.)) } else { d.gap(px(1.)) })
                     .on_key_down(group_keys)
                     .children(options),
             )
@@ -766,13 +860,32 @@ impl RenderOnce for ReviewForm {
                     .flex_wrap()
                     .justify_end()
                     .items_center()
-                    .gap(rem(8.))
+                    .gap(rem(if flat { 16. } else { 8. }))
+                    .when_some(self.hint, |row, hint| {
+                        row.child(
+                            craft::text(hint, 12., ColorRole::TextHelper)
+                                .flex_1()
+                                .min_w_0(),
+                        )
+                    })
                     .child(
                         Button::new((id, "submit"), self.submit_label.clone())
                             .size(ButtonSize::Sm)
-                            .disabled(self.submit_disabled)
-                            .when_some(on_submit, |b, f| {
-                                b.on_click(move |_, w, cx| f(*verdict.read(cx), w, cx))
+                            .disabled(submit_disabled)
+                            .when(has_submit_cb, |b| {
+                                b.on_click(move |_, w, cx| {
+                                    let v = *verdict.read(cx);
+                                    if let Some(f) = &on_submit {
+                                        f(v, w, cx);
+                                    }
+                                    if let Some(f) = &on_submit_review {
+                                        let body = SharedString::from(
+                                            text_for_submit.read(cx).value().to_string(),
+                                        );
+                                        text_for_submit.update(cx, |s, cx| s.set_value("", w, cx));
+                                        f(v, body, w, cx);
+                                    }
+                                })
                             }),
                     ),
             )
@@ -794,5 +907,11 @@ mod tests {
         let (fill, _, ring) = reaction_look(false, true);
         assert_eq!(fill, color(ColorRole::LayerAccentHover01));
         assert!(ring.is_none());
+        let form = ReviewForm::new("test")
+            .flat(true)
+            .require_content_unless_approve(true)
+            .has_line_comments(true)
+            .hint("Hint");
+        assert!(form.flat && form.require_content_unless_approve && form.has_line_comments);
     }
 }
