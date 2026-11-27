@@ -18,8 +18,8 @@
 //!   floating shadow, 0.25rem block padding, 10rem–18rem wide (12rem with
 //!   icons or selectable items); items `text-secondary` body-compact-01,
 //!   1rem inline padding, height per size (24/32/40/48) or `density-row-md`
-//!   in compact density; hover `layer-hover` + `text-primary`; danger items
-//!   `text-error` at rest (as the live reference renders them); danger hover
+//!   in compact density; hover `layer-hover` + `text-primary`; danger labels
+//!   `text-error` at rest (icon and shortcut stay `text-secondary`); danger hover
 //!   and focus `button-danger-primary` + `text-on-color`; disabled
 //!   `text-disabled`; keyboard focus a 2px inset `focus` outline; dividers
 //!   1px `border-subtle-00` with 0.25rem margins.
@@ -179,13 +179,27 @@ impl MenuLook {
             // `.cds--menu-item:hover { background-color: var(--layer-hover); color: text-primary }`.
             return (color(LayerHover01), color(TextPrimary), outline);
         }
-        if state.danger {
-            // The live reference renders `kind="danger"` items in red at rest
-            // (`#da1e28` on White), not `text-secondary`; red text is `text-error`.
-            return (clear, color(TextError), outline);
-        }
-        // `.cds--menu-item { color: var(--text-secondary) }`.
+        // `.cds--menu-item { color: var(--text-secondary) }`; a danger item's
+        // label is red at rest ([`Self::label`]).
         (clear, color(TextSecondary), outline)
+    }
+
+    /// The label color of an item in `state`: the item color, except a
+    /// danger item at rest, whose label is `text-error` (`t3.css` app-r3 "the
+    /// dangerous git menu item reads as dangerous before hover", also in
+    /// `bundle.css`: `.cds--menu-item--danger:not(.cds--menu-item--disabled)
+    /// .cds--menu-item__label { color: var(--text-error) }`, and `:hover`,
+    /// `:focus` labels `text-on-color`). The rule names `text-error`, not
+    /// `support-error`, in every theme (G90/G100 `#ffb3b8`/`#ff8389`); no later
+    /// u0/t3 rule overrides it. Only the label: the icon and shortcut keep the
+    /// item color.
+    pub fn label(state: ItemState) -> Hsla {
+        let (_, text, _) = Self::item(state);
+        if state.danger && !state.disabled && !state.hovered && !state.focused {
+            color(ColorRole::TextError)
+        } else {
+            text
+        }
     }
 }
 
@@ -826,6 +840,7 @@ impl RenderOnce for Menu {
                 disabled: *disabled,
             };
             let (bg, text, outline) = MenuLook::item(item_state);
+            let label_color = MenuLook::label(item_state);
             let row_id = ElementId::NamedChild(
                 std::sync::Arc::new(id.clone()),
                 SharedString::from(format!("row-{index}")),
@@ -880,6 +895,7 @@ impl RenderOnce for Menu {
                         .overflow_hidden()
                         .whitespace_nowrap()
                         .text_ellipsis()
+                        .text_color(label_color)
                         .child(label.clone()),
                 )
                 .when_some(shortcut.clone(), |this, shortcut| {
@@ -1197,7 +1213,13 @@ mod tests {
         };
         crate::theme::tests_set(CarbonTheme::White);
         let (bg, text, _) = MenuLook::item(danger);
-        assert_eq!((bg.a, hex(text)), (0., "#da1e28".into()));
+        assert_eq!((bg.a, hex(text)), (0., "#525252".into()));
+        assert_eq!(hex(MenuLook::label(danger)), "#da1e28");
+        let hovered = ItemState {
+            hovered: true,
+            ..danger
+        };
+        assert_eq!(hex(MenuLook::label(hovered)), "#ffffff");
         assert_eq!(hex(MenuLook::current().divider), "#e0e0e0");
         // Disabled wins over danger.
         let (_, text, _) = MenuLook::item(ItemState {
@@ -1206,8 +1228,11 @@ mod tests {
         });
         assert_eq!(text, color(ColorRole::TextDisabled));
         crate::theme::tests_set(CarbonTheme::G90);
-        let (_, text, _) = MenuLook::item(danger);
-        assert_eq!(hex(text), "#ffb3b8");
+        // `text-error`, not `support-error` (#ff8389 on G90).
+        assert_eq!(hex(MenuLook::label(danger)), "#ffb3b8");
+        crate::theme::tests_set(CarbonTheme::G100);
+        assert_eq!(hex(MenuLook::label(danger)), "#ff8389");
+        crate::theme::tests_set(CarbonTheme::G90);
         assert_eq!(hex(MenuLook::current().divider), "#525252");
         crate::theme::tests_set(CarbonTheme::White);
     }
