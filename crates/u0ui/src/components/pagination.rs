@@ -379,11 +379,19 @@ fn picker(
                         ),
                 ),
             // `.cds--pagination-nav__select-icon`: the overflow icon over a
-            // transparent `<select>`, no caret.
-            PickerLook::Overflow(size) => this.size(rem(size)).justify_center().child(
-                Icon::carbon(CarbonIcon::OverflowMenuHorizontal)
-                    .size(IconSize::S16)
-                    .color(color(ColorRole::IconPrimary)),
+            // transparent `<select>`, no caret, at `inset-block-start:
+            // calc(50% - 0.25rem); inset-inline-start: calc(50% - 0.5rem)`, so
+            // 4px below center (20px into a 48px item).
+            PickerLook::Overflow(size) => this.size(rem(size)).relative().child(
+                div()
+                    .absolute()
+                    .top(rem(size / 2. - 4.))
+                    .left(rem(size / 2. - 8.))
+                    .child(
+                        Icon::carbon(CarbonIcon::OverflowMenuHorizontal)
+                            .size(IconSize::S16)
+                            .color(color(ColorRole::IconPrimary)),
+                    ),
             ),
         })
         .when(focused, |this| {
