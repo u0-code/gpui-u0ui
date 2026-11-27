@@ -30,6 +30,7 @@
 use super::button::{Button, ButtonSize, ButtonVariant};
 use super::overlay::{self, OpenChange, Translate, rem};
 use crate::{
+    density::{self, Density},
     icons::{CarbonIcon, Icon, IconSize},
     motion::{self, Curve, Motion, Speed},
     theme::color,
@@ -396,6 +397,20 @@ struct Handles {
     close: FocusHandle,
 }
 
+/// The footer buttons' size. Comfortable: `.cds--modal-footer .cds--btn {
+/// height: 4rem }`, the xl (64px) button. Compact: the compact button rule
+/// (`[data-density="compact"] .cds--btn:not(.cds--btn--sm):not(.cds--btn--xl)
+/// :not(.cds--btn--2xl)`, five classes) beats the modal-footer one
+/// (`[data-density="compact"] .cds--modal-footer .cds--btn:not(.cds--btn--sm)`,
+/// four), so the buttons are `density-field-md` (32px, padding-block 0, text
+/// centered) at the top of the 64px footer, as the reference computes.
+pub fn footer_button_size(density: Density) -> ButtonSize {
+    match density {
+        Density::Compact => ButtonSize::Lg,
+        Density::Comfortable => ButtonSize::Xl,
+    }
+}
+
 impl RenderOnce for Dialog {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
@@ -562,6 +577,7 @@ impl RenderOnce for Dialog {
             })
             .children(self.children);
 
+        let footer_button = footer_button_size(density::current());
         let footer = (!passive).then(|| {
             let secondary = self.secondary_text.clone().map(|text| {
                 let on_secondary = self.on_secondary.clone();
@@ -569,7 +585,7 @@ impl RenderOnce for Dialog {
                 div().w_1_2().child(
                     Button::new((id.clone(), "secondary"), text)
                         .variant(ButtonVariant::Secondary)
-                        .size(ButtonSize::Xl)
+                        .size(footer_button)
                         .full_width(true)
                         .track_focus(&secondary_focus)
                         .on_click(move |_, window, cx| match &on_secondary {
@@ -587,7 +603,7 @@ impl RenderOnce for Dialog {
                         } else {
                             ButtonVariant::Primary
                         })
-                        .size(ButtonSize::Xl)
+                        .size(footer_button)
                         .full_width(true)
                         .disabled(self.primary_disabled)
                         .track_focus(&primary_focus)
@@ -598,12 +614,13 @@ impl RenderOnce for Dialog {
                         }),
                 )
             });
-            // `.cds--modal-footer`: 4rem, flex-end.
+            // `.cds--modal-footer`: 4rem, flex-end; compact buttons sit at its top.
             div()
                 .flex()
                 .flex_row()
                 .flex_shrink_0()
                 .justify_end()
+                .items_start()
                 .h(rem(64.))
                 .children(secondary)
                 .children(primary)
@@ -711,6 +728,14 @@ mod tests {
         assert_eq!(ModalGeometry::of(DialogSize::Lg, 85.).width, 0.72);
         let narrow = ModalGeometry::of(DialogSize::Md, 40.);
         assert_eq!((narrow.width, narrow.centered), (1., false));
+    }
+
+    #[test]
+    fn footer_buttons_are_32px_in_compact_and_64px_in_comfortable() {
+        let compact = footer_button_size(Density::Compact);
+        let comfortable = footer_button_size(Density::Comfortable);
+        assert_eq!(compact.height(Density::Compact), 32.);
+        assert_eq!(comfortable.height(Density::Comfortable), 64.);
     }
 
     #[test]
