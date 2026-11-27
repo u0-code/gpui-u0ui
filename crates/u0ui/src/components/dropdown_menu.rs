@@ -121,6 +121,7 @@ pub struct DropdownMenu {
     id: ElementId,
     label: Option<SharedString>,
     overflow_label: SharedString,
+    overflow_icon: CarbonIcon,
     kind: DropdownMenuKind,
     size: Option<DropdownMenuSize>,
     open: Option<bool>,
@@ -137,6 +138,7 @@ impl DropdownMenu {
             label: None,
             // The reference overflow trigger's `label="Options"`; override per locale.
             overflow_label: "Options".into(),
+            overflow_icon: CarbonIcon::OverflowMenuVertical,
             kind: DropdownMenuKind::Primary,
             size: None,
             open: None,
@@ -155,6 +157,13 @@ impl DropdownMenu {
     /// Accessible name and tooltip of the overflow trigger.
     pub fn overflow_label(mut self, label: impl Into<SharedString>) -> Self {
         self.overflow_label = label.into();
+        self
+    }
+
+    /// The overflow trigger's icon (default `OverflowMenuVertical`; toolbars
+    /// use `OverflowMenuHorizontal`).
+    pub fn overflow_icon(mut self, icon: CarbonIcon) -> Self {
+        self.overflow_icon = icon;
         self
     }
 
@@ -237,7 +246,7 @@ impl RenderOnce for DropdownMenu {
             None => Button::new((id.clone(), "button"), self.overflow_label.clone())
                 .variant(ButtonVariant::Ghost)
                 .size(size.button())
-                .icon(CarbonIcon::OverflowMenuVertical)
+                .icon(self.overflow_icon)
                 .icon_only(true)
                 .tooltip(!open)
                 .selected(open)
