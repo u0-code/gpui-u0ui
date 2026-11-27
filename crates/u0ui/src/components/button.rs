@@ -211,7 +211,8 @@ pub struct ButtonState {
     pub hovered: bool,
     /// Pointer pressed on the button (`:active`).
     pub pressed: bool,
-    /// Keyboard focus is on the button (`:focus`).
+    /// Keyboard focus is on the button (`:focus-visible`): a button
+    /// clicked keeps its focus but shows no ring.
     pub focused: bool,
     /// Disabled (or loading).
     pub disabled: bool,
@@ -805,7 +806,7 @@ impl RenderOnce for Button {
             ButtonState {
                 hovered: p.hovered && !inert,
                 pressed: p.pressed && !inert,
-                focused: focus.is_focused(window),
+                focused: crate::u0::primitives::parts::focus_visible(&focus, window),
                 disabled: self.disabled,
             }
         };
