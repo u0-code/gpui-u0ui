@@ -5,7 +5,8 @@
 //!   ("Switch agent" → the agents). The bar shows a back arrow and a
 //!   breadcrumb once a page is pushed; Esc goes back (or closes at the top),
 //!   Backspace in an empty input goes back, and the input clears on every
-//!   page change. The caller renders the results for the current page and
+//!   page change. Like the reference's `<input autoFocus>`, the input takes
+//!   focus when the palette mounts. The caller renders the results for the current page and
 //!   pushes pages through the [`PaletteNav`] it is handed.
 //! - [`PaletteItem`]: one result: glyph, title, detail, shortcut keys and a
 //!   chevron when it opens a page; the active row is `layer-selected-01`
@@ -448,6 +449,7 @@ pub struct PalettePage {
     on_back: Option<Handler>,
     on_close: Option<Handler>,
     texts: PalettePageTexts,
+    auto_focus: bool,
 }
 
 impl PalettePage {
@@ -460,7 +462,16 @@ impl PalettePage {
             on_back: None,
             on_close: None,
             texts: PalettePageTexts::default(),
+            auto_focus: true,
         }
+    }
+
+    /// Focus the input when the palette mounts (the reference's `<input
+    /// autoFocus>`; on by default). Turn it off for a second palette on the
+    /// same screen so it does not take focus from the first.
+    pub fn auto_focus(mut self, auto_focus: bool) -> Self {
+        self.auto_focus = auto_focus;
+        self
     }
 
     /// The initial stack (`pages`).
@@ -530,8 +541,16 @@ impl RenderOnce for PalettePage {
             self.pages.clone()
         };
         let stack = window.use_keyed_state((id.clone(), "stack"), cx, move |_, _| initial);
-        let input = window.use_keyed_state((id.clone(), "input"), cx, |window, cx| {
-            cx.new(|cx| InputState::new(window, cx))
+        let auto_focus = self.auto_focus;
+        let input = window.use_keyed_state((id.clone(), "input"), cx, move |window, cx| {
+            let input = cx.new(|cx| InputState::new(window, cx));
+            if auto_focus {
+                // `<input autoFocus>`: focus once the first frame has the
+                // input's focus handle in its dispatch tree.
+                let focus = gpui_kit::Focusable::focus_handle(input.read(cx), cx);
+                window.defer(cx, move |window, cx| focus.focus(window, cx));
+            }
+            input
         });
         let input = input.read(cx).clone();
         let pages = stack.read(cx).clone();

@@ -47,6 +47,7 @@ fn agents(prefix: &'static str) -> Vec<AnyElement> {
 fn reference() -> impl IntoElement {
     div().w_full().max_w(rems(35.)).child(
         PalettePage::new("pal-ref")
+            .auto_focus(false)
             .pages([
                 PaletteLevel::new("Commands"),
                 PaletteLevel::new("Switch agent").placeholder("Choose an agent"),
@@ -61,6 +62,7 @@ pub fn palette_thumbnail(_: &mut Window, _: &mut App) -> AnyElement {
         .w(rems(15.))
         .child(
             PalettePage::new("pal-thumb")
+                .auto_focus(false)
                 .pages([
                     PaletteLevel::new("Commands"),
                     PaletteLevel::new("Switch agent"),
