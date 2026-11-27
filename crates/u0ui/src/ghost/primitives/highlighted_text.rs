@@ -1,6 +1,7 @@
 //! HighlightedText: fuzzy-match highlighting (`HighlightedText`, `fuzzyMatch`
-//! in `src/ghost/primitives.jsx`). Matched characters turn 600 weight and get
-//! an underline, so a match never depends on color alone (`.g-hl`).
+//! in `src/ghost/primitives.jsx`). Matched characters turn 600 weight in
+//! `text-primary`, so a match never depends on color alone (`.g-hl`, as
+//! restyled by `src/t3.css` gemini-G: no underline).
 //!
 //! Used by ⌘K, ⌘P, @ mentions and filter menus.
 //!
@@ -11,8 +12,7 @@
 //! ```
 use crate::{theme::color, tokens::ColorRole};
 use gpui_kit::{
-    App, FontWeight, HighlightStyle, IntoElement, RenderOnce, SharedString, StyledText,
-    UnderlineStyle, Window, px,
+    App, FontWeight, HighlightStyle, IntoElement, RenderOnce, SharedString, StyledText, Window,
 };
 use std::ops::Range;
 
@@ -45,19 +45,15 @@ pub fn fuzzy_match(text: &str, query: &str) -> Option<Vec<usize>> {
     (j == query.len()).then_some(hits)
 }
 
-/// The `.g-hl` highlight: `background: none; color: var(--text-primary);
-/// font-weight: 600; text-decoration: underline; text-decoration-color:
-/// var(--border-interactive)` (the 2px underline offset has no GPUI
-/// equivalent; the underline sits at the font's position).
+/// The `.g-hl` highlight. `src/ghost.css` underlines it in
+/// `border-interactive`, but the later gemini-G rule in `src/t3.css` wins:
+/// `.g-hl { text-decoration: none; font-weight: 600; color:
+/// var(--text-primary) }` ("fuzzy-match hits are weight + ink, not a blue
+/// underline cutting through glyphs").
 pub fn highlight_style() -> HighlightStyle {
     HighlightStyle {
         color: Some(color(ColorRole::TextPrimary)),
         font_weight: Some(FontWeight::SEMIBOLD),
-        underline: Some(UnderlineStyle {
-            thickness: px(1.),
-            color: Some(color(ColorRole::BorderInteractive)),
-            wavy: false,
-        }),
         ..Default::default()
     }
 }
@@ -193,9 +189,9 @@ mod tests {
     }
 
     #[test]
-    fn highlight_is_weight_and_underline_not_only_color() {
-        // `.g-hl { color: text-primary; font-weight: 600; text-decoration:
-        // underline; text-decoration-color: border-interactive }`.
+    fn highlight_is_weight_and_ink_without_underline() {
+        // gemini-G: `.g-hl { text-decoration: none; font-weight: 600; color:
+        // var(--text-primary) }`.
         crate::theme::tests_set(CarbonTheme::G100);
         {
             let style = highlight_style();
@@ -204,11 +200,7 @@ mod tests {
                 style.color,
                 Some(color_in(CarbonTheme::G100, ColorRole::TextPrimary))
             );
-            let underline = style.underline.expect("underlined");
-            assert_eq!(
-                underline.color,
-                Some(color_in(CarbonTheme::G100, ColorRole::BorderInteractive))
-            );
+            assert!(style.underline.is_none());
             assert!(style.background_color.is_none());
         }
     }
