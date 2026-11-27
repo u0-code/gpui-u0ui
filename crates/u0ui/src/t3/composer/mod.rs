@@ -3,16 +3,22 @@
 //!
 //! | Card | Types |
 //! | --- | --- |
+//! | ComposerAttachmentStrip | [`ComposerAttachmentStrip`] |
 //! | ComposerCommandMenu | [`ComposerCommandMenu`] |
 //! | ContextChip | [`ContextChip`] |
 //! | EffortGlyph | [`EffortGlyph`], [`ComposerControl`] |
 //! | QueuedRunsControl | [`QueuedRunsControl`] |
 //! | ReadOnlyComposerBar | [`ReadOnlyComposerBar`] |
+mod attachments;
 mod chip;
 mod controls;
 mod menu;
 mod queue;
 
+pub use attachments::{
+    AttachmentFile, AttachmentImage, AttachmentImageState, AttachmentTexts,
+    ComposerAttachmentStrip, thumb_geometry, upload_scrim,
+};
 pub use chip::{
     ChipGeometry, ChipLook, ContextChip, ContextChipKind, ContextChipShape, ContextChipState,
 };
