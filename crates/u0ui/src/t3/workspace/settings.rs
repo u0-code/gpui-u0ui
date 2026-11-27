@@ -961,9 +961,44 @@ impl KeybindingRow {
     }
 }
 
+/// The width of the longest word of `text` in 14px Plex Sans: the
+/// min-content width CSS gives the command (GPUI measures text only at its
+/// full width, so it cannot hold a wrapping column at its longest word).
+fn longest_word_width(text: &str, window: &Window) -> gpui_kit::Pixels {
+    let size = rem(14.).to_pixels(window.rem_size());
+    text.split_whitespace()
+        .map(|word| {
+            let run = gpui_kit::TextRun {
+                len: word.len(),
+                font: crate::typography::font(crate::tokens::FontFamilyKey::Sans, 400),
+                color: gpui_kit::black(),
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            };
+            window
+                .text_system()
+                .shape_line(SharedString::from(word.to_string()), size, &[run], None)
+                .width
+        })
+        .fold(px(0.), |a, b| a.max(b))
+        // Whole pixels and one to spare: the line wrapper breaks a word
+        // that only just fits its measured width.
+        .ceil()
+        + px(1.)
+}
+
 impl RenderOnce for KeybindingRow {
-    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, _: &mut App) -> impl IntoElement {
         let id = self.id.clone();
+        // `1fr` is `minmax(auto, 1fr)`: the command column never gets
+        // narrower than its longest word plus the tag at its 2rem minimum.
+        let word = longest_word_width(&self.command, window);
+        let command_min = if self.custom {
+            word + rem(8. + crate::components::badge::MIN_WIDTH).to_pixels(window.rem_size())
+        } else {
+            word
+        };
         let [keys_w, when_w, warn_w, edit_w] = KEYBINDING_COLUMNS;
         let on_edit = self.on_edit.clone();
         // `.t3-kbrow { display: grid; align-items: center; gap: spacing-04;
@@ -987,15 +1022,19 @@ impl RenderOnce for KeybindingRow {
                     .flex()
                     .flex_row()
                     .flex_1()
-                    .min_w_0()
+                    .min_w(command_min)
                     .items_center()
                     .gap(rem(8.))
-                    .child(self.command.clone())
+                    // The command wraps and the tag gives way (`C…`) in a
+                    // narrow row, as the `1fr` grid column does: neither
+                    // runs under the key caps.
+                    .child(div().min_w(word).child(self.command.clone()))
                     .when(self.custom, |this| {
                         this.child(
                             Badge::new(self.texts.custom.clone())
                                 .variant(BadgeVariant::Blue)
-                                .size(BadgeSize::Sm),
+                                .size(BadgeSize::Sm)
+                                .shrink(true),
                         )
                     }),
             )

@@ -461,6 +461,7 @@ pub struct Badge {
     on_click: Option<Handler>,
     selectable: Option<(bool, Option<SelectHandler>)>,
     colors: Option<(Hsla, Hsla)>,
+    shrink: bool,
 }
 
 impl Badge {
@@ -479,7 +480,18 @@ impl Badge {
             on_click: None,
             selectable: None,
             colors: None,
+            shrink: false,
         }
+    }
+
+    /// Let the tag shrink in a crowded flex row down to its 2rem minimum,
+    /// its label ending in an ellipsis (`.cds--tag` keeps CSS's
+    /// `flex-shrink: 1` with `min-inline-size: 2rem`). Off by default: in
+    /// GPUI a text sibling cannot shrink below its full width, so a tag that
+    /// shrinks by default would give way before the text does.
+    pub fn shrink(mut self, shrink: bool) -> Self {
+        self.shrink = shrink;
+        self
     }
 
     /// Paint a read-only tag in a pattern library's own pair (fill, text),
@@ -687,11 +699,13 @@ impl RenderOnce for Badge {
             }
         };
 
+        let shrink = self.shrink;
         let shell = |el: gpui_kit::Stateful<gpui_kit::Div>| {
             el.relative()
                 .flex()
                 .flex_row()
                 .flex_none()
+                .when(shrink, |this| this.flex_shrink(1.))
                 .items_center()
                 .justify_center()
                 .h(rem(geometry.height))
