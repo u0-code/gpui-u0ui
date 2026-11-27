@@ -6,8 +6,10 @@
 //! `components/AppShell/preview.html`.
 //!
 //! The shell has no breakpoints of its own (`.t3-shell*` in `src/t3.css`):
-//! its 16rem sidebar, 20rem right panel and a readable main column need
-//! [`NATURAL_WIDTH`]. Narrower stages draw it scaled down whole
+//! its 16rem sidebar and 20rem right panel are `flex: none` and the main
+//! column (`flex: 1; min-width: 0`) narrows, its header title ellipsizing.
+//! Only a stage narrower than the fixed columns ([`natural_width`]), where
+//! the reference itself would overflow, draws it scaled down whole
 //! ([`fit_width`]) rather than scrolling sideways or dropping regions.
 use super::stack;
 use crate::controls;
@@ -92,9 +94,14 @@ fn body(prefix: &str) -> impl IntoElement {
         ))
 }
 
-/// The width (rems) the reference layout needs: the 16rem sidebar, the
-/// 20rem right panel and the 29rem the ChatHeader needs to show its status.
-const NATURAL_WIDTH: f32 = 65.;
+/// The width (rems) below which the reference layout overflows: its fixed
+/// columns, `.t3-shell-sidebar { flex: none; width: 16rem }` and
+/// `.t3-shell-right { flex: none; width: 20rem }`; `.t3-shell-main {
+/// min-width: 0 }` adds nothing. Wider stages lay the shell out at 1x.
+pub fn natural_width(sidebar: bool, right: bool) -> f32 {
+    let w: f32 = if sidebar { 16. } else { 0. } + if right { 20. } else { 0. };
+    w.max(1.)
+}
 
 /// Region switches: sidebar, header, right panel, terminal, active thread.
 type Flags = (bool, bool, bool, bool, usize);
@@ -220,7 +227,11 @@ impl Render for ShellPage {
                 controls::setter(&entity, |this: &mut ShellPage, on| this.terminal = on),
             ));
         Body::new()
-            .playground(fit_width("shell-live-fit", NATURAL_WIDTH, live))
+            .playground(fit_width(
+                "shell-live-fit",
+                natural_width(self.sidebar, self.right),
+                live,
+            ))
             .hint("Click a thread to make it active")
             // The panel wraps below the stage before the shell has to scale.
             .stage_min_width(64.)
@@ -229,9 +240,23 @@ impl Render for ShellPage {
                 "Reference preview",
                 fit_width(
                     "shell-ref-fit",
-                    NATURAL_WIDTH,
+                    natural_width(true, true),
                     shell((true, true, true, true, 0), "ref", None),
                 ),
             ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::natural_width;
+
+    #[test]
+    fn scales_only_below_the_fixed_columns() {
+        // 16rem sidebar + 20rem right panel; the main column may shrink to 0.
+        assert_eq!(natural_width(true, true), 36.);
+        assert_eq!(natural_width(true, false), 16.);
+        assert_eq!(natural_width(false, true), 20.);
+        assert_eq!(natural_width(false, false), 1.);
     }
 }
