@@ -418,6 +418,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("right-panel-tabs-overflow", "RightPanelTabsOverflow", U0_SHELL, Component::RightPanelTabsOverflow.summary(), pages::u0_shell::right_panel_tabs_overflow::build).thumbnail(pages::u0_shell::right_panel_tabs_overflow::thumbnail),
     PageDef::new("server-chip", "ServerChip", U0_SHELL, Component::ServerChip.summary(), pages::u0_shell::server::build_server_chip).thumbnail(pages::u0_shell::server::chip_thumbnail),
     PageDef::new("server-header", "ServerHeader", U0_SHELL, Component::ServerHeader.summary(), pages::u0_shell::server::build_server_header).thumbnail(pages::u0_shell::server::header_thumbnail),
+    PageDef::new("command-box", "CommandBox", U0_SHELL, "The command centre in a top bar: it looks like a search field and is a button that opens the command palette under it.", pages::u0_shell::command_box::build).thumbnail(pages::u0_shell::command_box::thumbnail),
     // Carbon · Patterns (src/patterns.css)
     PageDef::new("pattern-common-actions", "PatternCommonActions", "Carbon · Patterns", Component::PatternCommonActions.summary(), pages::patterns::common_actions::build).thumbnail(pages::patterns::common_actions::thumbnail),
     PageDef::new("pattern-dialogs", "PatternDialogs", "Carbon · Patterns", Component::PatternDialogs.summary(), pages::patterns::dialogs::build).thumbnail(pages::patterns::dialogs::thumbnail),
