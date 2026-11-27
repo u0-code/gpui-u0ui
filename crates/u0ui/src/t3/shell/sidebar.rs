@@ -5,6 +5,7 @@ use super::super::base::{Spin, Status, fmt_elapsed, ink, stroke_arc, warning_gly
 use super::super::craft::{mono, press, sans};
 use super::super::press::{Handler, focus, hover, icon, inset_frame, rem, ring, track_hover};
 use super::{EnvironmentBadge, IdentitySize, ProjectFavicon};
+use crate::t3::review::PullRequestState;
 use crate::{
     components::{
         button::{Button, ButtonSize, ButtonVariant},
@@ -539,77 +540,26 @@ impl RenderOnce for SidebarShelfHeader {
 
 // ── PullRequestMiniBadge ────────────────────────────────────────────────
 
-/// A pull request state (`state`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum PrState {
-    /// `open` (the default).
-    #[default]
-    Open,
-    /// `draft`.
-    Draft,
-    /// `merged`.
-    Merged,
-    /// `closed`.
-    Closed,
-}
-
-impl PrState {
-    /// Every state.
-    pub const ALL: [PrState; 4] = [Self::Open, Self::Draft, Self::Merged, Self::Closed];
-
-    /// The reference name.
-    pub const fn name(self) -> &'static str {
-        match self {
-            Self::Open => "open",
-            Self::Draft => "draft",
-            Self::Merged => "merged",
-            Self::Closed => "closed",
-        }
-    }
-
-    /// The capitalised name used in the badge title (`Open`).
-    pub const fn title(self) -> &'static str {
-        match self {
-            Self::Open => "Open",
-            Self::Draft => "Draft",
-            Self::Merged => "Merged",
-            Self::Closed => "Closed",
-        }
-    }
-
-    /// (background, text): `.t3-pr--open` green tag, `--draft` gray,
-    /// `--merged` purple, `--closed` red.
-    pub fn colors(self) -> (Hsla, Hsla) {
-        let (bg, fg) = match self {
-            Self::Open => (ColorRole::TagBackgroundGreen, ColorRole::TagColorGreen),
-            Self::Draft => (ColorRole::TagBackgroundGray, ColorRole::TagColorGray),
-            Self::Merged => (ColorRole::TagBackgroundPurple, ColorRole::TagColorPurple),
-            Self::Closed => (ColorRole::TagBackgroundRed, ColorRole::TagColorRed),
-        };
-        (color(bg), color(fg))
-    }
-}
-
 /// A compact PR badge (`PullRequestMiniBadge`, `.t3-prmini`): 12px
 /// `PullRequest` glyph and number on a tag-colored pill, titled
 /// `PR #<n> - <State>`.
 #[derive(IntoElement)]
 pub struct PullRequestMiniBadge {
     number: u32,
-    state: PrState,
+    state: PullRequestState,
 }
 
 impl PullRequestMiniBadge {
     /// The badge for PR `number` in `state`.
-    pub fn new(number: u32, state: PrState) -> Self {
+    pub fn new(number: u32, state: PullRequestState) -> Self {
         Self { number, state }
     }
 }
 
 impl RenderOnce for PullRequestMiniBadge {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
-        let (bg, fg) = self.state.colors();
-        let title: SharedString = format!("PR #{} - {}", self.number, self.state.title()).into();
+        let (bg, fg) = self.state.tag_colors();
+        let title: SharedString = format!("PR #{} - {}", self.number, self.state.label()).into();
         // `.t3-prmini { gap: 2px; padding: 0 var(--spacing-02); font-size:
         // 0.6875rem; line-height: 1rem; border-radius: var(--border-radius-16) }`.
         sans(div(), 11., 400)
@@ -654,7 +604,7 @@ pub struct ThreadRow {
     draft: bool,
     draft_label: SharedString,
     active: bool,
-    pull_request: Option<(u32, PrState)>,
+    pull_request: Option<(u32, PullRequestState)>,
     provider: Option<SharedString>,
     jump_hint: Option<SharedString>,
     branch: Option<SharedString>,
@@ -739,7 +689,7 @@ impl ThreadRow {
     }
 
     /// The thread's pull request (`pullRequest`).
-    pub fn pull_request(mut self, number: u32, state: PrState) -> Self {
+    pub fn pull_request(mut self, number: u32, state: PullRequestState) -> Self {
         self.pull_request = Some((number, state));
         self
     }
@@ -1245,7 +1195,7 @@ mod tests {
         assert_eq!((hex(bg), hex(fg)), ("#e8e8e8".into(), "#161616".into()));
         let (bg, _) = thread_row_colors(true, true);
         assert_eq!(hex(bg), "#e0e0e0");
-        let (bg, fg) = PrState::Merged.colors();
+        let (bg, fg) = PullRequestState::Merged.tag_colors();
         assert_eq!((hex(bg), hex(fg)), ("#e8daff".into(), "#6929c4".into()));
     }
 

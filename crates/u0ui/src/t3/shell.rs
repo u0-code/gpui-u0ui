@@ -46,7 +46,7 @@ pub use chrome::{
 };
 pub use palette::{CommandPalette, ListFilter, ListToolbar, PaletteGroup, PaletteItem};
 pub use sidebar::{
-    FolderCounts, PrState, ProjectFolderHeader, PullRequestMiniBadge, SidebarBrandHeader,
+    FolderCounts, ProjectFolderHeader, PullRequestMiniBadge, SidebarBrandHeader,
     SidebarShelfHeader, ThreadRow, UpdatePill, UpdateState,
 };
 

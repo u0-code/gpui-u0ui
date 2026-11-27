@@ -10,8 +10,9 @@ use gpui_kit::{
 use u0ui::prelude::*;
 use u0ui::t3::Status;
 use u0ui::t3::base::use_ticker;
+use u0ui::t3::review::PullRequestState;
 use u0ui::t3::shell::{
-    ConnectionStatus, EnvironmentBadge, FolderCounts, MachineKind, PrState, ProjectFolderHeader,
+    ConnectionStatus, EnvironmentBadge, FolderCounts, MachineKind, ProjectFolderHeader,
     SidebarBrandHeader, SidebarShelfHeader, ThreadRow, UpdatePill, UpdateState,
 };
 
@@ -388,7 +389,7 @@ fn thread_reference(prefix: &str) -> impl IntoElement {
             ThreadRow::new(id("4"), "Write migration guide")
                 .status(Status::Done)
                 .time("1h")
-                .pull_request(482, PrState::Open),
+                .pull_request(482, PullRequestState::Open),
         )
         .child(
             ThreadRow::new(id("5"), "Refactor toolbar")
@@ -457,7 +458,7 @@ impl Render for ThreadPage {
             row = row.snoozed_until("Mon 9:00");
         }
         row = match self.side {
-            1 => row.pull_request(482, PrState::Open),
+            1 => row.pull_request(482, PullRequestState::Open),
             2 => row.jump_hint("⌘3"),
             3 => row.pinned(true),
             _ => row,
@@ -514,7 +515,7 @@ impl Render for ThreadPage {
                 self.draft,
                 controls::setter(&entity, |this: &mut ThreadPage, on| this.draft = on),
             ));
-        let prs = panel(320.).children(PrState::ALL.map(|s| {
+        let prs = panel(320.).children(PullRequestState::ALL.map(|s| {
             ThreadRow::new(super::eid("pr-row", s.name()), format!("PR {}", s.name()))
                 .status(Status::Done)
                 .time("1h")

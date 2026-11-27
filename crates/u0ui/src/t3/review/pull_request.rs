@@ -74,6 +74,19 @@ impl PullRequestState {
         })
     }
 
+    /// `(background, text)` of the sidebar's mini badge (`.t3-prmini`):
+    /// `.t3-pr--open` green tag, `--draft` gray, `--merged` purple,
+    /// `--closed` red.
+    pub fn tag_colors(self) -> (Hsla, Hsla) {
+        let (bg, fg) = match self {
+            Self::Open => (ColorRole::TagBackgroundGreen, ColorRole::TagColorGreen),
+            Self::Draft => (ColorRole::TagBackgroundGray, ColorRole::TagColorGray),
+            Self::Merged => (ColorRole::TagBackgroundPurple, ColorRole::TagColorPurple),
+            Self::Closed => (ColorRole::TagBackgroundRed, ColorRole::TagColorRed),
+        };
+        (color(bg), color(fg))
+    }
+
     /// The detail header's tag (`merged` purple, `open` green, else gray).
     pub const fn badge(self) -> BadgeVariant {
         match self {

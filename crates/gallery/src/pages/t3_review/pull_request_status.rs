@@ -12,7 +12,7 @@ use u0ui::t3::review::{
     ChecksGlyph, ChecksStatus, DiffStat, LabelChip, PullRequestState, PullRequestStateGlyph,
     ReviewDecision, ReviewDecisionBadge,
 };
-use u0ui::t3::shell::{PrState, PullRequestMiniBadge};
+use u0ui::t3::shell::PullRequestMiniBadge;
 
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
@@ -56,8 +56,8 @@ fn reference() -> gpui_kit::Div {
                         .child(PullRequestStateGlyph::new(s))
                         .child(s.name())
                 }))
-                .child(PullRequestMiniBadge::new(482, PrState::Open))
-                .child(PullRequestMiniBadge::new(470, PrState::Merged)),
+                .child(PullRequestMiniBadge::new(482, PullRequestState::Open))
+                .child(PullRequestMiniBadge::new(470, PullRequestState::Merged)),
         )
         .child(
             row()
