@@ -24,11 +24,12 @@ struct NavigationMenuPage {
 }
 
 fn search_action(id: &'static str) -> Button {
-    // `HeaderGlobalAction`: a 3rem ghost icon button.
+    // The preview's `Button iconOnly variant="ghost"` (size lg): 3rem, or
+    // `density-field-md` (2rem) under compact density
+    // (`[data-density="compact"] .cds--btn--icon-only`).
     Button::new(id, "Search")
         .variant(ButtonVariant::Ghost)
         .size(ButtonSize::Lg)
-        .density(Density::Comfortable)
         .icon(CarbonIcon::Search)
         .icon_only(true)
 }
