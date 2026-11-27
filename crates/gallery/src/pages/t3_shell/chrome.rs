@@ -146,18 +146,27 @@ impl Render for HeaderPage {
 
 // ── RightPanelTabs ──────────────────────────────────────────────────────
 
+/// The preview.html tabs: Diff, localhost, Terminal, Files, Pull request,
+/// Device.
 fn reference_tabs() -> Vec<SurfaceTab> {
     vec![
         SurfaceTab::new("diff", "Diff", SurfaceKind::Diff),
         SurfaceTab::new("b", "localhost:5173", SurfaceKind::Browser).closable(true),
         SurfaceTab::new("t", "Terminal", SurfaceKind::Terminal).closable(true),
         SurfaceTab::new("f", "Files", SurfaceKind::Files),
-        SurfaceTab::new("info", "Details", SurfaceKind::Details),
         SurfaceTab::new("pr", "Pull request", SurfaceKind::Pr)
             .disabled_reason("No pull request on this branch yet."),
         SurfaceTab::new("dev", "Device", SurfaceKind::Device)
             .disabled_reason("Only available in the desktop app."),
     ]
+}
+
+/// The playground's tabs: the reference set plus u0's Details surface
+/// after Files.
+fn live_tabs() -> Vec<SurfaceTab> {
+    let mut tabs = reference_tabs();
+    tabs.insert(4, SurfaceTab::new("info", "Details", SurfaceKind::Details));
+    tabs
 }
 
 const MAX_VISIBLE: [&str; 4] = ["all", "4", "3", "2"];
@@ -173,7 +182,7 @@ struct TabsPage {
 /// Build the RightPanelTabs page.
 pub fn build_right_panel_tabs(_: &mut Window, cx: &mut App) -> AnyView {
     cx.new(|_| TabsPage {
-        tabs: reference_tabs(),
+        tabs: live_tabs(),
         value: "diff".into(),
         max: 0,
         add: true,
@@ -276,7 +285,7 @@ impl Render for TabsPage {
                         let entity = entity.clone();
                         move |_, _, cx| {
                             entity.update(cx, |this, cx| {
-                                this.tabs = reference_tabs();
+                                this.tabs = live_tabs();
                                 this.value = "diff".into();
                                 cx.notify();
                             })
