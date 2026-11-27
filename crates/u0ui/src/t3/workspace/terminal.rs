@@ -2,7 +2,7 @@
 //! "Terminal" in `src/t3.css`).
 use super::parts::{child_id, icon_button};
 use crate::{
-    components::{Button, ScrollArea},
+    components::{Button, ScrollArea, ScrollAxes},
     icons::CarbonIcon,
     motion,
     t3::{
@@ -15,9 +15,10 @@ use crate::{
     u0::primitives::parts::{focus_slot, insert_slot_anchor, vacate_slot},
 };
 use gpui_kit::{
-    Animation, AnimationExt as _, AnyElement, App, CursorStyle, ElementId, InteractiveElement as _,
-    IntoElement, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
-    Window, div, prelude::FluentBuilder as _, px, relative,
+    Animation, AnimationExt as _, AnyElement, App, CursorStyle, ElementId, HighlightStyle,
+    InteractiveElement as _, IntoElement, ParentElement, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled, StyledText, TestSupportExt as _, Window, div,
+    prelude::FluentBuilder as _, px, relative,
 };
 use std::{rc::Rc, time::Duration};
 
@@ -88,6 +89,26 @@ pub const BLINK_PERIOD: Duration = Duration::from_secs(1);
 /// from the middle).
 pub fn blink_opacity(t: f32) -> f32 {
     if t.rem_euclid(1.) < 0.5 { 1. } else { 0. }
+}
+
+/// The `.t3-term-view` text: the lines joined by newlines (`white-space:
+/// pre-wrap` keeps their spaces), then, while running, the cursor's space
+/// (`.t3-term-cursor`) with its byte range.
+pub fn screen_text(
+    lines: &[SharedString],
+    running: bool,
+) -> (SharedString, Option<std::ops::Range<usize>>) {
+    let mut text = lines
+        .iter()
+        .map(|l| l.as_ref())
+        .collect::<Vec<_>>()
+        .join("\n");
+    if !running {
+        return (text.into(), None);
+    }
+    let at = text.len();
+    text.push(' ');
+    (text.into(), Some(at..at + 1))
 }
 
 /// The bottom terminal drawer (`TerminalDrawer`, `.t3-term`): a 32px tab
@@ -425,61 +446,49 @@ impl RenderOnce for TerminalDrawer {
 
         let ink = color(ColorRole::TerminalText);
         let blink = !motion::reduced_motion(cx);
-        let n = self.lines.len();
-        let line = |text: &SharedString| {
-            div().min_h(rem(16.)).child(if text.is_empty() {
-                " ".into()
+        // `<pre className="t3-term-view">{lines.join('\n')}<span className="t3-term-cursor">
+        // </span></pre>`: one pre-wrapped text run, so a long line wraps at the column edge and
+        // the cursor sits inline at the end of the last (wrapped) line.
+        let (screen, cursor) = screen_text(&self.lines, self.exited.is_none());
+        let mut view: Vec<AnyElement> = Vec::new();
+        if let Some(range) = cursor {
+            // `.t3-term-cursor { display: inline-block; width: 7px; background: terminal-text;
+            // animation: cu-blink 1s steps(1) infinite }` over its space: a highlighted space
+            // in the monospace run (one 0.6em advance, 7.2px at 12px) one line tall; steady
+            // under reduced motion (blink stops).
+            let text = move |on: bool| {
+                StyledText::new(screen.clone()).with_highlights(on.then(|| {
+                    (
+                        range.clone(),
+                        HighlightStyle {
+                            background_color: Some(ink),
+                            ..Default::default()
+                        },
+                    )
+                }))
+            };
+            view.push(if blink {
+                text(true)
+                    .with_animation(
+                        (id.clone(), "cursor"),
+                        Animation::new(BLINK_PERIOD).repeat(),
+                        move |_, t| text(blink_opacity(t) > 0.),
+                    )
+                    .into_any_element()
             } else {
-                text.clone()
-            })
-        };
-        let mut view: Vec<AnyElement> = self
-            .lines
-            .iter()
-            .take(n.saturating_sub(1))
-            .map(|t| line(t).into_any_element())
-            .collect();
-        let last = self.lines.last().cloned().unwrap_or_default();
-        match self.exited {
-            Some(code) => {
-                if n > 0 {
-                    view.push(line(&last).into_any_element());
-                }
-                // `.t3-term-exit { color: terminal-text; opacity: .7 }` (after a newline).
-                view.push(
-                    div()
-                        .opacity(0.7)
-                        .child((texts.exited)(code))
-                        .into_any_element(),
-                );
-            }
-            None => {
-                // `.t3-term-cursor { display: inline-block; width: 7px; background:
-                // terminal-text; animation: cu-blink 1s steps(1) infinite }`; steady under
-                // reduced motion (blink stops).
-                let cursor = div().flex_none().w(rem(7.)).h(rem(16.)).bg(ink);
-                let cursor = if blink {
-                    cursor
-                        .with_animation(
-                            (id.clone(), "cursor"),
-                            Animation::new(BLINK_PERIOD).repeat(),
-                            |c, t| c.opacity(blink_opacity(t)),
-                        )
-                        .into_any_element()
-                } else {
-                    cursor.into_any_element()
-                };
-                view.push(
-                    div()
-                        .flex()
-                        .flex_row()
-                        .flex_wrap()
-                        .items_start()
-                        .when(!last.is_empty(), |this| this.child(last.clone()))
-                        .child(cursor)
-                        .into_any_element(),
-                );
-            }
+                text(true).into_any_element()
+            });
+        } else if !self.lines.is_empty() {
+            view.push(StyledText::new(screen).into_any_element());
+        }
+        if let Some(code) = self.exited {
+            // `.t3-term-exit { color: terminal-text; opacity: .7 }` (after a newline).
+            view.push(
+                div()
+                    .opacity(0.7)
+                    .child((texts.exited)(code))
+                    .into_any_element(),
+            );
         }
         // `.t3-term { display: flex; flex-direction: column; height: 100%; min-height: 12rem;
         // background: terminal-background; color: terminal-text }`.
@@ -511,12 +520,18 @@ impl RenderOnce for TerminalDrawer {
                 None => {
                     // `.t3-term-view { flex: 1; padding: spacing-03 spacing-04; overflow: auto;
                     // font-family: mono; font-size: 0.75rem; line-height: 1.33333; white-space: pre-wrap }`.
+                    // `white-space: pre-wrap` never overflows sideways: vertical scroll only.
                     ScrollArea::new((id.clone(), "view"))
+                        .axes(ScrollAxes::Vertical)
                         .flex_1()
                         .min_h_0()
                         .child(
                             mono(div(), 12., 400)
+                                .id((id.clone(), "screen"))
+                                .test_support()
+                                .w_full()
                                 .line_height(relative(1.33333))
+                                .whitespace_normal()
                                 .py(rem(8.))
                                 .px(rem(12.))
                                 .children(view),
@@ -537,6 +552,18 @@ mod tests {
         assert_eq!(blink_opacity(0.49), 1.);
         assert_eq!(blink_opacity(0.5), 0.);
         assert_eq!(blink_opacity(0.99), 0.);
+    }
+
+    #[test]
+    fn screen_text_joins_lines_and_ends_in_the_cursor() {
+        let lines: Vec<SharedString> = vec!["$ dev".into(), "".into(), "  ok".into()];
+        let (text, cursor) = screen_text(&lines, true);
+        assert_eq!(text.as_ref(), "$ dev\n\n  ok ");
+        assert_eq!(cursor, Some(11..12));
+        let (text, cursor) = screen_text(&lines, false);
+        assert_eq!(text.as_ref(), "$ dev\n\n  ok");
+        assert_eq!(cursor, None);
+        assert_eq!(screen_text(&[], true), (" ".into(), Some(0..1)));
     }
 
     #[test]
