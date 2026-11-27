@@ -90,6 +90,9 @@ impl SecretSource {
     }
 }
 
+/// `.g-secret-input { font-size: 0.875rem }`, typed or a mono reference.
+pub const SECRET_INPUT_PX: f32 = 14.;
+
 type SourceHandler = Rc<dyn Fn(SecretSource, &mut Window, &mut App)>;
 type TextHandler = Rc<dyn Fn(SharedString, &mut Window, &mut App)>;
 
@@ -288,13 +291,19 @@ impl RenderOnce for SecretField {
                 move |_, window, cx| focus.focus(window, cx)
             })
             .child(
-                if mono {
-                    parts::mono_editor(&input)
-                } else {
-                    parts::editor(&input)
-                }
-                .when_some(self.label.clone(), |e, l| e.aria_label(l))
-                .text_color(color(ColorRole::TextPrimary)),
+                // `.g-secret-input { font-size: 0.875rem }` comes after `.g-mono
+                // { font-size: 0.75rem }` at the same specificity, so a mono
+                // reference keeps the 14px size and only changes family
+                // (t3.css `input.g-mono { font-family: var(--font-mono) }`).
+                parts::editor(&input)
+                    .when(mono, |e| {
+                        e.font(crate::typography::font(
+                            crate::tokens::FontFamilyKey::Mono,
+                            400,
+                        ))
+                    })
+                    .when_some(self.label.clone(), |e, l| e.aria_label(l))
+                    .text_color(color(ColorRole::TextPrimary)),
             )
             .when(empty, |d| {
                 d.child(
@@ -309,16 +318,12 @@ impl RenderOnce for SecretField {
                         .overflow_hidden()
                         .whitespace_nowrap()
                         .text_color(color(ColorRole::TextPlaceholder))
-                        .map(|d| {
-                            if mono {
-                                d.font(crate::typography::font(
-                                    crate::tokens::FontFamilyKey::Mono,
-                                    400,
-                                ))
-                                .text_size(rem(12.))
-                            } else {
-                                d.text_size(rem(14.))
-                            }
+                        .text_size(rem(SECRET_INPUT_PX))
+                        .when(mono, |d| {
+                            d.font(crate::typography::font(
+                                crate::tokens::FontFamilyKey::Mono,
+                                400,
+                            ))
                         })
                         .child(placeholder),
                 )
@@ -402,6 +407,12 @@ mod tests {
         assert_eq!(SecretSource::Keychain.badge(), Some("Keychain"));
         assert_eq!(SecretSource::Plain.label(), "Typed value");
         assert_eq!(SecretSource::OnePassword.icon(), CarbonIcon::Key);
+    }
+
+    #[test]
+    fn mono_references_keep_the_input_size() {
+        // refrender --computed `.g-secret-input.g-mono`: 14px IBM Plex Mono.
+        assert_eq!(SECRET_INPUT_PX, 14.);
     }
 
     #[test]
