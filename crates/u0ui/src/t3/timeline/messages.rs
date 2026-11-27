@@ -29,8 +29,8 @@ use crate::{
 use gpui_kit::{
     AnyElement, App, ElementId, FocusHandle, FontWeight, InteractiveElement as _, IntoElement,
     ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, StyledText,
-    TextRun, Window, div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px,
-    relative,
+    TestSupportExt as _, TextRun, Window, div, linear_color_stop, linear_gradient,
+    prelude::FluentBuilder as _, px, relative,
 };
 use std::rc::Rc;
 
@@ -329,6 +329,8 @@ impl RenderOnce for UserMessage {
         // background: chat-bubble-user; color: chat-bubble-user-text;
         // outline: 1px solid chat-bubble-border; outline-offset: -1px }`, square (craft pass).
         let bubble = div()
+            .id((id.clone(), "bubble"))
+            .test_support()
             .flex()
             .flex_col()
             .max_w(rem(576.))
@@ -353,6 +355,15 @@ impl RenderOnce for UserMessage {
             })
             .child(text)
             .children(toggle);
+        // GPUI takes one max width, so the 90% half of `min(36rem, 90%)`
+        // is a wrapper as wide as 90% of the column.
+        let bubble = div()
+            .flex()
+            .flex_col()
+            .items_end()
+            .max_w(relative(0.9))
+            .min_w_0()
+            .child(bubble);
         div()
             .id(id.clone())
             .flex()
