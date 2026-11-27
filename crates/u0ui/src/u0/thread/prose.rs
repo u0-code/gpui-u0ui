@@ -935,8 +935,18 @@ impl MarkdownProse {
     }
 }
 
-/// A list's rows: a 1.5em marker column (`text-secondary` disc or number,
-/// right-aligned), then the item and its nested lists.
+/// A bullet's disc in the 1.5em marker column at text size `body`: (size,
+/// left inset, top inset) in px. Chromium draws a 14px item's disc 5px
+/// across, 5px into the column and 9px below the top of its 22px first line
+/// (measured from the reference render), so 11px clear of the text; it
+/// scales with the font size.
+pub fn disc_geometry(body: f32) -> (f32, f32, f32) {
+    let k = body / BODY.0;
+    (5. * k, 5. * k, 9. * k)
+}
+
+/// A list's rows: a 1.5em marker column (`text-secondary` disc, or a
+/// right-aligned number), then the item and its nested lists.
 fn list(
     ordered: bool,
     start: usize,
@@ -951,26 +961,36 @@ fn list(
         .flex()
         .flex_col()
         .children(items.iter().enumerate().map(|(i, it)| {
+            // `.g-prose ul, ol { padding-left: 1.5em }`, `li::marker {
+            // color: var(--text-secondary) }`.
+            let marker = div()
+                .flex()
+                .flex_none()
+                .w(rem(1.5 * body))
+                .text_color(color(ColorRole::TextSecondary));
             let marker = if ordered {
-                format!("{}.", start + i)
+                marker
+                    .justify_end()
+                    .pr(px(6.))
+                    .child(format!("{}.", start + i))
             } else {
-                "•".to_string()
+                // Chromium's `list-style: disc` marker at this size: a filled
+                // disc, measured from the reference render.
+                let (size, left, top) = disc_geometry(body);
+                marker.child(
+                    div()
+                        .flex_none()
+                        .size(rem(size))
+                        .ml(rem(left))
+                        .mt(rem(top))
+                        .rounded_full()
+                        .bg(color(ColorRole::TextSecondary)),
+                )
             };
             div()
                 .flex()
                 .when(i > 0, |d| d.mt(li_gap))
-                .child(
-                    // `.g-prose ul, ol { padding-left: 1.5em }`, `li::marker {
-                    // color: var(--text-secondary) }`.
-                    div()
-                        .flex()
-                        .flex_none()
-                        .justify_end()
-                        .w(rem(1.5 * body))
-                        .pr(px(6.))
-                        .text_color(color(ColorRole::TextSecondary))
-                        .child(marker),
-                )
+                .child(marker)
                 .child(
                     div()
                         .flex()
@@ -1357,5 +1377,15 @@ mod tests {
         // 18.9px tall (13 × 1.3 + 2) centred in them.
         assert_eq!(CODE_LINE, 19.5);
         assert!(box_height(14.) < CODE_LINE);
+    }
+
+    #[test]
+    fn bullets_are_chromium_discs() {
+        // Measured from the reference: a 5px disc 5px into the 21px marker
+        // column, 9px below the 22px line's top, 11px clear of the text.
+        let (size, left, top) = disc_geometry(BODY.0);
+        assert_eq!((size, left, top), (5., 5., 9.));
+        assert_eq!(1.5 * BODY.0 - left - size, 11.);
+        assert!((top + size / 2. - BODY.1 / 2.).abs() <= 0.5);
     }
 }
