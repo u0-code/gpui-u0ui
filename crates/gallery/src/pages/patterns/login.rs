@@ -180,11 +180,18 @@ fn form(f: Form) -> impl IntoElement {
             .icon(CarbonIcon::Launch)
             .full_width(true),
         )
-        // `marginTop: 24`.
-        .child(div().mt(tokens::SPACING_06).child(sentence(
-            "Need help?",
-            link(format!("{p}-support"), "Contact support", false),
-        )))
+        // `marginTop: 24`; it is a `.cu-plogin-sub`, so its `margin: 0 0
+        // var(--spacing-06)` bottom margin stays inside the form's padding
+        // (the reference frame is 512px, not the 31rem minimum).
+        .child(
+            div()
+                .mt(tokens::SPACING_06)
+                .mb(tokens::SPACING_06)
+                .child(sentence(
+                    "Need help?",
+                    link(format!("{p}-support"), "Contact support", false),
+                )),
+        )
 }
 
 /// `.cu-plogin-art { position: absolute; inset: 0 0 45% 0; background:
