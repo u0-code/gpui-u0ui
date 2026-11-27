@@ -5,10 +5,12 @@
 //!
 //! Values come from `src/ghost.css`; the identity glyphs, status dots and the
 //! spinner are the T3 ones ([`crate::t3::shell`], [`crate::t3::base`]).
+mod command_box;
 pub(crate) mod filter_menu;
 mod server;
 mod thread_row;
 
+pub use command_box::{CommandBox, CommandBoxLook};
 pub use filter_menu::{
     FilterItem, FilterMenu, FilterMenuTexts, filter_items, option_focus, toggle_value,
     toggles_checkbox, trigger_ink,
