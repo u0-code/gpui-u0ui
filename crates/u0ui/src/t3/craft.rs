@@ -106,9 +106,9 @@ pub(crate) fn focus_handle(id: &ElementId, window: &mut Window, cx: &mut App) ->
         .clone()
 }
 
-/// Whether `focus` shows `:focus-visible` (focused by keyboard).
+/// Whether `focus` shows `:focus-visible` (see [`crate::focus`]).
 pub(crate) fn focus_visible(focus: &FocusHandle, window: &Window) -> bool {
-    focus.is_focused(window) && window.last_input_was_keyboard()
+    focus.is_focused(window) && crate::focus::focus_visible_mode(window)
 }
 
 /// An unstyled Base button for `id` tracking `focus`: start-aligned, the

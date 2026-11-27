@@ -230,7 +230,7 @@ impl RenderOnce for Toggle {
             .use_keyed_state((id.clone(), "focus"), cx, |_, cx| cx.focus_handle())
             .read(cx)
             .clone();
-        let focus_visible = focus.is_focused(window) && window.last_input_was_keyboard();
+        let focus_visible = focus.is_focused(window) && crate::focus::focus_visible_mode(window);
         let look = ToggleLook::of(
             self.variant,
             ToggleState {

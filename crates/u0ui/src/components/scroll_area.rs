@@ -384,7 +384,7 @@ impl RenderOnce for ScrollArea {
         let focus_visible = self.focusable
             && focus.is_focused(window)
             && match self.focus_ring {
-                ScrollFocusRing::FocusVisible => window.last_input_was_keyboard(),
+                ScrollFocusRing::FocusVisible => crate::focus::focus_visible_mode(window),
                 ScrollFocusRing::Focus => true,
                 ScrollFocusRing::Hidden => false,
             };

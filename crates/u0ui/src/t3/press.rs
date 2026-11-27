@@ -53,7 +53,7 @@ pub(crate) fn focus(
         .use_keyed_state(id, cx, |_, cx| cx.focus_handle())
         .read(cx)
         .clone();
-    let visible = handle.is_focused(window) && window.last_input_was_keyboard();
+    let visible = handle.is_focused(window) && crate::focus::focus_visible_mode(window);
     (handle, visible)
 }
 

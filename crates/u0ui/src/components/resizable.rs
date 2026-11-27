@@ -433,7 +433,7 @@ fn render_handle(
         let p = pointer.read(cx);
         p.hit || p.grip
     };
-    let focus_visible = focus.is_focused(window) && window.last_input_was_keyboard();
+    let focus_visible = focus.is_focused(window) && crate::focus::focus_visible_mode(window);
     let line = handle_color(hovered, focus_visible, dragging);
     let cursor = if horizontal {
         CursorStyle::ResizeLeftRight

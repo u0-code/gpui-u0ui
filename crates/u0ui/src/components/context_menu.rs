@@ -118,7 +118,7 @@ impl RenderOnce for ContextMenu {
         // The area is a tab stop of ours (the reference's `.cu-context-area`
         // is not focusable), so keyboard focus shows the 2px `focus` ring
         // every focusable element draws.
-        let ring = area_focus.is_focused(window) && window.last_input_was_keyboard();
+        let ring = area_focus.is_focused(window) && crate::focus::focus_visible_mode(window);
         let (open, at) = {
             let p = placed.read(cx);
             (p.open, p.at)

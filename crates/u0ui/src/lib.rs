@@ -43,6 +43,7 @@
 pub mod clock;
 pub mod components;
 pub mod density;
+pub mod focus;
 pub mod icons;
 pub mod motion;
 pub mod patterns;
@@ -85,6 +86,7 @@ pub fn init(cx: &mut gpui_kit::App) {
     typography::register_fonts(cx);
     theme::init(cx);
     icons::init(cx);
+    focus::init(cx);
     components::tooltip::init(cx);
     components::menu::init(cx);
     components::navigation_menu::init(cx);

@@ -434,7 +434,7 @@ impl RenderOnce for UserInputCard {
                     hovered,
                     on,
                     option_focus[k.min(option_focus.len() - 1)].is_focused(window)
-                        && window.last_input_was_keyboard(),
+                        && crate::focus::focus_visible_mode(window),
                 )
                 .child(
                     div()

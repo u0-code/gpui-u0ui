@@ -419,7 +419,7 @@ impl RenderOnce for ThemeEditor {
             let tile_id: ElementId = (id.clone(), SharedString::from(format!("sw-{i}"))).into();
             let (over, store) = hover((tile_id.clone(), "hover"), window, cx);
             let focus = gpui_kit::Focusable::focus_handle(picker.read(cx), cx);
-            let ring = focus.is_focused(window) && window.last_input_was_keyboard();
+            let ring = focus.is_focused(window) && crate::focus::focus_visible_mode(window);
             let open = picker.clone();
             tiles.push(
                 div()

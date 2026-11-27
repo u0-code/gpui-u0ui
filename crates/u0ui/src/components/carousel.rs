@@ -412,7 +412,8 @@ impl RenderOnce for Carousel {
                     })
                     .read(cx)
                     .clone();
-                let focus_visible = focus.is_focused(window) && window.last_input_was_keyboard();
+                let focus_visible =
+                    focus.is_focused(window) && crate::focus::focus_visible_mode(window);
                 let (width, offset) = (DOT_FOCUS.0, DOT_FOCUS.1);
                 gpui_kit::base::Button::new((id.clone(), format!("dot-{k}")))
                     .track_focus(&focus)

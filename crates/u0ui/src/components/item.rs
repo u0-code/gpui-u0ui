@@ -236,7 +236,7 @@ impl RenderOnce for Item {
         let focused = focus_ring_visible(
             link,
             focus.is_focused(window),
-            window.last_input_was_keyboard(),
+            crate::focus::focus_visible_mode(window),
         );
         let (background, outline) = look(self.variant, link && *hovered.read(cx), self.level);
         let r = |v: f32| rems(v / 16.);

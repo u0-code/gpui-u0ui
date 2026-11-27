@@ -266,7 +266,8 @@ impl RenderOnce for ProgressIndicator {
                 })
                 .read(cx)
                 .clone();
-            let focused = can_click && focus.is_focused(window) && window.last_input_was_keyboard();
+            let focused =
+                can_click && focus.is_focused(window) && crate::focus::focus_visible_mode(window);
             let hovered_id: ElementId = (id.clone(), format!("label{i}")).into();
             let label = div()
                 .id(hovered_id)

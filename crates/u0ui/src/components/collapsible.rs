@@ -131,7 +131,7 @@ impl RenderOnce for Collapsible {
             .read(cx)
             .clone();
         // `:focus-visible`: keyboard focus only.
-        let focused = focus.is_focused(window) && window.last_input_was_keyboard();
+        let focused = focus.is_focused(window) && crate::focus::focus_visible_mode(window);
         let trace = self.trace;
         let (text, chevron) = if trace {
             (color(ColorRole::LinkPrimary), color(ColorRole::LinkPrimary))

@@ -67,9 +67,9 @@ pub fn focus_ring() -> Div {
     form::inset_outline(2., color(ColorRole::Focus))
 }
 
-/// Whether `focus` shows a `:focus-visible` ring (focused by keyboard).
+/// Whether `focus` shows a `:focus-visible` ring (see [`crate::focus`]).
 pub fn focus_visible(focus: &FocusHandle, window: &Window) -> bool {
-    focus.is_focused(window) && window.last_input_was_keyboard()
+    focus.is_focused(window) && crate::focus::focus_visible_mode(window)
 }
 
 /// A focus handle kept under `id` across frames.
