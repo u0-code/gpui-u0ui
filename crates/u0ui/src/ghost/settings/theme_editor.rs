@@ -462,7 +462,8 @@ impl RenderOnce for ThemeEditor {
                             .items_start()
                             .p(rem(12.))
                             .bg(layer_val)
-                            .child(sans(div(), 14., 600).child(self.texts.preview_title.clone()))
+                            // A bare `<b>` (Carbon's `b { font: inherit }`): 400.
+                            .child(sans(div(), 14., 400).child(self.texts.preview_title.clone()))
                             .child(
                                 // `p { margin: 4px 0 8px; color: vals['text-secondary'] }`.
                                 div()

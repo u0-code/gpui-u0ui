@@ -801,8 +801,10 @@ impl RenderOnce for CommitComposer {
             .h(density::current().row_lg())
             .px(tokens::SPACING_04)
             .text_color(color(ColorRole::TextPrimary))
+            // `.g-cc-head b` has no weight rule: Carbon's `b { font: inherit }`
+            // keeps it 400.
             .child(
-                sans(div(), 14., 600)
+                sans(div(), 14., 400)
                     .flex_none()
                     .child(self.texts.changes.clone()),
             )

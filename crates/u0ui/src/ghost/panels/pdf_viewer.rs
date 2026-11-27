@@ -472,7 +472,9 @@ impl RenderOnce for PdfViewer {
                 .flex_col()
                 .gap(px(8.))
                 .child(
-                    sans(div(), 12., 600)
+                    // `.g-pdf-sheet b`: no weight rule, so Carbon's
+                    // `b { font: inherit }` keeps it 400.
+                    sans(div(), 12., 400)
                         .text_color(ink)
                         .child((self.texts.page)(page)),
                 )
