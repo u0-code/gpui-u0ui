@@ -31,10 +31,9 @@ use crate::{
     typography::TypeStyled as _,
 };
 use gpui_kit::{
-    Animation, AnimationExt as _, App, ElementId, FontWeight, Hsla, ImageSource,
-    InteractiveElement, IntoElement, ObjectFit, ParentElement, RenderOnce, SharedString,
-    StatefulInteractiveElement as _, Styled, StyledImage as _, Window, canvas, div, img,
-    prelude::FluentBuilder as _, px,
+    App, ElementId, FontWeight, Hsla, ImageSource, InteractiveElement, IntoElement, ObjectFit,
+    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
+    StyledImage as _, Window, canvas, div, img, px,
 };
 use std::rc::Rc;
 use std::time::Duration;
@@ -312,7 +311,7 @@ fn paint_provider_spin(bounds: gpui_kit::Bounds<gpui_kit::Pixels>, turn: f32, wi
 }
 
 impl RenderOnce for ProviderIcon {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self
             .id
             .unwrap_or_else(|| ElementId::Name(format!("t3-provider-{}", self.name).into()));
@@ -351,25 +350,16 @@ impl RenderOnce for ProviderIcon {
             gpui_kit::transparent_black()
         };
         let spin = self.starting.then(|| {
-            let ring = div().size_full().with_animation(
-                (id.clone(), "spin"),
-                Animation::new(PROVIDER_SPIN_PERIOD).repeat(),
-                move |el, t| {
-                    // Reduced motion: rotation becomes a pulse (u0ui motion rules).
-                    let el = if reduced {
-                        el.opacity(super::base::pulse_opacity(t, EASE_IN_OUT))
-                    } else {
-                        el
-                    };
-                    let turn = if reduced { 0. } else { t };
-                    el.child(
-                        canvas(
-                            |_, _, _| {},
-                            move |b, _, window, _| paint_provider_spin(b, turn, window),
-                        )
-                        .size_full(),
-                    )
-                },
+            // Clock-driven, so it keeps going under reduced motion (GPUI's
+            // `with_animation` freezes there): ghost.css turns
+            // `.t3-provider-spin` into `g-pulse 1.4s ease-in-out` then.
+            let frame = super::base::spin_frame_now(PROVIDER_SPIN_PERIOD, reduced, window);
+            let ring = div().size_full().opacity(frame.opacity).child(
+                canvas(
+                    |_, _, _| {},
+                    move |b, _, window, _| paint_provider_spin(b, frame.turn, window),
+                )
+                .size_full(),
             );
             // `.t3-provider-spin { position: absolute; right: -4px; bottom: -4px; 10×10 }`.
             div()
@@ -389,7 +379,8 @@ impl RenderOnce for ProviderIcon {
             .size(px(edge))
             .rounded(px(TILE_RADIUS))
             .bg(ground)
-            .when(has_src, |this| this.overflow_hidden())
+            // `.t3-provider` does not clip: the starting ring overhangs the
+            // tile by 4px (`right: -4px; bottom: -4px`).
             .tooltip(title_tooltip(title))
             .child(mark)
             .children(spin)
