@@ -2,4 +2,5 @@
 pub mod composer_command_menu;
 pub mod context_chip;
 pub mod effort_glyph;
+pub mod queued_runs_control;
 pub mod read_only_composer_bar;
