@@ -4,8 +4,14 @@
 //! body and terminal are the real `ChatHeader`, `UserMessage` +
 //! `WorkingIndicator` and `TerminalDrawer`, as in
 //! `components/AppShell/preview.html`.
+//!
+//! The shell has no breakpoints of its own (`.t3-shell*` in `src/t3.css`):
+//! its 16rem sidebar, 20rem right panel and a readable main column need
+//! [`NATURAL_WIDTH`]. Narrower stages draw it scaled down whole
+//! ([`fit_width`]) rather than scrolling sideways or dropping regions.
 use super::stack;
 use crate::controls;
+use crate::fit::fit_width;
 use crate::page::Body;
 use gpui_kit::{
     AnyElement, AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render,
@@ -85,6 +91,10 @@ fn body(prefix: &str) -> impl IntoElement {
             74,
         ))
 }
+
+/// The width (rems) the reference layout needs: the 16rem sidebar, the
+/// 20rem right panel and the 29rem the ChatHeader needs to show its status.
+const NATURAL_WIDTH: f32 = 65.;
 
 /// Region switches: sidebar, header, right panel, terminal, active thread.
 type Flags = (bool, bool, bool, bool, usize);
@@ -210,15 +220,18 @@ impl Render for ShellPage {
                 controls::setter(&entity, |this: &mut ShellPage, on| this.terminal = on),
             ));
         Body::new()
-            .playground(div().w_full().child(live))
+            .playground(fit_width("shell-live-fit", NATURAL_WIDTH, live))
             .hint("Click a thread to make it active")
+            // The panel wraps below the stage before the shell has to scale.
             .stage_min_width(64.)
             .config(config)
             .example(controls::block(
                 "Reference preview",
-                div()
-                    .w_full()
-                    .child(shell((true, true, true, true, 0), "ref", None)),
+                fit_width(
+                    "shell-ref-fit",
+                    NATURAL_WIDTH,
+                    shell((true, true, true, true, 0), "ref", None),
+                ),
             ))
     }
 }

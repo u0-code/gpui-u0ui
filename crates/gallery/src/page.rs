@@ -38,7 +38,7 @@ use gpui_kit::{
 };
 use u0ui::prelude::*;
 
-/// The stage's minimum width before the configuration panel wraps below it.
+/// The stage's width before the configuration panel wraps below it.
 pub const STAGE_MIN_WIDTH: f32 = 24.;
 /// The configuration panel's width.
 pub const PANEL_WIDTH: f32 = 20.;
@@ -112,10 +112,14 @@ fn playground(
         .border_1()
         .border_color(color(ColorRole::BorderSubtle01))
         .child(
+            // The minimum is a flex basis, not a min-width: past it the panel
+            // wraps below, and a row narrower than it (a small window) shrinks
+            // the stage instead of scrolling sideways.
             div()
-                .flex_1()
+                .flex_basis(rems(stage_min_width))
                 .flex_grow(1000.)
-                .min_w(rems(stage_min_width))
+                .flex_shrink(1.)
+                .min_w_0()
                 .min_h(rems(16.))
                 .p(tokens::SPACING_07)
                 .flex()
