@@ -4,7 +4,9 @@
 //! - **Behavior** is Kit's: the window-level host is [`gpui_kit::base::Dialog`]
 //!   (focus trap, Escape, scrim press, deferred top layer). A `contained`
 //!   sheet fills its parent instead (`.cu-panel-overlay--contained`), so it
-//!   draws its own overlay with Base's focus trap and handles Escape itself.
+//!   draws its own overlay and handles Escape itself. It does not trap
+//!   focus: the reference `Panel` (`src/index.jsx`) has no trap, so Tab
+//!   runs Close → body → footer and then on to the rest of the page.
 //!   Open state, focus moves and motion come from [`super::overlay`].
 //! - **Appearance**: `layer-01` panel with the floating shadow on an `overlay`
 //!   scrim; heading-03 title, body-01 description in `text-secondary`, a 48px
@@ -25,8 +27,6 @@ use crate::{
     tokens::{ColorRole, TypeStyle},
     typography::TypeStyled as _,
 };
-use gpui_base::FocusTrapElement as _;
-use gpui_kit::base as gpui_base;
 use gpui_kit::{
     AnyElement, App, CursorStyle, ElementId, Hsla, InteractiveElement, IntoElement, KeyDownEvent,
     MouseButton, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
@@ -537,8 +537,8 @@ impl RenderOnce for Sheet {
                 .left_0()
                 .size_full()
                 .overflow_hidden()
+                // No focus trap: an in-page sheet is not modal (design review FB4).
                 .track_focus(&focus)
-                .focus_trap((id.clone(), "trap"), &focus)
                 .on_key_down(move |event: &KeyDownEvent, window, cx| {
                     if event.keystroke.key == "escape" && open {
                         set_escape(false, window, cx);
