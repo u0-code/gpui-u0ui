@@ -75,15 +75,35 @@ pub(crate) fn chevron_right(
         .rotate(gpui_kit::radians(angle))
 }
 
+/// The `ChevronDown` that turns −90° while closed (`.t3-rot { transform:
+/// rotate(-90deg) }`, no transition), in `ink`.
+pub(crate) fn chevron_down(open: bool, size: f32, ink: Hsla) -> Icon {
+    Icon::carbon(CarbonIcon::ChevronDown)
+        .size_length(rem(size))
+        .color(ink)
+        .rotate(gpui_kit::radians(chevron_down_angle(open)))
+}
+
+/// The [`chevron_down`] angle: 0 open, −90° closed.
+pub fn chevron_down_angle(open: bool) -> f32 {
+    if open {
+        0.
+    } else {
+        -std::f32::consts::FRAC_PI_2
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::tokens::CarbonTheme;
 
     #[test]
-    fn heads_brighten_on_hover() {
+    fn heads_brighten_on_hover_and_chevrons_turn() {
         crate::theme::tests_set(CarbonTheme::G100);
         assert_eq!(head_ink(false), color(ColorRole::TextSecondary));
         assert_eq!(head_ink(true), color(ColorRole::TextPrimary));
+        assert_eq!(chevron_down_angle(true), 0.);
+        assert_eq!(chevron_down_angle(false), -std::f32::consts::FRAC_PI_2);
     }
 }
