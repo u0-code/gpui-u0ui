@@ -989,7 +989,7 @@ fn rem(px_value: f32) -> gpui_kit::Rems {
 }
 
 /// `.cu-chart-legend i`: a 12px swatch, 4px before the label.
-fn legend_item(fill: Hsla, label: SharedString) -> impl IntoElement {
+pub fn legend_item(fill: Hsla, label: SharedString) -> impl IntoElement {
     div()
         .flex()
         .flex_row()
@@ -1005,8 +1005,8 @@ fn legend_item(fill: Hsla, label: SharedString) -> impl IntoElement {
 }
 
 /// `.cu-chart-legend { display: flex; flex-wrap: wrap; gap: spacing-02 spacing-05;
-/// font-size: 0.75rem; color: text-secondary }`.
-fn legend(vertical: bool) -> gpui_kit::Div {
+/// font-size: 0.75rem; color: text-secondary }`: the legend row (or column).
+pub fn legend(vertical: bool) -> gpui_kit::Div {
     div()
         .flex()
         .when(vertical, |d| d.flex_col().justify_center())
