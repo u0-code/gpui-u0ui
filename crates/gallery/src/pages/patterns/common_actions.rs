@@ -170,11 +170,12 @@ fn remove(p: &str, page: &Page, entity: &Entity<Page>, k: Knobs) -> AnyElement {
     div()
         .w_full()
         .bg(color(ColorRole::Layer01))
-        .children(page.members.iter().enumerate().map(|(i, m)| {
+        .children(page.members.iter().map(|m| {
             let entity = entity.clone();
             let member = *m;
             PatternRow::new().child(div().child(member)).child(
-                Button::new(id(p, &format!("rm{i}")), format!("Remove {member}"))
+                // Keyed by the member: removing one never hands its focus to the next.
+                Button::new(id(p, &format!("rm-{member}")), format!("Remove {member}"))
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::Sm)
                     .icon_only(true)

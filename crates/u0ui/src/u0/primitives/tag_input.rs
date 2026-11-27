@@ -270,10 +270,13 @@ impl RenderOnce for TagInput {
         let pick_active = Rc::new(pick_active);
         let count = all.len();
 
-        let remove_focuses: Vec<_> = (0..tags.len())
-            .map(|i| {
+        // Each chip is keyed by its text (`key={t}`), not its position, so a
+        // removed chip never hands its focus or hover to the one after it.
+        let remove_focuses: Vec<_> = tags
+            .iter()
+            .map(|t| {
                 parts::keyed_focus(
-                    (id.clone(), SharedString::from(format!("rm-focus-{i}"))),
+                    (id.clone(), SharedString::from(format!("rm-focus-{t}"))),
                     window,
                     cx,
                 )
@@ -293,7 +296,7 @@ impl RenderOnce for TagInput {
             let vacated = remove_focus.clone();
             let ring = parts::focus_visible(&remove_focus, window);
             let hover = window.use_keyed_state(
-                (id.clone(), SharedString::from(format!("rm-hover-{i}"))),
+                (id.clone(), SharedString::from(format!("rm-hover-{t}"))),
                 cx,
                 |_, _| false,
             );
@@ -318,7 +321,7 @@ impl RenderOnce for TagInput {
                 .child(
                     gpui_kit::base::Button::new((
                         id.clone(),
-                        SharedString::from(format!("rm-{i}")),
+                        SharedString::from(format!("rm-{t}")),
                     ))
                     .track_focus(&remove_focus)
                     .accessibility_label(format!("Remove {t}"))

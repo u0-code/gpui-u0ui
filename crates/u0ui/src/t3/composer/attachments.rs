@@ -288,9 +288,12 @@ impl RenderOnce for ComposerAttachmentStrip {
         let texts = self.texts.clone();
         let (side, x_at, x_pad) = thumb_geometry(self.in_composer);
         let mut children: Vec<AnyElement> = Vec::new();
-        for (i, image) in self.images.into_iter().enumerate() {
+        for image in self.images {
+            // Keyed by name (`key={im.name}`), not position: removing one
+            // never hands its focus or hover to the attachment after it.
+            let name = image.name.clone();
             let key = |part: &str| -> ElementId {
-                (id.clone(), SharedString::from(format!("{part}-{i}"))).into()
+                (id.clone(), SharedString::from(format!("{part}-{name}"))).into()
             };
             let remove_name = (texts.remove)(&image.name);
             let remove = self.on_remove.clone().map(|f| {
@@ -513,9 +516,12 @@ impl RenderOnce for ComposerAttachmentStrip {
                     .into_any_element(),
             );
         }
-        for (i, file) in self.files.into_iter().enumerate() {
+        for file in self.files {
             let mut chip = ContextChip::new(
-                (id.clone(), SharedString::from(format!("file-{i}"))),
+                (
+                    id.clone(),
+                    SharedString::from(format!("file-{}", file.name)),
+                ),
                 file.kind,
                 file.name.clone(),
             )

@@ -270,8 +270,11 @@ impl RenderOnce for DictionaryEditor {
             )
             .child(
                 // `.g-dict-list { display: flex; flex-wrap: wrap; gap: var(--spacing-02) }`.
-                div().flex().flex_wrap().gap(tokens::SPACING_02).children(
-                    words.into_iter().enumerate().map(|(i, w)| {
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .gap(tokens::SPACING_02)
+                    .children(words.into_iter().map(|w| {
                         let model = model.clone();
                         let word = w.clone();
                         // `.g-dict-list li { display: inline-flex; align-items:
@@ -294,7 +297,7 @@ impl RenderOnce for DictionaryEditor {
                                 // `.g-dict-list .g-iconbtn { width: 1.5rem; height: 1.5rem }`
                                 // with `<I.Close size={14} />`.
                                 IconButton::new(
-                                    parts_id(&id, i),
+                                    remove_id(&id, &w),
                                     CarbonIcon::Close,
                                     (self.texts.remove)(&w),
                                 )
@@ -305,15 +308,17 @@ impl RenderOnce for DictionaryEditor {
                                     model.update(cx, |m, cx| m.remove(&word, w, cx));
                                 }),
                             )
-                    }),
-                ),
+                    })),
             )
             .child(parts::helper((self.texts.count)(count)))
     }
 }
 
-fn parts_id(id: &ElementId, i: usize) -> ElementId {
-    (id.clone(), SharedString::from(format!("rm-{i}"))).into()
+/// A chip's × is keyed by its word (`<li key={x}>`), not its position, so
+/// removing a chip never hands its focus or hover to the chip that moves
+/// into its place.
+fn remove_id(id: &ElementId, word: &str) -> ElementId {
+    (id.clone(), SharedString::from(format!("rm-{word}"))).into()
 }
 
 #[cfg(test)]

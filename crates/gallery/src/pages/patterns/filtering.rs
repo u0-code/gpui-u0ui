@@ -169,9 +169,11 @@ fn horizontal(
         .chain(page.agent.clone())
         .chain(page.status.clone())
         .collect();
-    let tags = applied.iter().enumerate().map(|(i, label)| {
+    // Keyed by the filter, not its position: dismissing one never hands its
+    // focus to the tag after it.
+    let tags = applied.iter().map(|label| {
         let tag = Badge::new(label.clone())
-            .id(id(p, &format!("tag{i}")))
+            .id(id(p, &format!("tag-{label}")))
             .variant(BadgeVariant::HighContrast)
             .dismiss_label("Remove filter");
         match live {

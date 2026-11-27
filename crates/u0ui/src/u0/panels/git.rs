@@ -1351,8 +1351,7 @@ impl RenderOnce for LinkedItemsSection {
         } else {
             self.items
                 .iter()
-                .enumerate()
-                .map(|(i, it)| {
+                .map(|it| {
                     let glyph = match it.kind {
                         LinkedKind::PullRequest(s) => {
                             PullRequestStateGlyph::new(s).into_any_element()
@@ -1386,7 +1385,9 @@ impl RenderOnce for LinkedItemsSection {
                         )
                         .when_some(it.checks, |d, c| d.child(ChecksGlyph::new(c)))
                         .child(ghost_icon(
-                            (id.clone(), SharedString::from(format!("unlink-{i}"))),
+                            // Keyed by the item (`key={it.id}`): unlinking one
+                            // never hands its focus to the next row's button.
+                            (id.clone(), SharedString::from(format!("unlink-{}", it.id))),
                             (self.texts.unlink)(&it.id),
                             CarbonIcon::Unlink,
                             false,
