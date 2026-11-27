@@ -103,6 +103,17 @@ impl Truncate {
     }
 }
 
+/// Whether `(head, tail)` should render as two flex spans (`head` with a
+/// `1.5em` minimum width, `tail` capped at `70%`). When either half is empty
+/// (a bare file name in [`TruncateMode::Path`]) or a [`TruncateMode::Middle`]
+/// head is shorter than `1.5em` (`< 4` characters, such as `"main"`), a single
+/// ellipsis span avoids inserting a blank gap inside short text.
+fn uses_mid_split(head: &str, tail: &str, mode: TruncateMode) -> bool {
+    !head.is_empty()
+        && !tail.is_empty()
+        && !(mode == TruncateMode::Middle && head.chars().count() < 4)
+}
+
 impl RenderOnce for Truncate {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let full = self.text.clone();
@@ -120,6 +131,9 @@ impl RenderOnce for Truncate {
             return base.text_ellipsis().child(full);
         }
         let (head, tail) = split(&self.text, self.mode);
+        if !uses_mid_split(&head, &tail, self.mode) {
+            return base.text_ellipsis().child(full);
+        }
         // `.g-trunc-mid { display: flex }`; head `flex: 0 1 auto; min-width:
         // 1.5em`; tail `flex: none; max-width: 70%`.
         base.flex()
@@ -176,5 +190,11 @@ mod tests {
         );
         assert_eq!(split("README.md", TruncateMode::Path).0, "");
         assert_eq!(split("设置通用", TruncateMode::Middle).1, "通用");
+        let (h, t) = split("README.md", TruncateMode::Path);
+        assert!(!uses_mid_split(&h, &t, TruncateMode::Path));
+        let (h, t) = split("main", TruncateMode::Middle);
+        assert!(!uses_mid_split(&h, &t, TruncateMode::Middle));
+        let (h, t) = split("feature/dark", TruncateMode::Middle);
+        assert!(uses_mid_split(&h, &t, TruncateMode::Middle));
     }
 }
