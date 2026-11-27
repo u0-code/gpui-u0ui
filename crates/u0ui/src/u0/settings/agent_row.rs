@@ -148,8 +148,11 @@ pub fn progress_bar(
         window,
         cx,
     );
+    // An `inline-block` flex item of `.g-agent-prog`: 8rem, giving way
+    // when the status beside it needs the room.
     div()
-        .flex_none()
+        .flex_shrink(1.)
+        .min_w_0()
         .w(rem(BAR_WIDTH))
         .h(px(BAR_HEIGHT))
         .bg(color(ColorRole::LayerAccent01))
@@ -423,17 +426,19 @@ impl RenderOnce for AgentRow {
             };
             // `.g-agent-prog { display: inline-flex; align-items: center; gap:
             // var(--spacing-03); font-variant-numeric: tabular-nums }`.
+            // The status stays beside the bar and wraps its words; the bar
+            // shrinks with it (it never drops under the bar).
             sub.child(
                 div()
                     .flex()
-                    .flex_wrap()
                     .items_center()
                     .gap(tokens::SPACING_03)
                     .min_w_0()
                     .child(progress_bar(id.clone(), self.progress, window, cx))
                     .child(
                         div()
-                            .whitespace_nowrap()
+                            .flex_shrink(1.)
+                            .min_w_0()
                             .child(format!("{word} {}%", self.progress.round() as i64)),
                     ),
             )
@@ -455,7 +460,12 @@ impl RenderOnce for AgentRow {
         let switch_label = (self.texts.enabled)(&self.name);
         let switched = self.state != AgentState::Missing && !self.cancels();
 
+        // When even the text column's least width does not fit beside the
+        // buttons and the switch, they wrap to a second line at the end
+        // instead of running out of the row (the reference overflows).
         row::frame()
+            .flex_wrap()
+            .justify_end()
             .child(
                 ProviderIcon::new(self.name.clone())
                     .id((id.clone(), "mark"))
@@ -468,7 +478,11 @@ impl RenderOnce for AgentRow {
                 div()
                     .flex()
                     .flex_col()
-                    .flex_1()
+                    // `flex: 1` from a zero basis, so the row wraps only
+                    // once the text is down to its least width.
+                    .flex_grow(1.)
+                    .flex_shrink(1.)
+                    .flex_basis(px(0.))
                     // Never squeezed to a sliver: room for a few letters of
                     // the name ("Co…") and a word of the status per line.
                     .min_w(rem(MIN_TEXT_WIDTH))
