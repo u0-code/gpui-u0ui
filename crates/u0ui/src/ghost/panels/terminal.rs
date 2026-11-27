@@ -21,7 +21,7 @@ use crate::{
     icons::{CarbonIcon, Icon},
     motion,
     t3::{
-        base::{EASE_IN_OUT, pulse_opacity, radio_step, visually_hidden},
+        base::{endless_phase, radio_step, reduced_pulse_opacity, visually_hidden},
         craft::{mono, rem, sans},
     },
     theme::color,
@@ -324,18 +324,18 @@ impl TerminalView {
 
 /// `.g-term-cursor { width: 0.6em; height: 1.2em; vertical-align:
 /// text-bottom; background: var(--terminal-cursor) }`, blinking.
-fn cursor(id: ElementId, reduced: bool) -> AnyElement {
+/// `pulse` is the reduced-motion opacity (`g-pulse`, see
+/// [`crate::t3::base::REDUCED_PULSE_PERIOD`]); `None` blinks.
+fn cursor(id: ElementId, pulse: Option<f32>) -> AnyElement {
     let block = div()
         .flex_none()
         .w(rem(12. * 0.6))
         .h(rem(12. * 1.2))
         .bg(color(ColorRole::TerminalCursor));
-    if reduced {
-        block
-            .with_animation(id, Animation::new(REDUCED_PULSE).repeat(), |el, t| {
-                el.opacity(pulse_opacity(t, EASE_IN_OUT))
-            })
-            .into_any_element()
+    if let Some(opacity) = pulse {
+        // GPUI freezes `with_animation` loops under reduced motion; this
+        // one keeps running (`ghost.css`).
+        block.opacity(opacity).into_any_element()
     } else {
         block
             .with_animation(id, Animation::new(BLINK_PERIOD).repeat(), |el, t| {
@@ -352,6 +352,8 @@ impl RenderOnce for TerminalView {
         let ring = focus_visible(&focus, window);
         let reduced = motion::reduced_motion(cx);
         let last = self.lines.len().saturating_sub(1);
+        let cursor_pulse = (reduced && self.cursor && self.exited.is_none())
+            .then(|| reduced_pulse_opacity(endless_phase(REDUCED_PULSE, window)));
         let show_cursor = self.cursor && self.exited.is_none();
         let lines = self
             .lines
@@ -369,7 +371,7 @@ impl RenderOnce for TerminalView {
                     })
                     .child(StyledText::new(text).with_highlights(styles))
                     .when(show_cursor && i == last, |d| {
-                        d.child(cursor((id.clone(), "cursor").into(), reduced))
+                        d.child(cursor((id.clone(), "cursor").into(), cursor_pulse))
                     })
             })
             .collect::<Vec<_>>();

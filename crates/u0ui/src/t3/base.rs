@@ -16,8 +16,9 @@ use crate::{
     tokens::ColorRole,
 };
 use gpui_kit::{
-    Animation, AnimationExt as _, App, Bounds, ElementId, Entity, Hsla, IntoElement, ParentElement,
-    PathBuilder, Pixels, RenderOnce, SharedString, Styled, Task, Window, canvas, div, point, px,
+    Animation, AnimationExt as _, App, Bounds, ElementId, Entity, Hsla, InteractiveElement as _,
+    IntoElement, ParentElement, PathBuilder, Pixels, RenderOnce, SharedString, Styled, Task,
+    Window, canvas, div, point, px,
 };
 use std::f32::consts::TAU;
 use std::time::{Duration, Instant};
@@ -390,9 +391,83 @@ pub fn pulse<E: IntoElement + Styled + 'static>(
 
 /// `.t3-spin svg { animation: cu-spin 0.69s linear infinite }`.
 pub const SPIN_PERIOD: Duration = Duration::from_millis(690);
-/// `@media (prefers-reduced-motion: reduce) { .t3-spin svg { animation-duration: 2s } }`:
-/// the T3 spinner keeps turning, slower, rather than pulsing.
+/// `t3.css`: `@media (prefers-reduced-motion: reduce) { .t3-spin svg {
+/// animation-duration: 2s } }`. The bundle loads `ghost.css` after `t3.css`,
+/// and its `!important` override (see [`REDUCED_PULSE_PERIOD`]) replaces the
+/// whole animation, so this slower turn never shows; kept for API
+/// compatibility.
+#[deprecated(note = "ghost.css overrides it: `.t3-spin svg` pulses under reduced motion")]
 pub const SPIN_PERIOD_REDUCED: Duration = Duration::from_millis(2000);
+
+/// `ghost.css`, last in the bundle's cascade:
+/// `@media (prefers-reduced-motion: reduce) { .t3-spin svg, .t3-provider-spin,
+/// .g-motion-spin, .g-term-cursor, .t3-shimmer { animation: g-pulse 1.4s
+/// ease-in-out infinite !important } }`. These keep animating under reduced
+/// motion: rotation (and blink, and sweep) becomes this pulse.
+pub const REDUCED_PULSE_PERIOD: Duration = Duration::from_millis(1400);
+
+/// `@keyframes g-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }`,
+/// `ease-in-out`, at cycle progress `t`: the [`REDUCED_PULSE_PERIOD`] pulse.
+pub fn reduced_pulse_opacity(t: f32) -> f32 {
+    pulse_opacity(t, EASE_IN_OUT)
+}
+
+/// Progress (0..1) through a `period`-long cycle after `elapsed`.
+pub fn loop_phase(elapsed: Duration, period: Duration) -> f32 {
+    let period = period.as_nanos();
+    if period == 0 {
+        return 0.;
+    }
+    (elapsed.as_nanos() % period) as f32 / period as f32
+}
+
+fn loop_epoch() -> Instant {
+    static EPOCH: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+    *EPOCH.get_or_init(Instant::now)
+}
+
+/// Progress (0..1) through an endless `period`-long cycle, and a request for
+/// the next frame. Unlike GPUI's `with_animation`, which renders a repeating
+/// animation frozen on its first frame whenever reduced motion is on, this
+/// keeps running: for the loops the reference keeps alive under
+/// `prefers-reduced-motion` (spinners and cursors that pulse instead). Call
+/// while rendering.
+pub fn endless_phase(period: Duration, window: &mut Window) -> f32 {
+    window.request_animation_frame();
+    loop_phase(loop_epoch().elapsed(), period)
+}
+
+/// One frame of a spinner: its rotation in turns and its opacity.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SpinFrame {
+    /// Clockwise rotation, in turns (0..1).
+    pub turn: f32,
+    /// Opacity of the whole spinner.
+    pub opacity: f32,
+}
+
+/// A spinner `elapsed` into its life: one turn per `period` (`cu-spin
+/// linear`), or under reduced motion no rotation and the `g-pulse` opacity
+/// ([`REDUCED_PULSE_PERIOD`]).
+pub fn spin_frame(elapsed: Duration, period: Duration, reduced: bool) -> SpinFrame {
+    if reduced {
+        SpinFrame {
+            turn: 0.,
+            opacity: reduced_pulse_opacity(loop_phase(elapsed, REDUCED_PULSE_PERIOD)),
+        }
+    } else {
+        SpinFrame {
+            turn: loop_phase(elapsed, period),
+            opacity: 1.,
+        }
+    }
+}
+
+/// [`spin_frame`] now, requesting the next frame (see [`endless_phase`]).
+pub fn spin_frame_now(period: Duration, reduced: bool, window: &mut Window) -> SpinFrame {
+    window.request_animation_frame();
+    spin_frame(loop_epoch().elapsed(), period, reduced)
+}
 
 /// The `.t3-spin` SVG geometry in its 16×16 viewBox.
 pub mod spin_geometry {
@@ -455,7 +530,8 @@ fn paint_spin(bounds: Bounds<Pixels>, turn: f32, arc: Hsla, track: Hsla, window:
 
 /// The decorative T3 spinner (`Spin`, `.t3-spin`): a `layer-accent-01`
 /// track ring under a 113° `interactive` arc (r 6.5, stroke 2.25 in a 16
-/// viewBox), turning once per 690ms (2s under reduced motion). It has no
+/// viewBox), turning once per 690ms; under reduced motion it holds still and
+/// pulses ([`REDUCED_PULSE_PERIOD`]). It has no
 /// live region; pair it with visible text, or give it a [`Spin::label`].
 #[derive(IntoElement)]
 pub struct Spin {
@@ -505,36 +581,31 @@ impl Spin {
 }
 
 impl RenderOnce for Spin {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         // `.t3-spin { color: var(--interactive) }`, `.t3-spin-track { stroke: var(--layer-accent-01) }`.
         let arc = self.color.unwrap_or_else(|| color(ColorRole::Interactive));
         let track = self
             .track
             .unwrap_or_else(|| color(ColorRole::LayerAccent01));
-        let period = if motion::reduced_motion(cx) {
-            SPIN_PERIOD_REDUCED
-        } else {
-            SPIN_PERIOD
-        };
+        let frame = spin_frame_now(SPIN_PERIOD, motion::reduced_motion(cx), window);
         let size = px(self.size);
         div()
+            .id(self.id)
             .relative()
             .flex_none()
             .size(size)
             .children(self.label.map(visually_hidden))
-            .child(div().size_full().with_animation(
-                self.id,
-                Animation::new(period).repeat(),
-                move |el, t| {
-                    el.child(
-                        canvas(
-                            |_, _, _| {},
-                            move |bounds, _, window, _| paint_spin(bounds, t, arc, track, window),
-                        )
-                        .size_full(),
+            .child(
+                div().size_full().opacity(frame.opacity).child(
+                    canvas(
+                        |_, _, _| {},
+                        move |bounds, _, window, _| {
+                            paint_spin(bounds, frame.turn, arc, track, window)
+                        },
                     )
-                },
-            ))
+                    .size_full(),
+                ),
+            )
     }
 }
 
@@ -589,6 +660,47 @@ mod tests {
         assert!((spin_geometry::ARC_LENGTH - 12.8).abs() < 1e-4);
         assert!((spin_geometry::SWEEP.to_degrees() - 112.8).abs() < 0.1);
         assert_eq!(SPIN_PERIOD.as_millis(), 690);
-        assert_eq!(SPIN_PERIOD_REDUCED.as_millis(), 2000);
+    }
+
+    #[test]
+    fn loop_phase_wraps_each_period() {
+        let ms = Duration::from_millis;
+        assert_eq!(loop_phase(ms(0), SPIN_PERIOD), 0.);
+        assert!((loop_phase(ms(345), SPIN_PERIOD) - 0.5).abs() < 1e-4);
+        assert!(loop_phase(ms(690), SPIN_PERIOD).abs() < 1e-4);
+        assert!((loop_phase(ms(690 * 1000 + 69), SPIN_PERIOD) - 0.1).abs() < 1e-3);
+        assert_eq!(loop_phase(ms(5), Duration::ZERO), 0.);
+    }
+
+    #[test]
+    fn spinner_turns_at_full_motion() {
+        // `.t3-spin svg { animation: cu-spin 0.69s linear infinite }`.
+        let ms = Duration::from_millis;
+        let quarter = spin_frame(ms(172) + Duration::from_micros(500), SPIN_PERIOD, false);
+        assert!((quarter.turn - 0.25).abs() < 1e-3);
+        assert_eq!(quarter.opacity, 1.);
+        // `.t3-provider-spin { animation: cu-spin 0.8s linear infinite }`.
+        let half = spin_frame(ms(400), Duration::from_millis(800), false);
+        assert!((half.turn - 0.5).abs() < 1e-4);
+    }
+
+    #[test]
+    fn spinner_pulses_under_reduced_motion() {
+        // ghost.css: `.t3-spin svg, .t3-provider-spin { animation: g-pulse
+        // 1.4s ease-in-out infinite !important }`, `g-pulse { 50% { opacity: .35 } }`.
+        let ms = Duration::from_millis;
+        assert_eq!(REDUCED_PULSE_PERIOD.as_millis(), 1400);
+        let start = spin_frame(ms(0), SPIN_PERIOD, true);
+        assert_eq!(start.turn, 0.);
+        assert!((start.opacity - 1.).abs() < 1e-4);
+        let low = spin_frame(ms(700), SPIN_PERIOD, true);
+        assert_eq!(low.turn, 0.);
+        assert!((low.opacity - 0.35).abs() < 1e-4);
+        // It keeps going: the second cycle repeats the first.
+        let again = spin_frame(ms(1400 + 700), SPIN_PERIOD, true);
+        assert!((again.opacity - 0.35).abs() < 1e-3);
+        let between = spin_frame(ms(350), SPIN_PERIOD, true).opacity;
+        assert!(between > 0.35 && between < 1.);
+        assert!((reduced_pulse_opacity(0.25) - between).abs() < 1e-4);
     }
 }

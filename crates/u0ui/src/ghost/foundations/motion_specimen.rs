@@ -16,7 +16,12 @@
 //!
 //! `reduced: None` follows [`motion::reduced_motion`] (the system setting or
 //! the app's override), like `usePrefersReducedMotion()`.
-use crate::{motion, t3::base::stroke_arc, theme::color, tokens::ColorRole};
+use crate::{
+    motion,
+    t3::base::{spin_frame_now, stroke_arc},
+    theme::color,
+    tokens::ColorRole,
+};
 use gpui_kit::{
     Animation, AnimationExt as _, App, ElementId, Hsla, IntoElement, ParentElement, RenderOnce,
     SharedString, Styled, Window, canvas, div, linear_color_stop, linear_gradient, px, relative,
@@ -138,8 +143,13 @@ impl MotionSpecimen {
 }
 
 impl RenderOnce for MotionSpecimen {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let r = self.reduced.unwrap_or_else(|| motion::reduced_motion(cx));
+        // ghost.css: `@media (prefers-reduced-motion: reduce) { .g-motion-spin
+        // { animation: g-pulse 1.4s ease-in-out infinite !important } }`, so
+        // the full row pulses too when the app reduces motion. Driven by
+        // `spin_frame_now`, which (unlike `with_animation`) keeps running then.
+        let spin = spin_frame_now(SPIN_PERIOD, r || motion::reduced_motion(cx), window);
         let id = self.id.clone();
         let interactive = color(ColorRole::Interactive);
         let track_fill = color(ColorRole::Layer01);
@@ -204,25 +214,10 @@ impl RenderOnce for MotionSpecimen {
             .into_any_element()
         };
         let spin_box = div().absolute().left(px(8.)).top(px(4.)).size(px(16.));
-        let spinner = if r {
-            spin_box
-                .child(ring(0., accent, interactive))
-                .with_animation(
-                    (id.clone(), "pulse"),
-                    Animation::new(PULSE_PERIOD).repeat(),
-                    |d, t| d.opacity(pulse(t)),
-                )
-                .into_any_element()
-        } else {
-            let id2 = id.clone();
-            spin_box
-                .with_animation(
-                    (id2, "spin"),
-                    Animation::new(SPIN_PERIOD).repeat(),
-                    move |d, t| d.child(ring(t, accent, interactive)),
-                )
-                .into_any_element()
-        };
+        let spinner = spin_box
+            .opacity(spin.opacity)
+            .child(ring(spin.turn, accent, interactive))
+            .into_any_element();
         let band = move |offset: f32| {
             div()
                 .absolute()

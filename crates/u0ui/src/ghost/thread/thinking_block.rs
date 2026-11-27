@@ -19,7 +19,7 @@ use crate::{
     density,
     icons::{CarbonIcon, Icon},
     motion,
-    t3::base::{EASE_IN_OUT, fmt_elapsed_opt, pulse_opacity},
+    t3::base::{endless_phase, fmt_elapsed_opt, reduced_pulse_opacity},
     theme::color,
     tokens::ColorRole,
 };
@@ -64,17 +64,18 @@ fn mix(a: Hsla, b: Hsla, f: f32) -> Hsla {
 }
 
 /// `text` under the `.t3-shimmer` sweep, or the reduced-motion pulse.
-fn shimmer(id: ElementId, text: SharedString, cx: &App) -> AnyElement {
+fn shimmer(id: ElementId, text: SharedString, window: &mut Window, cx: &App) -> AnyElement {
     let secondary = color(ColorRole::TextSecondary);
     if motion::reduced_motion(cx) {
+        // GPUI freezes `with_animation` loops under reduced motion; the
+        // pulse keeps running.
+        let opacity = reduced_pulse_opacity(endless_phase(PULSE_PERIOD, window));
         // `@media (prefers-reduced-motion: reduce) { .t3-shimmer { color: text-secondary;
         // background: none } }`, pulsing (`ghost.css`).
         return div()
             .text_color(secondary)
             .child(text)
-            .with_animation(id, Animation::new(PULSE_PERIOD).repeat(), |el, t| {
-                el.opacity(pulse_opacity(t, EASE_IN_OUT))
-            })
+            .opacity(opacity)
             .into_any_element();
     }
     let primary = color(ColorRole::TextPrimary);
@@ -208,7 +209,12 @@ impl RenderOnce for ThinkingBlock {
         // `.g-think-head svg { fill: currentColor }`, `:hover { color: text-primary }`.
         let ink = parts::head_ink(hovered);
         let label = if self.live {
-            shimmer((id.clone(), "shimmer").into(), self.texts.thinking, cx)
+            shimmer(
+                (id.clone(), "shimmer").into(),
+                self.texts.thinking,
+                window,
+                cx,
+            )
         } else {
             div()
                 .child(self.texts.thought(self.seconds))
