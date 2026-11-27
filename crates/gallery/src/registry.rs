@@ -279,6 +279,7 @@ pub static PAGES: &[PageDef] = &[
     // T3 · Composer (src/t3/composer.jsx)
     PageDef::new("composer-attachment-strip", "ComposerAttachmentStrip", "T3 · Composer", Component::ComposerAttachmentStrip.summary(), pages::t3_composer::composer_attachment_strip::build).thumbnail(pages::t3_composer::composer_attachment_strip::thumbnail),
     PageDef::new("composer-command-menu", "ComposerCommandMenu", "T3 · Composer", Component::ComposerCommandMenu.summary(), pages::t3_composer::composer_command_menu::build).thumbnail(pages::t3_composer::composer_command_menu::thumbnail),
+    PageDef::new("composer-primary-actions", "ComposerPrimaryActions", "T3 · Composer", Component::ComposerPrimaryActions.summary(), pages::t3_composer::composer_primary_actions::build).thumbnail(pages::t3_composer::composer_primary_actions::thumbnail),
     PageDef::new("context-chip", "ContextChip", "T3 · Composer", Component::ContextChip.summary(), pages::t3_composer::context_chip::build).thumbnail(pages::t3_composer::context_chip::thumbnail),
     PageDef::new("effort-glyph", "EffortGlyph", "T3 · Composer", Component::EffortGlyph.summary(), pages::t3_composer::effort_glyph::build).thumbnail(pages::t3_composer::effort_glyph::thumbnail),
     PageDef::new("queued-runs-control", "QueuedRunsControl", "T3 · Composer", Component::QueuedRunsControl.summary(), pages::t3_composer::queued_runs_control::build).thumbnail(pages::t3_composer::queued_runs_control::thumbnail),

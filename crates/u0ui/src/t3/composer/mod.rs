@@ -5,16 +5,19 @@
 //! | --- | --- |
 //! | ComposerAttachmentStrip | [`ComposerAttachmentStrip`] |
 //! | ComposerCommandMenu | [`ComposerCommandMenu`] |
+//! | ComposerPrimaryActions | [`ComposerPrimaryActions`] |
 //! | ContextChip | [`ContextChip`] |
 //! | EffortGlyph | [`EffortGlyph`], [`ComposerControl`] |
 //! | QueuedRunsControl | [`QueuedRunsControl`] |
 //! | ReadOnlyComposerBar | [`ReadOnlyComposerBar`] |
+mod actions;
 mod attachments;
 mod chip;
 mod controls;
 mod menu;
 mod queue;
 
+pub use actions::{ComposerPrimaryActions, ComposerState, PrimaryActionTexts};
 pub use attachments::{
     AttachmentFile, AttachmentImage, AttachmentImageState, AttachmentTexts,
     ComposerAttachmentStrip, thumb_geometry, upload_scrim,

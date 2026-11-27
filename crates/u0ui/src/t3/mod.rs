@@ -6,6 +6,7 @@
 //! - [`shell`]: shell, navigation and identity (`shell.jsx`).
 //! - [`composer`]: the composer (`composer.jsx`).
 //! - [`review`]: diffs and review threads (`review.jsx`).
+mod action;
 pub mod base;
 pub mod composer;
 pub(crate) mod craft;
