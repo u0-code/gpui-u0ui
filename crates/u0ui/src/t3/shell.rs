@@ -11,7 +11,9 @@
 //!
 //! Values come from `src/t3.css` (`/* Identity */`), with the later craft
 //! passes applied: provider marks are glyphs, never two-letter tiles
-//! (`r2-desk`, `r3-gal`), and project monograms are neutral (`r2-desk`).
+//! (`r2-desk`, `r3-gal`), drawn from the vendored brand marks where one
+//! exists ([`crate::icons::brands`]), and project monograms are neutral
+//! (`r2-desk`).
 use super::base::{EASE, EASE_IN_OUT, Status, Tone, pulse};
 use crate::{
     components::{
@@ -19,7 +21,10 @@ use crate::{
         menu::{self, MenuItem, MenuSize},
         overlay,
     },
-    icons::{CarbonIcon, Icon},
+    icons::{
+        CarbonIcon, Icon,
+        brands::{self, BrandMark},
+    },
     motion,
     theme::color,
     tokens::{ColorRole, TypeStyle},
@@ -29,7 +34,7 @@ use gpui_kit::{
     Animation, AnimationExt as _, App, ElementId, FontWeight, Hsla, ImageSource,
     InteractiveElement, IntoElement, ObjectFit, ParentElement, RenderOnce, SharedString,
     StatefulInteractiveElement as _, Styled, StyledImage as _, Window, canvas, div, img,
-    prelude::FluentBuilder as _, px, rgb,
+    prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 use std::time::Duration;
@@ -112,35 +117,16 @@ pub const TILE_RADIUS: f32 = 4.;
 
 // ── ProviderIcon ────────────────────────────────────────────────────────
 
-/// The provider glyphs of `t3.css` (`r2-desk: provider marks are glyphs`),
-/// keyed on the name prefix (`.t3-provider[title^=Claude]`), as SVG path
+/// The abstract glyphs of `t3.css` (`r2-desk: provider marks are glyphs`)
+/// for the providers with no vendored brand mark ([`brands::brand_mark`]),
+/// keyed on the name prefix (`.t3-provider[title^=Codex]`), as SVG path
 /// data in a 16×16 viewBox (`fill-rule: evenodd`).
-pub const PROVIDER_GLYPHS: [(&str, &str); 7] = [
-    (
-        "Claude",
-        "M8.00 0.50 L8.41 6.45 L11.75 1.50 L9.13 6.87 L14.50 4.25 L9.55 7.59 L15.50 8.00 L9.55 8.41 L14.50 11.75 L9.13 9.13 L11.75 14.50 L8.41 9.55 L8.00 15.50 L7.59 9.55 L4.25 14.50 L6.87 9.13 L1.50 11.75 L6.45 8.41 L0.50 8.00 L6.45 7.59 L1.50 4.25 L6.87 6.87 L4.25 1.50 L7.59 6.45Z",
-    ),
+pub const PROVIDER_GLYPHS: [(&str, &str); 2] = [
     (
         "Codex",
         "M8 .8 14.4 4.4v7.2L8 15.2 1.6 11.6V4.4z M8 3 3.6 5.5v5L8 13l4.4-2.5v-5z M5.2 6.4 7.6 8l-2.4 1.6-.8-1.1L5.3 8l-1-.5z M8.4 9.4h3.2v1.2H8.4z",
     ),
-    (
-        "Cursor",
-        "M8 .8 14.6 4.6v6.8L8 15.2 1.4 11.4V4.6z M8 2.6 3 5.5 8 8.4l5-2.9z",
-    ),
     ("Antigravity", "M1.5 14.5 8 1.5l6.5 13h-2.9L8 7.3 4.4 14.5z"),
-    (
-        "OpenCode",
-        "M2.5 2h4.5v2.2H4.8v7.6H7V14H2.5z M13.5 2H9v2.2h2.2v7.6H9V14h4.5z",
-    ),
-    (
-        "Figma",
-        "M5 1h3v4.6H5A2.3 2.3 0 0 1 5 1z M8 1h3a2.3 2.3 0 0 1 0 4.6H8z M5 5.6h3v4.6H5a2.3 2.3 0 0 1 0-4.6z M10.3 5.6a2.3 2.3 0 1 1 0 4.6 2.3 2.3 0 0 1 0-4.6z M5 10.2h3v2.4A2.3 2.3 0 1 1 5 10.2z",
-    ),
-    (
-        "Gemini",
-        "M8 .5C8.6 4.6 11.4 7.4 15.5 8 11.4 8.6 8.6 11.4 8 15.5 7.4 11.4 4.6 8.6.5 8 4.6 7.4 7.4 4.6 8 .5z",
-    ),
 ];
 
 /// The asset path prefix [`crate::Assets`] serves T3 SVGs under.
@@ -156,26 +142,49 @@ pub(crate) fn asset_svg(name: &str) -> Option<String> {
     ))
 }
 
-/// The known provider a name starts with (`[title^=Claude]`), if any.
-pub fn provider_glyph(name: &str) -> Option<&'static str> {
-    PROVIDER_GLYPHS
-        .iter()
-        .map(|(k, _)| *k)
-        .find(|k| name.starts_with(k))
+/// What a provider mark without an image draws.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProviderMark {
+    /// The provider's brand mark (Claude, Gemini, Cursor, …).
+    Brand(&'static BrandMark),
+    /// A `t3.css` glyph for a provider with no vendored mark (Codex,
+    /// Antigravity): its [`PROVIDER_GLYPHS`] key.
+    Glyph(&'static str),
+    /// The neutral generic glyph of an unknown agent.
+    Generic,
 }
 
-/// The glyph color of a provider mark without an image: Claude
-/// `#c15f3c` and Gemini `#1a73e8` (brand inks hard-coded by `t3.css`),
-/// the other known marks `text-primary`, an unknown agent's generic glyph
-/// `icon-secondary` (`.t3-provider:has(> .t3-provider-generic)`).
-pub fn provider_glyph_color(name: &str) -> Hsla {
-    match provider_glyph(name) {
-        // `.t3-provider[title^=Claude]:not(:has(img)) { color: #c15f3c }`.
-        Some("Claude") => rgb(0xc15f3c).into(),
-        // `.t3-provider[title^=Gemini]:not(:has(img)) { color: #1a73e8 }`.
-        Some("Gemini") => rgb(0x1a73e8).into(),
-        Some(_) => color(ColorRole::TextPrimary),
-        None => color(ColorRole::IconSecondary),
+impl ProviderMark {
+    /// The mark for a provider's id or display name: its brand mark, else a
+    /// glyph whose key the name starts with (`[title^=Codex]`), else generic.
+    pub fn of(name: &str) -> Self {
+        if let Some(mark) = brands::brand_mark(name) {
+            return Self::Brand(mark);
+        }
+        PROVIDER_GLYPHS
+            .iter()
+            .find(|(k, _)| name.starts_with(k))
+            .map_or(Self::Generic, |(k, _)| Self::Glyph(k))
+    }
+
+    /// The ink: a brand mark's own ([`BrandMark::ink`]), a glyph
+    /// `text-primary`, the generic glyph `icon-secondary`
+    /// (`.t3-provider:has(> .t3-provider-generic)`).
+    pub fn ink(self) -> Hsla {
+        match self {
+            Self::Brand(mark) => mark.ink(),
+            Self::Glyph(_) => color(ColorRole::TextPrimary),
+            Self::Generic => color(ColorRole::IconSecondary),
+        }
+    }
+
+    fn icon(self) -> Icon {
+        match self {
+            Self::Brand(mark) => Icon::from_path(mark.path()),
+            Self::Glyph(key) => Icon::from_path(format!("{ASSET_PREFIX}provider-{key}.svg")),
+            Self::Generic => Icon::named(GENERIC_PROVIDER_SYMBOL),
+        }
+        .color(self.ink())
     }
 }
 
@@ -198,11 +207,12 @@ const ACCENTS: [ColorRole; 8] = [
     ColorRole::AgentAccent8,
 ];
 
-/// An agent provider's mark (`ProviderIcon`). No vendor logo is copied: a
-/// known provider (Claude, Codex, Cursor, Antigravity, OpenCode, Figma,
-/// Gemini) draws its abstract glyph at 84% of the tile on a transparent
-/// ground, an unknown one a neutral generic glyph; pass `src` for an icon
-/// you may use (then the tile is `layer-accent-01`, or the agent accent).
+/// An agent provider's mark (`ProviderIcon`). Without `src` it draws
+/// [`ProviderMark::of`] its name at 84% of the tile on a transparent ground:
+/// the brand mark (Simple Icons, [`brands`]) of a known provider, a `t3.css`
+/// glyph for Codex and Antigravity, else a neutral generic glyph. Pass `src`
+/// for an image of your own (then the tile is `layer-accent-01`, or the
+/// agent accent).
 /// `starting` adds the 10px spinning ring at the bottom-right corner.
 #[derive(IntoElement)]
 pub struct ProviderIcon {
@@ -324,12 +334,9 @@ impl RenderOnce for ProviderIcon {
             None => {
                 // `::before { width: 84%; height: 84% }` / `.t3-provider-generic { 84% }`.
                 let glyph = px(edge * 0.84);
-                let icon = match provider_glyph(&self.name) {
-                    Some(key) => Icon::from_path(format!("{ASSET_PREFIX}provider-{key}.svg")),
-                    None => Icon::named(GENERIC_PROVIDER_SYMBOL),
-                };
-                icon.size_length(glyph)
-                    .color(provider_glyph_color(&self.name))
+                ProviderMark::of(&self.name)
+                    .icon()
+                    .size_length(glyph)
                     .into_any_element()
             }
         };
@@ -1230,16 +1237,26 @@ mod tests {
     }
 
     #[test]
-    fn provider_glyphs_key_on_the_name_prefix() {
+    fn provider_marks_prefer_the_brand_then_the_glyph_then_generic() {
         crate::theme::tests_set(CarbonTheme::White);
-        assert_eq!(provider_glyph("Claude Code"), Some("Claude"));
-        assert_eq!(provider_glyph("Codex"), Some("Codex"));
-        assert_eq!(provider_glyph("Kiro"), None);
-        assert_eq!(hex(provider_glyph_color("Claude")), "#c15f3c");
-        assert_eq!(hex(provider_glyph_color("Gemini")), "#1a73e8");
-        assert_eq!(hex(provider_glyph_color("Cursor")), "#161616");
-        assert_eq!(hex(provider_glyph_color("Kiro")), "#525252");
-        assert!(asset_svg("provider-Figma").unwrap().contains("evenodd"));
+        let brand = |n: &str| match ProviderMark::of(n) {
+            ProviderMark::Brand(m) => Some(m.slug),
+            _ => None,
+        };
+        assert_eq!(brand("Claude Code"), Some("claude"));
+        assert_eq!(brand("gemini"), Some("googlegemini"));
+        assert_eq!(ProviderMark::of("Codex"), ProviderMark::Glyph("Codex"));
+        assert_eq!(
+            ProviderMark::of("Antigravity"),
+            ProviderMark::Glyph("Antigravity")
+        );
+        assert_eq!(ProviderMark::of("Kiro"), ProviderMark::Generic);
+        assert_eq!(hex(ProviderMark::of("Claude").ink()), "#c15f3c");
+        assert_eq!(hex(ProviderMark::of("Gemini").ink()), "#1a73e8");
+        assert_eq!(hex(ProviderMark::of("Cursor").ink()), "#161616");
+        assert_eq!(hex(ProviderMark::of("Codex").ink()), "#161616");
+        assert_eq!(hex(ProviderMark::of("Kiro").ink()), "#525252");
+        assert!(asset_svg("provider-Codex").unwrap().contains("evenodd"));
         assert!(asset_svg("provider-Kiro").is_none());
         assert!(gpui_material_symbols::Symbol::named(GENERIC_PROVIDER_SYMBOL).is_some());
         assert!(gpui_material_symbols::Symbol::named("dns").is_some());

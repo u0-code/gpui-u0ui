@@ -25,5 +25,6 @@ pub mod workspace;
 pub use base::{Spin, Status, Tone, fmt_elapsed};
 pub use shell::{
     ConnectionStatus, ConnectionStatusDot, EnvironmentBadge, EnvironmentMachineIcon, IconMenu,
-    IdentitySize, MachineKind, MonoTone, ProjectFavicon, ProjectMonogram, ProviderIcon, StatusPill,
+    IdentitySize, MachineKind, MonoTone, ProjectFavicon, ProjectMonogram, ProviderIcon,
+    ProviderMark, StatusPill,
 };

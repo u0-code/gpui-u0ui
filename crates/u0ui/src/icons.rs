@@ -6,6 +6,8 @@
 //!   ([`IconSize`]); color is the surrounding text color (`currentColor`) unless set.
 //! - [`Assets`]: the asset source serving `material-symbols/…` paths, falling back
 //!   to Kit's own assets. Install it with `application().with_assets(u0ui::Assets::new())`.
+//! - [`brands`]: the vendored brand marks of agents and services (Simple Icons),
+//!   served under `u0ui/brands/…`.
 //! - [`crate::init`] registers a resolver so Kit's built-in icons (chevrons, close,
 //!   check, search, …) draw their Sharp equivalents.
 use crate::tokens::ColorRole;
@@ -17,6 +19,7 @@ pub use gpui_material_symbols::{Axes, Icon as SymbolIcon, MaterialSymbols, Style
 use std::time::Duration;
 use std::{borrow::Cow, collections::HashMap};
 
+pub mod brands;
 mod kit_mapping;
 
 include!("generated/carbon_icons.rs");
@@ -301,6 +304,12 @@ impl<F: AssetSource> AssetSource for Assets<F> {
             .and_then(|p| p.strip_suffix(".svg"))
         {
             return Ok(glyph_svg(name).map(|svg| Cow::Owned(svg.into_bytes())));
+        }
+        if let Some(slug) = path
+            .strip_prefix(brands::ASSET_PREFIX)
+            .and_then(|p| p.strip_suffix(".svg"))
+        {
+            return Ok(brands::asset_svg(slug).map(|svg| Cow::Borrowed(svg.as_bytes())));
         }
         if let Some(name) = path
             .strip_prefix(crate::t3::shell::ASSET_PREFIX)

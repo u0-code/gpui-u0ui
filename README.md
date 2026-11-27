@@ -181,6 +181,9 @@ The code is Apache-2.0. Bundled and derived assets keep their licenses:
 
 - **IBM Plex** fonts (`crates/u0ui/assets/fonts`): SIL Open Font License 1.1.
 - **Material Symbols** (through `gpui-material-symbols`): Apache-2.0, Google.
+- **Simple Icons** 16.37.0 brand marks (`crates/u0ui/assets/brands`): CC0-1.0,
+  except Android (CC-BY-3.0) and GitHub Copilot (MIT); see its `NOTICE`. The
+  marks are their owners' trademarks.
 - **Carbon** design tokens and styles (`@carbon/themes`, `@carbon/styles`, from
   which the generated tokens and component values come): Apache-2.0, IBM.
 
