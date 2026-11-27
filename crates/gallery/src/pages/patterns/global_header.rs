@@ -11,6 +11,7 @@ use gpui_kit::{
 use u0ui::components::{Align, NavItem, NavigationMenu, SideNavItem, Sidebar, SidebarProvider};
 use u0ui::patterns::{BadgeIndicator, Badged};
 use u0ui::prelude::*;
+use u0ui::typography::paragraph;
 
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
@@ -37,14 +38,15 @@ const STRUCTURE: [&str; 2] = ["header only", "header + side nav"];
 const BADGES: [&str; 3] = ["none", "4", "1200"];
 const BADGE_COUNTS: [Option<u32>; 3] = [None, Some(4), Some(1200)];
 
-/// A header tool icon (`IconButton kind="ghost" size="lg"`, 48px in every
-/// density: `HeaderGlobalAction`).
+/// A header tool icon: `IconButton kind="ghost" size="lg"` with a 20px
+/// icon (`h(I.Search, {size: 20})`). A plain `IconButton`, not
+/// `HeaderGlobalAction`, so it follows the density (32px compact).
 fn tool(id: SharedString, label: &'static str, icon: CarbonIcon, align: Align) -> Button {
     Button::new(id, label)
         .variant(ButtonVariant::Ghost)
         .size(ButtonSize::Lg)
-        .density(Density::Comfortable)
         .icon(icon)
+        .icon_size(IconSize::S20)
         .icon_only(true)
         .tooltip_align(align)
 }
@@ -74,7 +76,9 @@ fn tools(prefix: &'static str, count: Option<u32>) -> [AnyElement; 3] {
     ]
 }
 
-/// The main content: `h3` 20px 400 and a `g-dim` 14px line, 16px padding.
+/// The main content, 16px padding: an `h3` at 20px 400 (Carbon's `h3`
+/// line height, 1.28572) and a `g-dim` `<p>` at 14px with the global `p`
+/// rule's 1.5 line height, no margins between them.
 fn content(title: SharedString) -> impl IntoElement {
     div()
         .p(tokens::SPACING_05)
@@ -83,14 +87,14 @@ fn content(title: SharedString) -> impl IntoElement {
         .child(
             div()
                 .text_size(rems(1.25))
-                .line_height(rems(1.75))
+                .line_height(rems(1.25 * 1.28572))
                 .text_color(color(ColorRole::TextPrimary))
                 .child(title),
         )
         .child(
-            div()
-                .mt(rems(0.875))
-                .type_style(TypeStyle::BodyCompact01)
+            paragraph()
+                .text_size(rems(0.875))
+                .line_height(rems(0.875 * 1.5))
                 .text_color(color(ColorRole::TextSecondary))
                 .child("Main content starts below the header and right of the side nav."),
         )
@@ -105,8 +109,6 @@ fn frame() -> gpui_kit::Div {
         .w_full()
         .min_w_0()
         .overflow_hidden()
-        .border_1()
-        .border_color(color(ColorRole::BorderSubtle01))
 }
 
 fn shell(
@@ -118,7 +120,9 @@ fn shell(
     let body = div().flex_1().flex().min_h_0().min_w_0();
     let body = match sidebar {
         Some(sidebar) => body.child(
+            // A bare `SidebarInset`: no trigger in the content.
             SidebarProvider::new(SharedString::from(format!("{prefix}-provider")))
+                .show_trigger(false)
                 .sidebar(sidebar)
                 .child(content(title)),
         ),

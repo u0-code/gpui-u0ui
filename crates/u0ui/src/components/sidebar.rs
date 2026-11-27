@@ -511,6 +511,7 @@ pub struct SidebarProvider {
     children: Vec<AnyElement>,
     open_label: SharedString,
     close_label: SharedString,
+    show_trigger: bool,
 }
 
 impl SidebarProvider {
@@ -526,6 +527,7 @@ impl SidebarProvider {
             // The reference trigger's labels; override per locale.
             open_label: "Open menu".into(),
             close_label: "Close menu".into(),
+            show_trigger: true,
         }
     }
 
@@ -550,6 +552,14 @@ impl SidebarProvider {
     /// Called when the trigger toggles the side nav.
     pub fn on_open_change(mut self, f: impl Fn(bool, &mut Window, &mut App) + 'static) -> Self {
         self.on_open_change = Some(Rc::new(f));
+        self
+    }
+
+    /// Put the [`SidebarTrigger`] at the top of the content (default true).
+    /// Off, the inset holds only the children, as a bare `SidebarInset`
+    /// does in the reference (`PatternGlobalHeader`).
+    pub fn show_trigger(mut self, show: bool) -> Self {
+        self.show_trigger = show;
         self
     }
 
@@ -621,7 +631,7 @@ impl RenderOnce for SidebarProvider {
                     .flex()
                     .flex_col()
                     .items_start()
-                    .child(trigger)
+                    .when(self.show_trigger, |this| this.child(trigger))
                     .children(self.children),
             )
     }

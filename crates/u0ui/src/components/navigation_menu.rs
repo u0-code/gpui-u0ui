@@ -13,8 +13,8 @@
 //!   `0 2rem 0 1rem`; the navigation after a 1.5rem `border-subtle` rule;
 //!   items `text-secondary` on `background`, hover `background-hover` +
 //!   `text-primary`, press `background-active`, focus a 2px `focus` border,
-//!   the current item `text-primary` with a 3px `border-interactive` bottom
-//!   bar. An open menu title turns `layer`, its chevron (`icon-secondary`)
+//!   the current item still `text-secondary` (the `a.` rule outranks
+//!   `--current`) with a 3px `border-interactive` bottom bar. An open menu title turns `layer`, its chevron (`icon-secondary`)
 //!   turns 180°; the menu is 12.5rem wide on `layer` with `0 4px 8px
 //!   rgba(0,0,0,.5)`, 3rem items, hover `layer-hover`, the current one
 //!   `layer-selected` with a 3px start bar. Global actions sit at the end.
@@ -111,7 +111,10 @@ pub fn item_colors(in_menu: bool, current: bool, hovered: bool, pressed: bool) -
     } else {
         Background
     };
-    let text = if hovered || pressed || current {
+    // The current item keeps `text-secondary`: `.cds--header__menu-item--current
+    // { color: text-primary }` (0,1,0) loses to `a.cds--header__menu-item {
+    // color: text-secondary }` (0,1,1); only its 3px bar marks it.
+    let text = if hovered || pressed {
         TextPrimary
     } else {
         TextSecondary
@@ -554,9 +557,13 @@ impl RenderOnce for NavigationMenu {
             )
             .child(
                 // `.cds--header__nav { padding-inline-start: 1rem }` with a 1.5rem rule.
+                // It gives way first when the bar is narrow, so the global
+                // actions always fit (they paint over whatever overflows).
                 div()
                     .relative()
                     .h_full()
+                    .min_w_0()
+                    .flex_shrink(1.)
                     .pl(rem(16.))
                     .child(
                         div()
@@ -570,14 +577,18 @@ impl RenderOnce for NavigationMenu {
                     .child(nav),
             )
             .child(
-                // `.cds--header__global { flex: 1 1; justify-content: flex-end }`.
+                // `.cds--header__global { display: flex; flex: 1 1; justify-content:
+                // flex-end; block-size: 100% }`: no `align-items`, so a 32px
+                // compact action sits at the top of the 48px bar.
                 div()
                     .flex_1()
+                    .flex_shrink_0()
                     .h_full()
                     .flex()
                     .flex_row()
                     .justify_end()
-                    .items_center()
+                    .items_start()
+                    .bg(color(ColorRole::Background))
                     .children(self.actions),
             )
     }
@@ -599,7 +610,11 @@ mod tests {
         crate::theme::tests_set(CarbonTheme::White);
         let (bg, text) = item_colors(false, false, false, false);
         assert_eq!((hex(bg), hex(text)), ("#ffffff".into(), "#525252".into()));
+        // The current item stays `text-secondary` (`a.cds--header__menu-item`
+        // outranks `.cds--header__menu-item--current`).
         let (_, text) = item_colors(false, true, false, false);
+        assert_eq!(hex(text), "#525252");
+        let (_, text) = item_colors(false, true, true, false);
         assert_eq!(hex(text), "#161616");
         let (bg, _) = item_colors(true, true, false, false);
         assert_eq!(hex(bg), "#e0e0e0");

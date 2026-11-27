@@ -88,15 +88,16 @@ fn shape_list(size: ShapeTextSize) -> impl IntoElement {
     }))
 }
 
-/// A 48px header icon button with a count (`IconButton kind="ghost"
-/// size="lg" badgeCount className="cu-pinv"`).
+/// A header icon button with a count (`IconButton kind="ghost" size="lg"
+/// badgeCount className="cu-pinv"` with a 20px `Notification`): `lg`
+/// follows the density, 32px compact.
 fn header_bell(id: SharedString, label: SharedString, count: u32) -> AnyElement {
     Badged::new(
         Button::new(id, label)
             .variant(ButtonVariant::Ghost)
             .size(ButtonSize::Lg)
-            .density(Density::Comfortable)
             .icon(CarbonIcon::Notification)
+            .icon_size(IconSize::S20)
             .icon_only(true),
         (count > 0).then_some(BadgeIndicator::Count(count)),
     )
