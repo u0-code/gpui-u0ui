@@ -1,7 +1,8 @@
 //! T3 · Composer › ComposerBannerStack: usage warning with an action and
 //! dismiss, a clone in progress, a held message and a provider error
 //! (`components/ComposerBannerStack/preview.html`), plus a live stack that
-//! folds to the first banner and dismisses.
+//! folds to the first banner and dismisses, and a banner whose text is
+//! longer than a line.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
@@ -135,6 +136,23 @@ impl Render for StackPage {
                     .w_full()
                     .max_w(gpui_kit::rems(42.5))
                     .child(stack("bs-ref", false, true, None)),
+            ))
+            .example(controls::block(
+                "Long text wraps inside the banner",
+                div().w_full().max_w(gpui_kit::rems(42.5)).child(
+                    ComposerBanner::new("bs-long", BannerKind::Warning)
+                        .title("This session is open in another window too")
+                        .body(
+                            "Another process runs it as well. What you send here goes on \
+                             here, and that process does not see it: write in one place \
+                             at a time, or fork a copy to go on apart.",
+                        )
+                        .action(
+                            Button::new("bs-long-fork", "Fork a copy")
+                                .variant(ButtonVariant::Tertiary)
+                                .size(ButtonSize::Sm),
+                        ),
+                ),
             ))
     }
 }
