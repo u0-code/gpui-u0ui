@@ -422,6 +422,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("pattern-common-actions", "PatternCommonActions", "Carbon · Patterns", Component::PatternCommonActions.summary(), pages::patterns::common_actions::build).thumbnail(pages::patterns::common_actions::thumbnail),
     PageDef::new("pattern-dialogs", "PatternDialogs", "Carbon · Patterns", Component::PatternDialogs.summary(), pages::patterns::dialogs::build).thumbnail(pages::patterns::dialogs::thumbnail),
     PageDef::new("pattern-disabled-states", "PatternDisabledStates", "Carbon · Patterns", Component::PatternDisabledStates.summary(), pages::patterns::disabled_states::build).thumbnail(pages::patterns::disabled_states::thumbnail),
+    PageDef::new("pattern-disclosures", "PatternDisclosures", "Carbon · Patterns", Component::PatternDisclosures.summary(), pages::patterns::disclosures::build).thumbnail(pages::patterns::disclosures::thumbnail),
     PageDef::new("pattern-global-header", "PatternGlobalHeader", "Carbon · Patterns", Component::PatternGlobalHeader.summary(), pages::patterns::global_header::build).thumbnail(pages::patterns::global_header::thumbnail),
     PageDef::new("pattern-loading", "PatternLoading", "Carbon · Patterns", Component::PatternLoading.summary(), pages::patterns::loading::build).thumbnail(pages::patterns::loading::thumbnail),
     PageDef::new("pattern-login", "PatternLogin", "Carbon · Patterns", Component::PatternLogin.summary(), pages::patterns::login::build).thumbnail(pages::patterns::login::thumbnail),

@@ -4,6 +4,7 @@
 pub mod common_actions;
 pub mod dialogs;
 pub mod disabled_states;
+pub mod disclosures;
 pub mod global_header;
 pub mod loading;
 pub mod login;
