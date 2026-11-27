@@ -10,7 +10,7 @@ use u0ui::components::input_group::{
     AddonAlign, InputGroup, InputGroupAddon, InputGroupInput, InputGroupText, InputGroupTextarea,
     input_group_button,
 };
-use u0ui::components::{InputState, TextareaState};
+use u0ui::components::{InputState, Kbd, TextareaState};
 use u0ui::prelude::*;
 
 /// Build the page.
@@ -41,18 +41,6 @@ struct InputGroupPage {
     invalid: bool,
     disabled: bool,
     sent: usize,
-}
-
-/// A keyboard hint like the reference `Kbd` (`border-radius: 4px`).
-fn kbd(text: &'static str) -> impl IntoElement {
-    div()
-        .px(rems(0.375))
-        .rounded(rems(0.25))
-        .border_1()
-        .border_color(color(ColorRole::BorderSubtle01))
-        .type_style(TypeStyle::Code01)
-        .text_color(color(ColorRole::TextSecondary))
-        .child(text)
 }
 
 impl Render for InputGroupPage {
@@ -93,7 +81,7 @@ impl Render for InputGroupPage {
                             .addon(
                                 InputGroupAddon::new()
                                     .align(AddonAlign::InlineEnd)
-                                    .child(kbd("⌘K")),
+                                    .child(Kbd::new("⌘K")),
                             ),
                     )
                     .child(
