@@ -183,11 +183,27 @@ impl RenderOnce for ComposerBanner {
             .gap_x(rem(8.))
             .min_w_0()
             .py(rem(4.))
+            // Each wraps by words, whatever an ancestor's white-space, and may
+            // shrink below its unwrapped width: a line longer than the banner
+            // wraps inside it instead of running past it and under its
+            // actions.
             .when_some(self.title.clone(), |this, t| {
-                this.child(div().font_weight(FontWeight::SEMIBOLD).child(t))
+                this.child(
+                    div()
+                        .min_w_0()
+                        .whitespace_normal()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(t),
+                )
             })
             .when_some(self.body.clone(), |this, b| {
-                this.child(div().text_color(color(ColorRole::TextSecondary)).child(b))
+                this.child(
+                    div()
+                        .min_w_0()
+                        .whitespace_normal()
+                        .text_color(color(ColorRole::TextSecondary))
+                        .child(b),
+                )
             })
             // `.t3-banner-bar { flex-basis: 100%; height: 4px; margin-top: spacing-02; background: layer-accent-01 }`,
             // `i { background: interactive }`.
