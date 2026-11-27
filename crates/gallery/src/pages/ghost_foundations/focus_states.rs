@@ -58,7 +58,11 @@ fn legend() -> impl IntoElement {
         ),
         ("hover", "layer-hover-01，不改变语义"),
     ];
+    let term_w = term_column_px(entries.map(|(t, _)| t));
+    // The `dl` stretches to the grid row (the rows' height), and its `auto`
+    // tracks share the free space: each row grows by the same amount.
     div()
+        .flex_1()
         .flex()
         .flex_col()
         .gap(tokens::SPACING_02)
@@ -66,11 +70,13 @@ fn legend() -> impl IntoElement {
         .line_height(rems(1.))
         .children(entries.map(|(t, d)| {
             div()
+                .flex_grow_1()
                 .flex()
+                .items_start()
                 .gap(tokens::SPACING_04)
                 .child(
                     div()
-                        .w(rems(11.))
+                        .w(rems(term_w / 16.))
                         .flex_none()
                         .type_style(TypeStyle::Code01)
                         .text_color(color(ColorRole::TextSecondary))
@@ -86,14 +92,35 @@ fn legend() -> impl IntoElement {
         }))
 }
 
-/// `components/FocusStates/preview.html`: rows beside the legend.
+/// The `dt` column's `auto` width: its longest term on one line, in IBM Plex
+/// Mono 12px (`code-01`; every glyph advances 600/1000 em).
+pub fn term_column_px<'a>(terms: impl IntoIterator<Item = &'a str>) -> f32 {
+    let longest = terms
+        .into_iter()
+        .map(|t| t.chars().count())
+        .max()
+        .unwrap_or(0);
+    longest as f32 * 0.6 * 12.
+}
+
+/// `components/FocusStates/preview.html`: rows beside the legend
+/// (`.g-statelegend { display: grid; grid-template-columns: 1fr 1fr; gap: 16px }`;
+/// both cells stretch to the taller one).
 pub fn reference(prefix: &'static str) -> impl IntoElement {
     div()
         .flex()
         .flex_wrap()
+        .items_stretch()
         .gap(tokens::SPACING_05)
         .child(div().flex_1().min_w(rems(16.)).child(rows(prefix)))
-        .child(div().flex_1().min_w(rems(16.)).child(legend()))
+        .child(
+            div()
+                .flex_1()
+                .min_w(rems(16.))
+                .flex()
+                .flex_col()
+                .child(legend()),
+        )
 }
 
 /// The overview tile.
@@ -146,5 +173,17 @@ impl Render for FocusStatesPage {
             .hint("Tab to the rows for the real focus-visible ring")
             .config(config)
             .example(controls::block("Reference preview", reference("state-ref")))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn term_column_fits_the_longest_term() {
+        // "state-selected-background" stays on one line: 25 × 7.2px.
+        let w = term_column_px(["state-focus", "state-selected-background", "hover"]);
+        assert!((w - 180.).abs() < 0.01, "{w}");
     }
 }
