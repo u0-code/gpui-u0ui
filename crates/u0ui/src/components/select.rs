@@ -206,8 +206,16 @@ impl Select {
         self
     }
 
+    /// Whether the caller gave the trigger its own handle ([`Self::track_focus`]).
+    pub(crate) fn has_focus_handle(&self) -> bool {
+        self.focus_handle.is_some()
+    }
+
     /// The trigger's focus handle: the caller's ([`Self::track_focus`]),
-    /// else one kept under the dropdown's id.
+    /// else one kept under the dropdown's id. Keyed state lives under the
+    /// element ids being rendered, so without `track_focus` this is the
+    /// trigger's handle only when called where the Select itself renders;
+    /// a container that needs the handle earlier should pass its own.
     pub fn focus_handle(&self, window: &mut Window, cx: &mut App) -> FocusHandle {
         self.focus_handle.clone().unwrap_or_else(|| {
             window

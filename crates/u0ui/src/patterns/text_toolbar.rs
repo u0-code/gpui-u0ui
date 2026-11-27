@@ -327,6 +327,26 @@ impl RenderOnce for TextToolbar {
             }
         });
         let focus: Vec<FocusHandle> = handles.read(cx)[..action_count].to_vec();
+        // Handles for the inline dropdowns that bring none of their own: a
+        // Select's fallback handle is keyed under the element ids of its own
+        // render, so asking it from here would name a different handle than
+        // the one its trigger tracks (no ring, keys lost).
+        let dropdown_count = self
+            .items
+            .iter()
+            .filter(|item| matches!(item, ToolbarItem::Dropdown { .. }))
+            .count();
+        let dropdown_handles =
+            window.use_keyed_state((id.clone(), "dropdown-focus"), cx, |_, _| {
+                Vec::<FocusHandle>::new()
+            });
+        dropdown_handles.update(cx, |h, cx| {
+            while h.len() < dropdown_count {
+                h.push(cx.focus_handle());
+            }
+        });
+        let dropdown_focus: Vec<FocusHandle> = dropdown_handles.read(cx)[..dropdown_count].to_vec();
+        let mut dropdown_slot = 0;
         let more_focus = window
             .use_keyed_state((id.clone(), "more-focus"), cx, |_, cx| cx.focus_handle())
             .read(cx)
@@ -391,15 +411,23 @@ impl RenderOnce for TextToolbar {
                         .into_any_element(),
                 ),
                 ToolbarItem::Dropdown { width, select } if keep => {
+                    let own = &dropdown_focus[dropdown_slot];
+                    dropdown_slot += 1;
+                    let select = if select.has_focus_handle() {
+                        *select
+                    } else {
+                        select.track_focus(own)
+                    };
                     stops.push(select.focus_handle(window, cx));
                     row.push(
                         div()
                             .flex_none()
                             .w(rem_px(width))
-                            .child(*select)
+                            .child(select)
                             .into_any_element(),
                     )
                 }
+                ToolbarItem::Dropdown { .. } => dropdown_slot += 1,
                 ToolbarItem::Spacer if keep => {
                     row.push(div().flex_1().min_w_0().into_any_element())
                 }
