@@ -363,6 +363,7 @@ pub struct Alert {
     title: Option<SharedString>,
     description: Vec<AnyElement>,
     action: Option<AlertAction>,
+    full_width: bool,
     on_close: Option<Callback>,
     close_label: SharedString,
     low_contrast: bool,
@@ -377,6 +378,7 @@ impl Alert {
             title: None,
             description: Vec::new(),
             action: None,
+            full_width: false,
             on_close: None,
             close_label: "Close notification".into(),
             low_contrast: true,
@@ -410,6 +412,13 @@ impl Alert {
     /// `<AlertDescription>` child.
     pub fn alert_description(mut self, description: AlertDescription) -> Self {
         self.description.push(description.0);
+        self
+    }
+
+    /// Drop the `max-inline-size` cap (`style: { maxWidth: 'none' }`), as
+    /// a banner across the content does. Off by default.
+    pub fn full_width(mut self, full_width: bool) -> Self {
+        self.full_width = full_width;
         self
     }
 
@@ -484,7 +493,9 @@ fn action_button(
         .relative()
         .flex_none()
         .h(rem(32.))
-        .px(rem(16.))
+        // `.cds--actionable-notification .cds--actionable-notification__action-button.cds--btn
+        // { block-size: 2rem; padding: 0 var(--spacing-04) }` (the bundle's r3-set rule).
+        .px(rem(12.))
         .flex()
         .items_center()
         .whitespace_nowrap()
@@ -585,6 +596,7 @@ impl RenderOnce for Alert {
             )
             .child(text);
 
+        let actionable = self.action.is_some();
         let action = self.action.map(|a| {
             div()
                 .flex()
@@ -639,7 +651,7 @@ impl RenderOnce for Alert {
             .when(!wide, |d| d.flex_wrap())
             .w_full()
             .min_w(rem(288.))
-            .max_w(rem(max_width(vw)))
+            .when(!self.full_width, |d| d.max_w(rem(max_width(vw))))
             .min_h(rem(ROW_HEIGHT))
             .bg(look.background)
             .border_l(rem(ACCENT_WIDTH))
@@ -660,8 +672,27 @@ impl RenderOnce for Alert {
                 )
             })
             .child(details)
-            .children(action)
-            .children(close)
+            .map(|d| {
+                if actionable && wide {
+                    // The bundle's r3-set rules for a (non-toast) actionable
+                    // notification: `align-items: flex-start`, and the
+                    // `__button-wrapper` (action + close) `align-self:
+                    // flex-start; margin: 10px 16px 16px 16px`.
+                    d.items_start().child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .flex_none()
+                            .mt(rem(10.))
+                            .mx(rem(16.))
+                            .mb(rem(16.))
+                            .children(action)
+                            .children(close),
+                    )
+                } else {
+                    d.children(action).children(close)
+                }
+            })
             .into_any_element()
     }
 }

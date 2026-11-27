@@ -88,6 +88,8 @@ fn banner(id: impl Into<SharedString>, kind: NotificationKind, low: bool) -> Ale
         .title("Ghost 1.5 is ready.")
         .description("Restart to update; your threads keep running.")
         .action(AlertAction::new("Restart now"))
+        // `style: { maxWidth: 'none' }`: across the whole content width.
+        .full_width(true)
         .low_contrast(low)
         .on_close(|_, _| {})
 }
@@ -140,10 +142,12 @@ pub fn reference() -> impl IntoElement {
                         .flex()
                         .flex_col()
                         .gap(tokens::SPACING_03)
-                        .child(inline("nt-ref-error", Error, true))
-                        .child(inline("nt-ref-success", Success, true))
-                        .child(inline("nt-ref-warning", Warning, true))
-                        .child(inline("nt-ref-info", Info, true)),
+                        // `K.InlineNotification` without `lowContrast`:
+                        // high contrast.
+                        .child(inline("nt-ref-error", Error, false))
+                        .child(inline("nt-ref-success", Success, false))
+                        .child(inline("nt-ref-warning", Warning, false))
+                        .child(inline("nt-ref-info", Info, false)),
                 ),
         )
         .cell(
