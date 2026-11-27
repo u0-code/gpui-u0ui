@@ -110,7 +110,7 @@ impl ScopeHeader {
 }
 
 impl RenderOnce for ScopeHeader {
-    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, _: &mut App) -> impl IntoElement {
         let pick = |scope: Option<SharedString>, f: Option<ScopeHandler>| {
             move |w: &mut Window, cx: &mut App| {
                 if let Some(f) = &f {
@@ -168,8 +168,21 @@ impl RenderOnce for ScopeHeader {
                                     .color(color(ColorRole::SupportInfo)),
                             ),
                         )
-                        // The note wraps at word breaks in a narrow column.
-                        .child(div().flex_1().min_w_0().child((self.texts.note)(&scope))),
+                        // The note wraps at word breaks in a narrow column;
+                        // below its longest word (its CSS min-content) it
+                        // overflows and the container clips it, as the
+                        // reference does, instead of breaking inside a word.
+                        .child({
+                            let note = (self.texts.note)(&scope);
+                            let least = crate::typography::longest_word_width(
+                                &note,
+                                12.,
+                                tokens::FontFamilyKey::Sans,
+                                400,
+                                window,
+                            );
+                            div().flex_1().min_w(least).child(note)
+                        }),
                 )
             })
     }

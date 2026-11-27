@@ -501,10 +501,31 @@ impl RenderOnce for SettingsDialog {
 /// `.g-sdlg-main h2 { margin: 0 0 var(--spacing-05); font-size: 1.25rem;
 /// font-weight: 400 }`: the section title callers put first in the content.
 pub fn settings_heading(text: impl Into<SharedString>) -> impl IntoElement {
-    sans(div(), 20., 400)
-        .mb(tokens::SPACING_05)
-        .text_color(color(ColorRole::TextPrimary))
-        .child(text.into())
+    SettingsHeading(text.into())
+}
+
+/// [`settings_heading`]'s element: it needs the window to measure its words.
+#[derive(IntoElement)]
+struct SettingsHeading(SharedString);
+
+impl RenderOnce for SettingsHeading {
+    fn render(self, window: &mut Window, _: &mut App) -> impl IntoElement {
+        // Never narrower than its longest word (its CSS min-content): in a
+        // column too narrow for it the title overflows and is clipped, as in
+        // the reference, rather than breaking inside the word.
+        let least = crate::typography::longest_word_width(
+            &self.0,
+            20.,
+            tokens::FontFamilyKey::Sans,
+            400,
+            window,
+        );
+        sans(div(), 20., 400)
+            .mb(tokens::SPACING_05)
+            .min_w(least)
+            .text_color(color(ColorRole::TextPrimary))
+            .child(self.0)
+    }
 }
 
 #[cfg(test)]
