@@ -477,7 +477,15 @@ pub struct Button {
     tab_index: isize,
     focus_handle: Option<FocusHandle>,
     on_click: Option<ClickHandler>,
+    balanced: bool,
+    trailing: Vec<AnyElement>,
 }
+
+/// `padding-inline-end` of a balanced text-only button: `spacing-05`
+/// (`t3.css` global craft pass: `.cds--btn:not(.cds--btn--icon-only)
+/// :not(.cds--btn--ghost):not(:has(.cds--btn__icon)) { padding-inline-end:
+/// var(--spacing-05) }`).
+pub const BALANCED_END_PADDING: f32 = PAD;
 
 impl Button {
     /// A button with a stable `id` and a `label` (the visible text, or the
@@ -500,7 +508,25 @@ impl Button {
             tab_index: 0,
             focus_handle: None,
             on_click: None,
+            balanced: false,
+            trailing: Vec::new(),
         }
+    }
+
+    /// Drop Carbon's 63px end padding reserved for an icon when the button
+    /// has none, as the pattern libraries' craft pass does (see
+    /// [`BALANCED_END_PADDING`]). No effect on ghost, icon-only and
+    /// with-icon buttons.
+    pub fn balanced(mut self, balanced: bool) -> Self {
+        self.balanced = balanced;
+        self
+    }
+
+    /// Content after the label inside the button, such as a shortcut key
+    /// cap (`<Button>Approve<Kbd>⇧⌘↵</Kbd></Button>`).
+    pub fn trailing(mut self, element: impl IntoElement) -> Self {
+        self.trailing.push(element.into_any_element());
+        self
     }
 
     /// The variant (shadcn or Carbon name).
@@ -634,7 +660,7 @@ fn rem(px_value: f32) -> gpui_kit::Rems {
 }
 
 impl RenderOnce for Button {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(mut self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let kind = self.kind();
         let density = self.density.unwrap_or_else(density::current);
         let geometry = Geometry::of(self.size, density, kind, self.icon_only);
@@ -793,8 +819,15 @@ impl RenderOnce for Button {
                 .items_start()
                 .pt(rem(geometry.padding_top))
                 .pl(rem(geometry.padding_left))
-                .pr(rem(geometry.padding_right))
-                .child(label.clone());
+                .pr(rem(
+                    if self.balanced && icon.is_none() && !kind.is_ghost() {
+                        BALANCED_END_PADDING
+                    } else {
+                        geometry.padding_right
+                    },
+                ))
+                .child(label.clone())
+                .children(std::mem::take(&mut self.trailing));
             button = match (icon, geometry.icon_top) {
                 // `.cds--btn .cds--btn__icon { position: absolute; inset-inline-end: 16px }`.
                 (Some(icon), Some(top)) => button.child(
