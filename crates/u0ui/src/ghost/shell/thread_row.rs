@@ -22,7 +22,7 @@ use crate::{
     icons::{CarbonIcon, Icon},
     t3::{
         base::{Spin, fmt_elapsed, visually_hidden, warning_glyph},
-        craft::{rem, sans},
+        craft::{rem, sans, sized},
         shell::MachineKind,
     },
     theme::color,
@@ -456,9 +456,10 @@ impl RenderOnce for GhostThreadRow {
         })
         .when_some(time, |b, t| {
             // `.g-trow2-time { font-size: 0.75rem; color: var(--text-helper);
-            // font-variant-numeric: tabular-nums }`.
+            // font-variant-numeric: tabular-nums }`. No weight of its own: it
+            // inherits the row's, so unread rows show it semibold.
             b.child(
-                sans(div(), 12., 400)
+                sized(div(), 12.)
                     .flex_none()
                     .text_color(color(ColorRole::TextHelper))
                     .child(t),

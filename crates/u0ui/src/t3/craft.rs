@@ -31,6 +31,13 @@ pub(crate) fn sans<E: Styled>(el: E, size: f32, weight: u16) -> E {
         .line_height(relative(BODY_LINE))
 }
 
+/// Text at `size` px with the inherited line height that keeps the
+/// ancestor's family, weight and colour: for parts whose CSS sets no
+/// `font-weight` (and so inherits, e.g., `.g-trow2--unread`'s 600).
+pub(crate) fn sized<E: Styled>(el: E, size: f32) -> E {
+    el.text_size(rem(size)).line_height(relative(BODY_LINE))
+}
+
 /// IBM Plex Mono (`var(--font-mono)`) at `size` px and `weight`.
 pub(crate) fn mono<E: Styled>(el: E, size: f32, weight: u16) -> E {
     el.font(font(FontFamilyKey::Mono, weight))
