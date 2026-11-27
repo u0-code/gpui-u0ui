@@ -4,9 +4,9 @@
 use crate::page::Body;
 use crate::{controls, stand_in};
 use gpui_kit::{
-    AnyElement, AnyView, App, AppContext as _, Context, ElementId, Entity, InteractiveElement as _,
-    IntoElement, KeyDownEvent, ParentElement, Render, SharedString, Styled, Window,
-    component::input::InputState, div, rems,
+    AnyElement, AnyView, App, AppContext as _, Context, ElementId, Entity, FocusHandle,
+    InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement, Render, SharedString,
+    Styled, Window, component::input::InputState, div, rems,
 };
 use std::{cell::RefCell, rc::Rc};
 use u0ui::icons::CarbonIcon;
@@ -103,6 +103,8 @@ struct Shown {
     key: (usize, SharedString),
     active: usize,
     runs: Vec<Run>,
+    /// The search box, which alone takes ↑/↓/Enter.
+    input: Option<FocusHandle>,
 }
 
 /// The highlighted row among `n` visible ones: the caller's (`activeId`)
@@ -191,6 +193,7 @@ fn live_results(nav: &PaletteNav, e: &Entity<PalettePageDemo>, cx: &App) -> Vec<
         key,
         active: active.unwrap_or(0),
         runs: rows.iter().map(|r| r.4.clone()).collect(),
+        input: Some(nav.input_focus(cx)),
     };
     rows.into_iter()
         .enumerate()
@@ -207,14 +210,16 @@ fn live_results(nav: &PaletteNav, e: &Entity<PalettePageDemo>, cx: &App) -> Vec<
         .collect()
 }
 
-/// ↑/↓ move the highlight over the visible rows; Enter runs it.
+/// ↑/↓ move the highlight over the visible rows; Enter runs it. Only while
+/// the search box has focus (the reference's input `onKeyDown`): Enter on
+/// the Back arrow goes back, and Enter on a row runs that row.
 fn live_keys(e: &Entity<PalettePageDemo>, ev: &KeyDownEvent, window: &mut Window, cx: &mut App) {
     let shown = e.read(cx).shown.clone();
-    let (key, active, n) = {
+    let (key, active, n, input) = {
         let s = shown.borrow();
-        (s.key.clone(), s.active, s.runs.len())
+        (s.key.clone(), s.active, s.runs.len(), s.input.clone())
     };
-    if n == 0 {
+    if n == 0 || !input.is_some_and(|f| f.is_focused(window)) {
         return;
     }
     let next = match ev.keystroke.key.as_str() {

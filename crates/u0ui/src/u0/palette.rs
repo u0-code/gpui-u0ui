@@ -398,6 +398,13 @@ impl PaletteNav {
         });
         fresh_input(&self.input, window, cx);
     }
+
+    /// The search input's focus handle: keys the page content handles
+    /// itself (a highlighted row's arrows and Enter) belong to the input,
+    /// as the reference's `onKeyDown` does.
+    pub fn input_focus(&self, cx: &App) -> gpui_kit::FocusHandle {
+        gpui_kit::Focusable::focus_handle(self.input.read(cx), cx)
+    }
 }
 
 /// A page change gives the new page an empty, focused input: the reference
