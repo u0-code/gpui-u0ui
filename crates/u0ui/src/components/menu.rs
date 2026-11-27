@@ -1171,19 +1171,46 @@ pub(crate) fn anchored_menu_aligned(
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
+    anchored_menu_impl(id, trigger, spec, end, false, window, cx)
+}
+
+/// [`anchored_menu`] whose trigger fills its parent's height (a menubar
+/// trigger: `.cu-menubar-trigger { height: 100% }`).
+pub(crate) fn anchored_menu_full_height(
+    id: &ElementId,
+    trigger: AnyElement,
+    spec: MenuSpec,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
+    anchored_menu_impl(id, trigger, spec, false, true, window, cx)
+}
+
+fn anchored_menu_impl(
+    id: &ElementId,
+    trigger: AnyElement,
+    spec: MenuSpec,
+    end: bool,
+    full_height: bool,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
     // Below the trigger, or above it when the menu only fits there (Carbon
     // menus `autoAlign`), never over it ([`super::overlay::DropSide`]).
     let anchor = super::overlay::drop_anchor((id.clone(), "drop"), window, cx);
     let trigger = div()
         .relative()
+        .when(full_height, |this| this.h_full())
         .child(trigger)
         .child(anchor.measure_trigger());
     let side = anchor.place_measured(window);
-    let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), trigger).anchor(if end {
-        side.anchor_end()
-    } else {
-        side.anchor()
-    });
+    let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), trigger)
+        .anchor(if end {
+            side.anchor_end()
+        } else {
+            side.anchor()
+        })
+        .when(full_height, |this| this.h_full());
     match menu_surface(id, spec, window, cx) {
         // Not painted until measured on the side it fits (no first-open
         // frame below the trigger before the flip).

@@ -246,7 +246,7 @@ impl RenderOnce for Menubar {
                     _ => false,
                 })
             };
-            bar = bar.child(menu::anchored_menu(
+            bar = bar.child(menu::anchored_menu_full_height(
                 &menu_id,
                 trigger,
                 menu::MenuSpec {

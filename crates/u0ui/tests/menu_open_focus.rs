@@ -157,9 +157,16 @@ fn context_menu_focuses_its_first_item(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
-fn menubar_focuses_the_first_item(cx: &mut TestAppContext) {
+fn menubar_focuses_the_first_item_and_fills_the_bar(cx: &mut TestAppContext) {
     let (window, page) = open(cx);
     wait(window, cx);
+    // `.cu-menubar-trigger { height: 100% }`: 39px, the 40px bar less its border.
+    let height = cx
+        .update_window(window, |_, w, _| {
+            w.find(bar_trigger(0)).bounds().size.height
+        })
+        .unwrap();
+    assert_eq!(height, px(39.));
     act(window, cx, |w, cx| w.click(bar_trigger(0), cx));
     act(window, cx, |w, cx| w.press("enter", cx));
     assert_eq!(last(&page, cx), Some("New tab"));
