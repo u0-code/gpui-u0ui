@@ -439,13 +439,9 @@ impl RenderOnce for InputGroup {
             }
             Editor::Textarea(area) => {
                 // `.cu-ig-textarea { padding: 0.6875rem var(--spacing-05); line-height:
-                // 1.42857; flex-basis: 100%; resize: vertical }` (Kit insets its text by
-                // 2px/4px). The corner grip drags the text area's height.
-                let resize = super::resize::height_store(&(id.clone(), "ta").into(), window, cx);
-                let height = resize
-                    .read(cx)
-                    .height
-                    .unwrap_or_else(|| textarea_height(area.rows));
+                // 1.42857; flex-basis: 100% }` (Kit insets its text by 2px/4px); no
+                // resize grip (`t3.css` craft pass: `.cu-ig-textarea { resize: none }`).
+                let height = textarea_height(area.rows);
                 let element = div()
                     .relative()
                     .w_full()
@@ -476,10 +472,6 @@ impl RenderOnce for InputGroup {
                                 .text_color(placeholder_color)
                                 .child(text),
                         )
-                    })
-                    .when(!self.disabled, |this| {
-                        this.on_drag_move(super::resize::on_drag_move(&resize, textarea_height(1)))
-                            .child(super::resize::grip(&(id.clone(), "ta").into(), &resize))
                     });
                 (0, element.into_any_element())
             }

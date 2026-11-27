@@ -11,9 +11,9 @@
 //!   `enableCounter` the label row shows `count/maxCount` at its end
 //!   (`.cds--text-area__label-wrapper { justify-content: space-between }`).
 //!   The placeholder is drawn here in `text-placeholder`.
-//! - **Resize**: `resize: vertical`. The field starts `rows` lines tall; the
-//!   corner grip ([`super::resize`]) drags its height, down to `min-block-size:
-//!   2.5rem`. Disabled fields have none (`:disabled { resize: none }`).
+//! - **No resize grip**: the field is `rows` lines tall (never below
+//!   `min-block-size: 2.5rem`) and cannot be dragged (`t3.css` global craft
+//!   pass: `.g-ta, .cu-ig-textarea, .cds--text-area { resize: none }`).
 //! - **Motion**: background and outline 70ms ([`super::input::FIELD_MOTION`]).
 //!
 //! ```ignore
@@ -242,11 +242,7 @@ impl RenderOnce for Textarea {
             cx,
         );
         let pad_end = if validation.has_icon() { 40. } else { 16. };
-        let resize = super::resize::height_store(&id, window, cx);
-        let height = resize
-            .read(cx)
-            .height
-            .unwrap_or_else(|| field_height(self.rows));
+        let height = field_height(self.rows);
         let editor_height = text_height(height);
 
         let editor = KitTextarea::new(&state)
@@ -306,10 +302,6 @@ impl RenderOnce for Textarea {
             .child(editor)
             .children(placeholder)
             .children(icon)
-            .when(!self.disabled, |this| {
-                this.on_drag_move(super::resize::on_drag_move(&resize, MIN_HEIGHT))
-                    .child(super::resize::grip(&id, &resize))
-            })
             .child(form::bottom_rule(look.border_bottom))
             .child(form::inset_outline(2., outline));
 
