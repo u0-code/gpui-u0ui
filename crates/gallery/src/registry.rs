@@ -302,10 +302,13 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("right-panel-tabs", "RightPanelTabs", "T3 · Shell", Component::RightPanelTabs.summary(), pages::t3_shell::chrome::build_right_panel_tabs).thumbnail(pages::t3_shell::chrome::tabs_thumbnail),
     PageDef::new("panel-layout-controls", "PanelLayoutControls", "T3 · Shell", Component::PanelLayoutControls.summary(), pages::t3_shell::chrome::build_layout_controls).thumbnail(pages::t3_shell::chrome::layout_thumbnail),
     // Ghost · Primitives (src/ghost/primitives.jsx)
+    PageDef::new("color-picker", "ColorPicker", GHOST_PRIMITIVES, Component::ColorPicker.summary(), pages::ghost_primitives::color_picker::build).thumbnail(pages::ghost_primitives::color_picker::thumbnail),
     PageDef::new("copy-field", "CopyField", GHOST_PRIMITIVES, Component::CopyField.summary(), pages::ghost_primitives::copy_field::build).thumbnail(pages::ghost_primitives::copy_field::thumbnail),
     PageDef::new("editable-text", "EditableText", GHOST_PRIMITIVES, Component::EditableText.summary(), pages::ghost_primitives::editable_text::build).thumbnail(pages::ghost_primitives::editable_text::thumbnail),
     PageDef::new("highlighted-text", "HighlightedText", GHOST_PRIMITIVES, Component::HighlightedText.summary(), pages::ghost_primitives::highlighted_text::build).thumbnail(pages::ghost_primitives::highlighted_text::thumbnail),
+    PageDef::new("key-recorder", "KeyRecorder", GHOST_PRIMITIVES, Component::KeyRecorder.summary(), pages::ghost_primitives::key_recorder::build).thumbnail(pages::ghost_primitives::key_recorder::thumbnail),
     PageDef::new("secret-field", "SecretField", GHOST_PRIMITIVES, Component::SecretField.summary(), pages::ghost_primitives::secret_field::build).thumbnail(pages::ghost_primitives::secret_field::thumbnail),
+    PageDef::new("stepped-slider", "SteppedSlider", GHOST_PRIMITIVES, Component::SteppedSlider.summary(), pages::ghost_primitives::stepped_slider::build).thumbnail(pages::ghost_primitives::stepped_slider::thumbnail),
     PageDef::new("stepper", "Stepper", GHOST_PRIMITIVES, Component::Stepper.summary(), pages::ghost_primitives::stepper::build).thumbnail(pages::ghost_primitives::stepper::thumbnail),
     PageDef::new("time-field", "TimeField", GHOST_PRIMITIVES, Component::TimeField.summary(), pages::ghost_primitives::time_field::build).thumbnail(pages::ghost_primitives::time_field::thumbnail),
 ];
