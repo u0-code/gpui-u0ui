@@ -412,6 +412,7 @@ pub struct PullRequestRow {
     time: SharedString,
     conflict: bool,
     conflict_label: SharedString,
+    conflict_title: SharedString,
     unread: bool,
     selected: bool,
     on_click: Option<Handler>,
@@ -437,6 +438,7 @@ impl PullRequestRow {
             time: SharedString::default(),
             conflict: false,
             conflict_label: "Conflicts".into(),
+            conflict_title: "Has conflicts".into(),
             unread: false,
             selected: false,
             on_click: None,
@@ -514,9 +516,14 @@ impl PullRequestRow {
         self
     }
 
-    /// The conflicts text (`Conflicts`).
-    pub fn conflict_label(mut self, label: impl Into<SharedString>) -> Self {
+    /// The conflicts text and its tooltip (`Conflicts`, `Has conflicts`).
+    pub fn conflict_label(
+        mut self,
+        label: impl Into<SharedString>,
+        title: impl Into<SharedString>,
+    ) -> Self {
         self.conflict_label = label.into();
+        self.conflict_title = title.into();
         self
     }
 
@@ -610,17 +617,21 @@ impl RenderOnce for PullRequestRow {
             .when(self.conflict, |this| {
                 // `.t3-conflict { 12px; text-primary } svg { fill: support-warning }`.
                 this.child(
-                    sans(div(), 12., 400)
-                        .flex()
-                        .items_center()
-                        .gap(rem(4.))
-                        .text_color(color(ColorRole::TextPrimary))
-                        .child(
-                            Icon::carbon(CarbonIcon::WarningAltFilled)
-                                .size_length(rem(14.))
-                                .color(color(ColorRole::SupportWarning)),
-                        )
-                        .child(self.conflict_label.clone()),
+                    craft::titled(
+                        sans(div(), 12., 400),
+                        "conflict",
+                        self.conflict_title.clone(),
+                    )
+                    .flex()
+                    .items_center()
+                    .gap(rem(4.))
+                    .text_color(color(ColorRole::TextPrimary))
+                    .child(
+                        Icon::carbon(CarbonIcon::WarningAltFilled)
+                            .size_length(rem(14.))
+                            .color(color(ColorRole::SupportWarning)),
+                    )
+                    .child(self.conflict_label.clone()),
                 )
             })
             .when_some(self.review, |this, r| {

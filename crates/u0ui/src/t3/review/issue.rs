@@ -257,15 +257,20 @@ impl RenderOnce for IssueRow {
             .hover(|s| s.bg(color(ColorRole::LayerHover01)))
             .when_some(on_click, |this, f| this.on_click(move |_, w, cx| f(w, cx)))
             .child(
-                div()
-                    .flex()
-                    .flex_none()
-                    .items_end()
-                    .gap(px(1.))
-                    .h(px(12.))
-                    .children(
-                        (0..3).map(|i| div().w(px(3.)).h(px(PRIORITY_HEIGHTS[i])).bg(bars[i])),
+                craft::titled(
+                    div(),
+                    "priority",
+                    format!(
+                        "Priority: {}",
+                        self.priority.map(Priority::name).unwrap_or("none")
                     ),
+                )
+                .flex()
+                .flex_none()
+                .items_end()
+                .gap(px(1.))
+                .h(px(12.))
+                .children((0..3).map(|i| div().w(px(3.)).h(px(PRIORITY_HEIGHTS[i])).bg(bars[i]))),
             )
             .child(
                 mono(div(), 12., 400)
@@ -290,9 +295,11 @@ impl RenderOnce for IssueRow {
             )
             .child(div().flex_1())
             .when(self.linked_threads > 0, |this| {
-                this.child(icon_count(
-                    CarbonIcon::Link,
-                    self.linked_threads.to_string(),
+                let n = self.linked_threads;
+                this.child(craft::titled(
+                    icon_count(CarbonIcon::Link, n.to_string()),
+                    "links",
+                    format!("{n} linked thread{}", if n == 1 { "" } else { "s" }),
                 ))
             })
             .when_some(self.assignee.clone(), |this, a| {
