@@ -212,10 +212,8 @@ fn settings(p: &str, page: Option<(&Page, &Entity<Page>)>) -> AnyElement {
                         .flex()
                         .flex_col()
                         .child(form::label("Status", false))
-                        .children(boxes.map(|b| {
-                            // `.cds--form-item.cds--checkbox-wrapper { margin-block-end: 0.375rem }`.
-                            div().mb(rems(0.375)).child(b)
-                        })),
+                        // Each checkbox brings `.cds--checkbox-wrapper`'s 6px bottom margin.
+                        .children(boxes),
                 )
                 .child(radios),
         )

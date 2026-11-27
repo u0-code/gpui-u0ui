@@ -4,7 +4,7 @@ use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
-    Styled, Window, div, rems,
+    Styled, Window, div,
 };
 use u0ui::components::Checkbox;
 use u0ui::prelude::*;
@@ -33,9 +33,10 @@ struct CheckboxPage {
     helper: bool,
 }
 
-/// `.cds--form-item.cds--checkbox-wrapper { margin-block-end: 0.375rem }`.
+/// A column of checkboxes: each brings its own 6px bottom margin
+/// (`.cds--checkbox-wrapper`), so the column adds no gap.
 fn list() -> gpui_kit::Div {
-    div().flex().flex_col().gap(rems(0.375))
+    div().flex().flex_col()
 }
 
 impl Render for CheckboxPage {
@@ -73,7 +74,8 @@ impl Render for CheckboxPage {
                     .child(
                         Checkbox::new("ref-policy")
                             .label("Managed by policy")
-                            .disabled(true),
+                            .disabled(true)
+                            .last_of_type(true),
                     ),
             );
 

@@ -76,6 +76,7 @@ impl Render for DrawerPage {
                 .child(
                     Checkbox::new((prefix, 3usize))
                         .label("Stopped")
+                        .last_of_type(true)
                         .checked(self.stopped)
                         .on_checked_change(update(|this, on| this.stopped = on)),
                 )

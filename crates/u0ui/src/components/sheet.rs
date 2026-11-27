@@ -407,9 +407,10 @@ impl RenderOnce for Sheet {
             .pb(rem(bb))
             .type_style(TypeStyle::Body01)
             .text_color(look.text)
+            // `.cu-panel-body` is a block: children stack with their own
+            // margins (a checkbox's 6px), no gap.
             .flex()
             .flex_col()
-            .gap(rem(8.))
             .children(self.children);
 
         let footer = (!self.footer.is_empty()).then(|| {

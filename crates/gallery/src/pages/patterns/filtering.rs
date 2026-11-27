@@ -259,8 +259,8 @@ fn vertical(p: &str, page: &Page, data: AnyElement, live: Option<&Entity<Page>>)
             }
             None => b.default_checked(STATUS_DEFAULT[i]),
         };
-        // `.cds--form-item.cds--checkbox-wrapper { margin-block-end: 0.375rem }`.
-        div().mb(rems(0.375)).child(b)
+        // The checkbox brings `.cds--checkbox-wrapper`'s 6px bottom margin.
+        b
     });
     let mut reset = Button::new(id(p, "reset"), "Reset")
         .variant(ButtonVariant::Secondary)

@@ -38,7 +38,8 @@ impl Render for CollapsiblePage {
                     .child(
                         Checkbox::new("ref-encrypt")
                             .label("Encrypt at rest")
-                            .default_checked(true),
+                            .default_checked(true)
+                            .last_of_type(true),
                     ),
             );
         let live = div()
@@ -54,7 +55,8 @@ impl Render for CollapsiblePage {
                     .child(
                         Checkbox::new("live-encrypt")
                             .label("Encrypt at rest")
-                            .default_checked(true),
+                            .default_checked(true)
+                            .last_of_type(true),
                     ),
             )
             .child(

@@ -1091,6 +1091,7 @@ impl RenderOnce for DataTable {
                 .items_center()
                 .child(
                     Checkbox::new(child_id(&id, "select-all"))
+                        .inline(true)
                         .checked(all_checked)
                         .indeterminate(all_indeterminate)
                         .on_checked_change(move |_, _, cx| {
@@ -1292,6 +1293,7 @@ impl RenderOnce for DataTable {
                     .items_center()
                     .child(
                         Checkbox::new(child_id(&id, format!("select-{rid}")))
+                            .inline(true)
                             .checked(is_selected)
                             .on_checked_change(move |on, _, cx| {
                                 let rid = rid2.clone();

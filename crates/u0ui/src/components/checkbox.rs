@@ -119,6 +119,25 @@ pub const BOX: f32 = 16.;
 pub const BOX_INSET: f32 = 3.;
 /// Label start.
 pub const LABEL_START: f32 = 30.;
+/// Space under a checkbox (`.cds--form-item.cds--checkbox-wrapper { margin-block-end: 0.375rem }`),
+/// so stacked checkboxes sit 26px apart (20px row + 6px).
+pub const MARGIN_BOTTOM: f32 = 6.;
+/// Space under the last checkbox of a group
+/// (`.cds--form-item.cds--checkbox-wrapper:last-of-type { margin-block-end: 0.1875rem }`).
+pub const MARGIN_BOTTOM_LAST: f32 = 3.;
+
+/// The wrapper's bottom margin (px): none for an inline checkbox (Carbon
+/// `InlineCheckbox`, no `.cds--form-item` wrapper), 3px for the last of
+/// its siblings, else 6px.
+pub fn margin_bottom(inline: bool, last_of_type: bool) -> f32 {
+    if inline {
+        0.
+    } else if last_of_type {
+        MARGIN_BOTTOM_LAST
+    } else {
+        MARGIN_BOTTOM
+    }
+}
 
 type ChangeHandler = Rc<dyn Fn(bool, &mut Window, &mut App)>;
 
@@ -138,6 +157,8 @@ pub struct Checkbox {
     warn_text: Option<SharedString>,
     helper_text: Option<SharedString>,
     on_checked_change: Option<ChangeHandler>,
+    inline: bool,
+    last_of_type: bool,
 }
 
 impl Checkbox {
@@ -157,7 +178,24 @@ impl Checkbox {
             warn_text: None,
             helper_text: None,
             on_checked_change: None,
+            inline: false,
+            last_of_type: false,
         }
+    }
+
+    /// Carbon `InlineCheckbox` (a table's selection column): the bare box
+    /// and label, without the form item's bottom margin.
+    pub fn inline(mut self, inline: bool) -> Self {
+        self.inline = inline;
+        self
+    }
+
+    /// The last checkbox of its group: 3px under it instead of 6px
+    /// (`.cds--checkbox-wrapper:last-of-type`; GPUI has no sibling selectors,
+    /// so the caller says which one is last).
+    pub fn last_of_type(mut self, last: bool) -> Self {
+        self.last_of_type = last;
+        self
     }
 
     /// The label (`label` / children).
@@ -407,6 +445,7 @@ impl RenderOnce for Checkbox {
             .flex()
             .flex_col()
             .items_start()
+            .mb(rem(margin_bottom(self.inline, self.last_of_type)))
             .child(row)
             .children(message)
             .children(helper)
@@ -417,6 +456,16 @@ impl RenderOnce for Checkbox {
 mod tests {
     use super::*;
     use crate::tokens::CarbonTheme;
+
+    #[test]
+    fn stacked_checkboxes_are_26px_apart() {
+        // A 20px row (`.cds--checkbox-label { min-block-size: 1.25rem }`)
+        // plus the wrapper's 6px margin; 3px under the last; none inline.
+        assert_eq!(20. + margin_bottom(false, false), 26.);
+        assert_eq!(margin_bottom(false, true), 3.);
+        assert_eq!(margin_bottom(true, false), 0.);
+        assert_eq!(margin_bottom(true, true), 0.);
+    }
 
     fn hex(c: Hsla) -> String {
         let c = c.to_rgb();

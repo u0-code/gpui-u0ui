@@ -314,12 +314,12 @@ impl RenderOnce for Questionnaire {
                     Some(Answer::Multiple(v)) => v.clone(),
                     _ => Vec::new(),
                 };
-                // `.cds--checkbox-wrapper { margin-block-end: 0.375rem }`, last 0.1875rem.
+                // Each checkbox brings `.cds--checkbox-wrapper`'s 6px bottom
+                // margin, the last 3px.
+                let last = item.choices.len().saturating_sub(1);
                 div()
                     .flex()
                     .flex_col()
-                    .gap(rem(6.))
-                    .pb(rem(3.))
                     .children(item.choices.iter().enumerate().map(|(k, choice)| {
                         let on = checked.contains(choice);
                         let checked = checked.clone();
@@ -328,6 +328,7 @@ impl RenderOnce for Questionnaire {
                         Checkbox::new((id.clone(), format!("check-{name}-{k}")))
                             .label(choice.clone())
                             .checked(on)
+                            .last_of_type(k == last)
                             .on_checked_change(move |now, _, cx| {
                                 let mut next: Vec<SharedString> = checked
                                     .iter()
