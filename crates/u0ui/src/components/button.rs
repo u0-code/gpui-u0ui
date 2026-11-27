@@ -493,8 +493,13 @@ impl Geometry {
             } else {
                 PAD * 3. + 16. - 1.
             },
+            // `inset-block-start: min((var(--layout-size-height-local) - 1rem) / 2
+            // - 0.0625rem, var(--temp-padding-block-max))`. Compact density
+            // shrinks `block-size` but not `--layout-size-height-local`, so the
+            // icon keeps the Carbon size's offset: 12px into a compact 32px md
+            // button, 16px into a compact lg one (the reference computes both).
             icon_top: (!kind.is_ghost())
-                .then(|| ((height - 16.) / 2. - 1.).min(PAD_BLOCK_MAX) + icon_margin),
+                .then(|| ((size.carbon_height() - 16.) / 2. - 1.).min(PAD_BLOCK_MAX) + icon_margin),
             icon_right: PAD,
         }
     }
@@ -1248,6 +1253,10 @@ mod tests {
         assert_eq!((ghost.padding_right, ghost.icon_top), (15., None));
         let compact = Geometry::of(ButtonSize::Lg, Density::Compact, ButtonKind::Primary, false);
         assert_eq!((compact.height, compact.padding_top), (32., 6.));
+        // The icon keeps the Carbon size's offset under compact density.
+        assert_eq!(compact.icon_top, Some(15.));
+        let compact_md = Geometry::of(ButtonSize::Md, Density::Compact, ButtonKind::Primary, false);
+        assert_eq!((compact_md.height, compact_md.icon_top), (32., Some(11.)));
         let compact_xl = Geometry::of(ButtonSize::Xl, Density::Compact, ButtonKind::Primary, false);
         assert_eq!(compact_xl.height, 64.);
         // `t3.css` craft pass: text-only, non-ghost buttons end at spacing-05.
