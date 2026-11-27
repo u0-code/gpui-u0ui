@@ -7,7 +7,7 @@ use crate::page::Body;
 use gpui_kit::{
     AnyElement, AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render,
     SharedString, Styled, Window, component::input::InputState, div, prelude::FluentBuilder as _,
-    rems,
+    relative, rems,
 };
 use std::time::Duration;
 use u0ui::components::{
@@ -144,25 +144,34 @@ fn invite(
             Input::new(id, email)
                 .label("Email")
                 .size(FieldSize::Md)
-                .layer(LayerLevel::Two),
+                // The tile sets no `cds--layer`, so the field is `field-01`.
+                .layer(LayerLevel::One),
         )
         // `display: flex; gap: 16; align-items: center`.
         .child(
             div()
                 .flex()
                 .flex_row()
-                .flex_wrap()
                 .items_center()
                 .gap(tokens::SPACING_05)
                 .children(statuses),
         )
 }
 
+/// `K.InlineLoading`. `.cds--inline-loading { width: 100% }`, so in the
+/// status row every one starts as wide as the row and they shrink to equal
+/// shares ("Invited" starts the second half).
 fn inline(id: &'static str, status: SpinnerStatus, text: &'static str) -> AnyElement {
-    Spinner::new(id)
-        .size(SpinnerSize::Inline)
-        .status(status)
-        .description(text)
+    div()
+        .flex_basis(relative(1.))
+        .flex_shrink(1.)
+        .min_w_0()
+        .child(
+            Spinner::new(id)
+                .size(SpinnerSize::Inline)
+                .status(status)
+                .description(text),
+        )
         .into_any_element()
 }
 
@@ -274,7 +283,11 @@ pub fn thumbnail(_: &mut Window, _: &mut App) -> AnyElement {
         .flex_col()
         .gap(tokens::SPACING_03)
         .child(dashboard_tile(0, 0))
-        .child(inline("ld-thumb", SpinnerStatus::Active, "Inviting…"))
+        .child(
+            div()
+                .flex()
+                .child(inline("ld-thumb", SpinnerStatus::Active, "Inviting…")),
+        )
         .into_any_element()
 }
 

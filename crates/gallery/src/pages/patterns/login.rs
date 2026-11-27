@@ -12,13 +12,15 @@ use gpui_kit::{
 use u0ui::components::{Checkbox, FieldSize, Input};
 use u0ui::patterns::Caption;
 use u0ui::prelude::*;
+use u0ui::typography::paragraph;
 
 /// Build the page.
 pub fn build(window: &mut Window, cx: &mut App) -> AnyView {
     let email = crate::stand_in::input_state("", window, cx);
     let password = crate::stand_in::input_state("", window, cx);
     let ref_email = crate::stand_in::input_state("", window, cx);
-    let ref_password = crate::stand_in::input_state("hunter-2", window, cx);
+    // `K.PasswordInput` with no value.
+    let ref_password = crate::stand_in::input_state("", window, cx);
     cx.new(|cx| {
         cx.observe(&email, |_, _, cx| cx.notify()).detach();
         cx.observe(&password, |_, _, cx| cx.notify()).detach();
@@ -82,15 +84,17 @@ fn link(id: impl Into<SharedString>, label: &'static str, small: bool) -> Button
 }
 
 /// `.cu-plogin-sub { font-size: 0.875rem; color: var(--text-primary) }`:
-/// a sentence ending in a link.
+/// a sentence ending in a link. It is a `p`, so the global `p` rule's
+/// `line-height: 1.5` stays: 21px lines.
 fn sentence(text: &'static str, link: Button) -> impl IntoElement {
-    div()
+    paragraph()
         .flex()
         .flex_row()
         .flex_wrap()
         .items_center()
         .gap(rems(0.25))
-        .type_style(TypeStyle::BodyCompact01)
+        .text_size(rems(0.875))
+        .line_height(rems(0.875 * 1.5))
         .text_color(color(ColorRole::TextPrimary))
         .child(text)
         .child(link)
@@ -222,11 +226,12 @@ fn side() -> impl IntoElement {
                         .child("Your agents, on every Mac you own."),
                 )
                 .child(
-                    // `fontSize: 14, opacity: .8` (a paragraph: 14px margins).
-                    div()
-                        .mt(rems(0.875))
+                    // A `<p>` at `fontSize: 14, opacity: .8`: the global `p`
+                    // rule's 1.5 line height (21px) and no margin.
+                    paragraph()
                         .opacity(0.8)
-                        .type_style(TypeStyle::BodyCompact01)
+                        .text_size(rems(0.875))
+                        .line_height(rems(0.875 * 1.5))
                         .child("Marketing content stays on this side, separate from the form."),
                 ),
         )
@@ -259,7 +264,8 @@ fn second_step(
         .px(tokens::SPACING_05)
         .bg(color(ColorRole::Layer01))
         .child(Caption::new("第二步与错误"))
-        .child(password_field(id, state, error_text(1, 2)).layer(LayerLevel::Two))
+        // `.cu-plogin-err` sets no `cds--layer`: `field-01` on `layer-01`.
+        .child(password_field(id, state, error_text(1, 2)).layer(LayerLevel::One))
         .child(div().mt(tokens::SPACING_02).child(end_link(link(
             format!("{prefix}-forgot-pw"),
             "Forgot password?",

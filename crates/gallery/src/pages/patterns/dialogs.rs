@@ -14,6 +14,7 @@ use u0ui::patterns::{
     Caption, FrameButton, PatternFrame, PatternGrid, ProgressIndicator, ProgressStep,
 };
 use u0ui::prelude::*;
+use u0ui::typography::paragraph;
 
 /// The dialog kinds the reference shows, in preview order.
 const KINDS: [&str; 6] = [
@@ -58,8 +59,10 @@ fn id(prefix: &str, name: &str) -> SharedString {
     format!("{prefix}-{name}").into()
 }
 
+/// A bare `<p>` in `.cu-pframe-body`: `.cu-pframe-body p` only resets the
+/// margin, so Carbon's global `p` rule makes it 16px/24px.
 fn para(text: &'static str) -> AnyElement {
-    div().child(text).into_any_element()
+    paragraph().child(text).into_any_element()
 }
 
 /// Live state a frame reacts to: the progress step, loading, the label.
@@ -99,7 +102,9 @@ fn frame(kind: usize, p: &str, name: Option<&Entity<InputState>>, s: State) -> P
                 f.child(
                     Input::new(id(p, "name"), name)
                         .label("Project name")
-                        .layer(LayerLevel::Two),
+                        // `.cu-pframe` sets no `cds--layer`, so the field is
+                        // `field-01`, the same gray as the frame.
+                        .layer(LayerLevel::One),
                 )
             }),
         3 => label(frame, "carbon-ui")
