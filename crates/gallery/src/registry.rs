@@ -101,6 +101,8 @@ pub const LAYOUT: &str = "Layout";
 /// `Chat & AI`.
 pub const CHAT_AI: &str = "Chat & AI";
 
+/// `Ghost · Foundations`: Ghost's desktop rules over the tokens.
+pub const GHOST_FOUNDATIONS: &str = "Ghost · Foundations";
 /// `Ghost · Primitives`: desktop-density building blocks.
 pub const GHOST_PRIMITIVES: &str = "Ghost · Primitives";
 
@@ -316,6 +318,19 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("workspace-page-header", "WorkspacePageHeader", "T3 · Shell", Component::WorkspacePageHeader.summary(), pages::t3_shell::chrome::build_page_header).thumbnail(pages::t3_shell::chrome::header_thumbnail),
     PageDef::new("right-panel-tabs", "RightPanelTabs", "T3 · Shell", Component::RightPanelTabs.summary(), pages::t3_shell::chrome::build_right_panel_tabs).thumbnail(pages::t3_shell::chrome::tabs_thumbnail),
     PageDef::new("panel-layout-controls", "PanelLayoutControls", "T3 · Shell", Component::PanelLayoutControls.summary(), pages::t3_shell::chrome::build_layout_controls).thumbnail(pages::t3_shell::chrome::layout_thumbnail),
+    // Ghost · Foundations (src/ghost/foundations.jsx)
+    PageDef::new("agent-colors", "AgentColors", GHOST_FOUNDATIONS, Component::AgentColors.summary(), pages::ghost_foundations::agent_colors::build).thumbnail(pages::ghost_foundations::agent_colors::thumbnail),
+    PageDef::new("cjk-typography", "CJKTypography", GHOST_FOUNDATIONS, Component::CJKTypography.summary(), pages::ghost_foundations::cjk_typography::build).thumbnail(pages::ghost_foundations::cjk_typography::thumbnail),
+    PageDef::new("density", "Density", GHOST_FOUNDATIONS, Component::Density.summary(), pages::ghost_foundations::density::build).thumbnail(pages::ghost_foundations::density::thumbnail),
+    PageDef::new("focus-states", "FocusStates", GHOST_FOUNDATIONS, Component::FocusStates.summary(), pages::ghost_foundations::focus_states::build).thumbnail(pages::ghost_foundations::focus_states::thumbnail),
+    PageDef::new("icon", "Icon", GHOST_FOUNDATIONS, Component::Icon.summary(), pages::ghost_foundations::icon::build).thumbnail(pages::ghost_foundations::icon::thumbnail),
+    PageDef::new("layout-rules", "LayoutRules", GHOST_FOUNDATIONS, Component::LayoutRules.summary(), pages::ghost_foundations::layout_rules::build).thumbnail(pages::ghost_foundations::layout_rules::thumbnail),
+    PageDef::new("reduced-motion", "ReducedMotion", GHOST_FOUNDATIONS, Component::ReducedMotion.summary(), pages::ghost_foundations::reduced_motion::build).thumbnail(pages::ghost_foundations::reduced_motion::thumbnail),
+    PageDef::new("scrim", "Scrim", GHOST_FOUNDATIONS, Component::Scrim.summary(), pages::ghost_foundations::scrim::build).thumbnail(pages::ghost_foundations::scrim::thumbnail),
+    PageDef::new("syntax-colors", "SyntaxColors", GHOST_FOUNDATIONS, Component::SyntaxColors.summary(), pages::ghost_foundations::syntax_colors::build).thumbnail(pages::ghost_foundations::syntax_colors::thumbnail),
+    PageDef::new("terminal-colors", "TerminalColors", GHOST_FOUNDATIONS, Component::TerminalColors.summary(), pages::ghost_foundations::terminal_colors::build).thumbnail(pages::ghost_foundations::terminal_colors::thumbnail),
+    PageDef::new("truncation", "Truncation", GHOST_FOUNDATIONS, Component::Truncation.summary(), pages::ghost_foundations::truncation::build).thumbnail(pages::ghost_foundations::truncation::thumbnail),
+    PageDef::new("window-chrome", "WindowChrome", GHOST_FOUNDATIONS, Component::WindowChrome.summary(), pages::ghost_foundations::window_chrome::build).thumbnail(pages::ghost_foundations::window_chrome::thumbnail),
     // Ghost · Primitives (src/ghost/primitives.jsx)
     PageDef::new("color-picker", "ColorPicker", GHOST_PRIMITIVES, Component::ColorPicker.summary(), pages::ghost_primitives::color_picker::build).thumbnail(pages::ghost_primitives::color_picker::thumbnail),
     PageDef::new("copy-field", "CopyField", GHOST_PRIMITIVES, Component::CopyField.summary(), pages::ghost_primitives::copy_field::build).thumbnail(pages::ghost_primitives::copy_field::thumbnail),
