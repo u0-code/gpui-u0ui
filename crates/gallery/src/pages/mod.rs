@@ -30,7 +30,7 @@ pub mod drawer;
 pub mod dropdown_menu;
 pub mod empty;
 pub mod field;
-pub mod highlighted_text;
+pub mod ghost_primitives;
 pub mod hover_card;
 pub mod icons;
 pub mod input;

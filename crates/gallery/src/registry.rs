@@ -276,7 +276,6 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("diff-file-tree", "DiffFileTree", "T3 · Diff & review", Component::DiffFileTree.summary(), pages::t3_review::diff_file_tree::build).thumbnail(pages::t3_review::diff_file_tree::thumbnail),
     PageDef::new("diff-view", "DiffView", "T3 · Diff & review", Component::DiffView.summary(), pages::t3_review::diff_view::build).thumbnail(pages::t3_review::diff_view::thumbnail),
     PageDef::new("review-thread-card", "ReviewThreadCard", "T3 · Diff & review", Component::ReviewThreadCard.summary(), pages::t3_review::review_thread_card::build).thumbnail(pages::t3_review::review_thread_card::thumbnail),
-    PageDef::new("highlighted-text", "HighlightedText", GHOST_PRIMITIVES, Component::HighlightedText.summary(), pages::highlighted_text::build).thumbnail(pages::highlighted_text::thumbnail),
     // T3 · Composer (src/t3/composer.jsx)
     PageDef::new("composer-command-menu", "ComposerCommandMenu", "T3 · Composer", Component::ComposerCommandMenu.summary(), pages::t3_composer::composer_command_menu::build).thumbnail(pages::t3_composer::composer_command_menu::thumbnail),
     PageDef::new("context-chip", "ContextChip", "T3 · Composer", Component::ContextChip.summary(), pages::t3_composer::context_chip::build).thumbnail(pages::t3_composer::context_chip::thumbnail),
@@ -302,6 +301,10 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("workspace-page-header", "WorkspacePageHeader", "T3 · Shell", Component::WorkspacePageHeader.summary(), pages::t3_shell::chrome::build_page_header).thumbnail(pages::t3_shell::chrome::header_thumbnail),
     PageDef::new("right-panel-tabs", "RightPanelTabs", "T3 · Shell", Component::RightPanelTabs.summary(), pages::t3_shell::chrome::build_right_panel_tabs).thumbnail(pages::t3_shell::chrome::tabs_thumbnail),
     PageDef::new("panel-layout-controls", "PanelLayoutControls", "T3 · Shell", Component::PanelLayoutControls.summary(), pages::t3_shell::chrome::build_layout_controls).thumbnail(pages::t3_shell::chrome::layout_thumbnail),
+    // Ghost · Primitives (src/ghost/primitives.jsx)
+    PageDef::new("highlighted-text", "HighlightedText", GHOST_PRIMITIVES, Component::HighlightedText.summary(), pages::ghost_primitives::highlighted_text::build).thumbnail(pages::ghost_primitives::highlighted_text::thumbnail),
+    PageDef::new("stepper", "Stepper", GHOST_PRIMITIVES, Component::Stepper.summary(), pages::ghost_primitives::stepper::build).thumbnail(pages::ghost_primitives::stepper::thumbnail),
+    PageDef::new("time-field", "TimeField", GHOST_PRIMITIVES, Component::TimeField.summary(), pages::ghost_primitives::time_field::build).thumbnail(pages::ghost_primitives::time_field::thumbnail),
 ];
 
 /// Look a page up by id.
