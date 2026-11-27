@@ -60,6 +60,9 @@ fn palette(id: &'static str) -> impl IntoElement {
         }))
 }
 
+/// The reference card's viewport (`@dsCard height=300`): its `12vh` is 36px.
+const CARD_VIEWPORT: f32 = 300.;
+
 /// `components/Scrim/preview.html`: a 270px page under a palette scrim.
 pub fn reference() -> impl IntoElement {
     div()
@@ -72,6 +75,7 @@ pub fn reference() -> impl IntoElement {
             Scrim::new("scrim-ref")
                 .variant(ScrimVariant::Palette)
                 .align(ScrimAlign::Top)
+                .viewport_height(rems(CARD_VIEWPORT / 16.))
                 .child(palette("scrim-ref-palette")),
         )
 }
@@ -104,6 +108,7 @@ impl Render for ScrimPage {
                 Scrim::new("scrim-live")
                     .variant(ScrimVariant::ALL[self.variant])
                     .align(ScrimAlign::ALL[self.align])
+                    .viewport_height(rems(CARD_VIEWPORT / 16.))
                     .on_dismiss(move |_, cx| {
                         e.update(cx, |this, cx| {
                             this.open = false;

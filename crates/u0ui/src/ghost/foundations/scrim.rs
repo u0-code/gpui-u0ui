@@ -6,7 +6,8 @@
 //! - `.g-scrim`: covers its positioned parent (`position: absolute; inset:
 //!   0; z-index: 20`), centers its content horizontally with 32px padding;
 //!   `align="center"` centers it vertically, `align="top"` puts it 12vh from
-//!   the top (the palette).
+//!   the top (the palette). `vh` is the window's height unless the scrim sits
+//!   on an embedded surface with its own viewport ([`Scrim::viewport_height`]).
 //! - A press on the scrim itself (not the content) calls `on_dismiss`.
 use crate::{
     theme::color,
@@ -14,7 +15,7 @@ use crate::{
 };
 use gpui_kit::{
     AnyElement, App, ElementId, Hsla, InteractiveElement as _, IntoElement, MouseButton,
-    ParentElement, RenderOnce, Styled, Window, div, px,
+    ParentElement, Rems, RenderOnce, Styled, Window, div, px,
 };
 use std::rc::Rc;
 
@@ -85,6 +86,7 @@ pub struct Scrim {
     id: ElementId,
     variant: ScrimVariant,
     align: ScrimAlign,
+    viewport_height: Option<Rems>,
     children: Vec<AnyElement>,
     on_dismiss: Option<Dismiss>,
 }
@@ -96,6 +98,7 @@ impl Scrim {
             id: id.into(),
             variant: ScrimVariant::Dialog,
             align: ScrimAlign::Center,
+            viewport_height: None,
             children: Vec::new(),
             on_dismiss: None,
         }
@@ -110,6 +113,14 @@ impl Scrim {
     /// Content placement (`align`).
     pub fn align(mut self, align: ScrimAlign) -> Self {
         self.align = align;
+        self
+    }
+
+    /// The height `12vh` is taken from for `align="top"`, when the scrim
+    /// covers a surface with its own viewport (an embedded preview, such as
+    /// the reference's 300px card iframe) rather than the window.
+    pub fn viewport_height(mut self, height: Rems) -> Self {
+        self.viewport_height = Some(height);
         self
     }
 
@@ -128,7 +139,10 @@ impl ParentElement for Scrim {
 
 impl RenderOnce for Scrim {
     fn render(self, window: &mut Window, _: &mut App) -> impl IntoElement {
-        let viewport = f32::from(window.viewport_size().height);
+        let viewport = match self.viewport_height {
+            Some(h) => f32::from(h.to_pixels(window.rem_size())),
+            None => f32::from(window.viewport_size().height),
+        };
         let dismiss = self.on_dismiss.clone();
         let content = div()
             .id((self.id.clone(), "content"))
@@ -178,5 +192,7 @@ mod tests {
         // The palette scrim is lighter.
         assert!(ScrimVariant::Palette.color().a < ScrimVariant::Dialog.color().a);
         assert_eq!(top_offset(900.), 108.);
+        // The reference card's 300px iframe: the palette sits 36px down.
+        assert_eq!(top_offset(300.), 36.);
     }
 }
