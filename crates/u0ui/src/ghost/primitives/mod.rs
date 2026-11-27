@@ -14,6 +14,8 @@ pub mod stepped_slider;
 pub mod stepper;
 pub mod tag_input;
 pub mod time_field;
+pub mod tree;
+pub mod tree_table;
 
 pub use color_picker::ColorPicker;
 pub use copy_field::CopyField;
@@ -28,3 +30,5 @@ pub use stepped_slider::SteppedSlider;
 pub use stepper::Stepper;
 pub use tag_input::TagInput;
 pub use time_field::TimeField;
+pub use tree::{Tree, TreeItem};
+pub use tree_table::{CellAlign, TreeTable, TreeTableColumn, TreeTableRow};

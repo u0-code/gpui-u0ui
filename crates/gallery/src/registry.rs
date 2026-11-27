@@ -314,6 +314,8 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("stepper", "Stepper", GHOST_PRIMITIVES, Component::Stepper.summary(), pages::ghost_primitives::stepper::build).thumbnail(pages::ghost_primitives::stepper::thumbnail),
     PageDef::new("tag-input", "TagInput", GHOST_PRIMITIVES, Component::TagInput.summary(), pages::ghost_primitives::tag_input::build).thumbnail(pages::ghost_primitives::tag_input::thumbnail),
     PageDef::new("time-field", "TimeField", GHOST_PRIMITIVES, Component::TimeField.summary(), pages::ghost_primitives::time_field::build).thumbnail(pages::ghost_primitives::time_field::thumbnail),
+    PageDef::new("tree", "Tree", GHOST_PRIMITIVES, Component::Tree.summary(), pages::ghost_primitives::tree::build).thumbnail(pages::ghost_primitives::tree::thumbnail),
+    PageDef::new("tree-table", "TreeTable", GHOST_PRIMITIVES, Component::TreeTable.summary(), pages::ghost_primitives::tree_table::build).thumbnail(pages::ghost_primitives::tree_table::thumbnail),
 ];
 
 /// Look a page up by id.
