@@ -29,8 +29,8 @@ use crate::{
     typography::TypeStyled as _,
 };
 use gpui_kit::{
-    AnyElement, App, Div, ElementId, InteractiveElement as _, IntoElement, ParentElement,
-    RenderOnce, SharedString, Styled, Window, div, prelude::FluentBuilder as _, relative, rems,
+    AnyElement, App, ElementId, InteractiveElement as _, IntoElement, ParentElement, RenderOnce,
+    SharedString, Styled, Window, div, prelude::FluentBuilder as _, px, rems,
 };
 use std::rc::Rc;
 
@@ -112,6 +112,7 @@ impl FrameButton {
 
 /// The share of the foot each slot takes: the lead gap first (when its
 /// weight is positive), then one entry per button.
+#[deprecated(note = "ignores each button's padding; use `foot_widths`")]
 pub fn foot_shares(lead: f32, weights: &[f32]) -> Vec<f32> {
     let total: f32 = lead.max(0.) + weights.iter().sum::<f32>();
     if total <= 0. {
@@ -121,6 +122,26 @@ pub fn foot_shares(lead: f32, weights: &[f32]) -> Vec<f32> {
         .filter(|l| *l > 0.)
         .chain(weights.iter().copied())
         .map(|w| w / total)
+        .collect()
+}
+
+/// The widths the foot's slots take in a `width`-px frame: the lead gap
+/// first (when its weight is positive), then one per `(weight, basis)`
+/// button. Each slot is `flex: <weight>`, a zero basis that a button's
+/// padding and border floor at `basis` px
+/// ([`crate::components::button::Geometry::flex_basis`]); the free space
+/// left after the bases goes out by weight.
+pub fn foot_widths(width: f32, lead: f32, buttons: &[(f32, f32)]) -> Vec<f32> {
+    let lead = (lead > 0.).then_some((lead, 0.));
+    let slots: Vec<(f32, f32)> = lead.into_iter().chain(buttons.iter().copied()).collect();
+    let weights: f32 = slots.iter().map(|(w, _)| w).sum();
+    if weights <= 0. {
+        return Vec::new();
+    }
+    let free = (width - slots.iter().map(|(_, b)| b).sum::<f32>()).max(0.);
+    slots
+        .iter()
+        .map(|(w, basis)| basis + free * w / weights)
         .collect()
 }
 
@@ -222,12 +243,6 @@ impl ParentElement for PatternFrame {
     }
 }
 
-/// A flex slot taking `share` of the foot (`flex: <weight>` with a zero
-/// basis, `.cu-pframe-foot .cds--btn { min-width: 0 }`).
-fn slot(share: f32) -> Div {
-    div().min_w_0().flex_shrink(1.).flex_basis(relative(share))
-}
-
 impl RenderOnce for PatternFrame {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let g = FrameGeometry::REFERENCE;
@@ -284,41 +299,39 @@ impl RenderOnce for PatternFrame {
             .children(self.children);
 
         let foot = (!self.buttons.is_empty()).then(|| {
-            let weights: Vec<f32> = self.buttons.iter().map(|b| b.weight).collect();
-            let shares = foot_shares(self.lead, &weights);
-            let (lead, button_shares) = if self.lead > 0. {
-                (shares.first().copied(), &shares[1..])
-            } else {
-                (None, &shares[..])
-            };
-            let buttons = self
-                .buttons
-                .into_iter()
-                .zip(button_shares.iter().copied())
-                .enumerate()
-                .map(|(i, (b, share))| {
-                    let on_button = self.on_button.clone();
-                    let mut button = Button::new((id.clone(), format!("b{i}")), b.label)
-                        .variant(b.variant)
-                        .size(ButtonSize::Xl)
-                        .full_width(true)
-                        .disabled(b.disabled)
-                        .on_click(move |_, window, cx| {
-                            if let Some(f) = &on_button {
-                                f(i, window, cx)
-                            }
-                        });
-                    if let Some(icon) = b.icon {
-                        button = button.icon(icon);
-                    }
-                    slot(share).child(button)
-                });
-            // `.cu-pframe-foot { display: flex }`.
+            let buttons = self.buttons.into_iter().enumerate().map(|(i, b)| {
+                let on_button = self.on_button.clone();
+                let mut button = Button::new((id.clone(), format!("b{i}")), b.label)
+                    .variant(b.variant)
+                    .size(ButtonSize::Xl)
+                    // `style: {flex: widths[i] || 1, maxWidth: 'none'}`.
+                    .flex_share(b.weight)
+                    .disabled(b.disabled)
+                    .on_click(move |_, window, cx| {
+                        if let Some(f) = &on_button {
+                            f(i, window, cx)
+                        }
+                    });
+                if let Some(icon) = b.icon {
+                    button = button.icon(icon);
+                }
+                button
+            });
+            // `.cu-pframe-foot { display: flex }`, after the empty
+            // `<span style={{flex: leftGap}}>`.
             div()
                 .flex()
                 .flex_row()
                 .w_full()
-                .children(lead.map(slot))
+                .when(self.lead > 0., |this| {
+                    this.child(
+                        div()
+                            .min_w_0()
+                            .flex_grow(self.lead)
+                            .flex_shrink(1.)
+                            .flex_basis(px(0.)),
+                    )
+                })
                 .children(buttons)
         });
 
@@ -369,12 +382,23 @@ mod tests {
 
     #[test]
     fn button_counts_take_their_dialog_widths() {
-        // Two buttons: 50% each.
-        assert_eq!(foot_shares(0., &[1., 1.]), vec![0.5, 0.5]);
-        // One button after a lead gap: the right half.
-        assert_eq!(foot_shares(1., &[1.]), vec![0.5, 0.5]);
-        // Three buttons after a lead gap: a quarter each.
-        assert_eq!(foot_shares(1., &[1., 1., 1.]), vec![0.25; 4]);
-        assert!(foot_shares(0., &[]).is_empty());
+        use crate::components::button::{ButtonKind, Geometry};
+        use crate::density::Density;
+        let basis = |kind| {
+            Geometry::for_content(ButtonSize::Xl, Density::Compact, kind, false, false).flex_basis()
+        };
+        let (ghost, filled) = (basis(ButtonKind::Ghost), basis(ButtonKind::Primary));
+        // `.cds--btn` padding 15 / 15 (ghost) or 15 / 16, plus two 1px borders.
+        assert_eq!((ghost, filled), (32., 33.));
+        // Two buttons: half each (computed `.cu-pframe-foot > *`: 170 / 170).
+        assert_eq!(foot_widths(340., 0., &[(1., filled); 2]), vec![170.; 2]);
+        // Acknowledgment: the lead gap, then OK at 186.5.
+        assert_eq!(foot_widths(340., 1., &[(1., filled)]), vec![153.5, 186.5]);
+        // Three buttons after a lead gap: 80.5 / 112.5 / 113.5 / 113.5.
+        assert_eq!(
+            foot_widths(420., 1., &[(1., ghost), (1., filled), (1., filled)]),
+            vec![80.5, 112.5, 113.5, 113.5]
+        );
+        assert!(foot_widths(340., 0., &[]).is_empty());
     }
 }

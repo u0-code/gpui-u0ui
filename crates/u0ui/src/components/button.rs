@@ -504,6 +504,13 @@ impl Geometry {
         }
     }
 
+    /// The used flex base size of a `flex: <n>` (zero-basis) button: its
+    /// inline padding plus the two 1px borders, since `box-sizing:
+    /// border-box` cannot shrink the content box below zero.
+    pub fn flex_basis(&self) -> f32 {
+        self.padding_left + self.padding_right + 2.
+    }
+
     /// Geometry of a button with or without an icon: a text-only button that
     /// is neither ghost nor icon-only ends at [`TEXT_ONLY_END_PADDING`]. The
     /// craft-pass rule excludes `.cds--btn--ghost` only, so a text-only
@@ -540,6 +547,8 @@ pub struct Button {
     loading: bool,
     selected: bool,
     full_width: bool,
+    flex_share: Option<f32>,
+    label_top: bool,
     wrap_label: bool,
     icon_size: IconSize,
     tooltip: bool,
@@ -567,6 +576,8 @@ impl Button {
             loading: false,
             selected: false,
             full_width: false,
+            flex_share: None,
+            label_top: false,
             wrap_label: false,
             icon_size: IconSize::S16,
             tooltip: true,
@@ -657,6 +668,27 @@ impl Button {
     /// none`, as in `.cds--modal-footer .cds--btn`).
     pub fn full_width(mut self, full_width: bool) -> Self {
         self.full_width = full_width;
+        self
+    }
+
+    /// Share a flex row as CSS `flex: <weight>` on the button itself
+    /// (`style: {flex: 1, maxWidth: 'none'}` in `.cu-pframe-foot`, the
+    /// filter panel's Reset / Apply): grow by `weight` from a zero basis.
+    /// A zero `flex-basis` on a `border-box` button still floors at its
+    /// padding and border, so each button's share is that padding plus an
+    /// equal part of the free space (see [`Geometry::flex_basis`]).
+    pub fn flex_share(mut self, weight: f32) -> Self {
+        self.flex_share = Some(weight);
+        self
+    }
+
+    /// Drop the block padding so the label's line sits at the top of the
+    /// box, under the 1px border (computed
+    /// `.cds--actionable-notification__action-button`: `padding-block: 0`
+    /// in a 32px box). Off by default: the label is centred by its size's
+    /// block padding.
+    pub fn label_top(mut self, top: bool) -> Self {
+        self.label_top = top;
         self
     }
 
@@ -753,13 +785,16 @@ impl RenderOnce for Button {
     fn render(mut self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let kind = self.kind();
         let density = self.density.unwrap_or_else(density::current);
-        let geometry = Geometry::for_content(
+        let mut geometry = Geometry::for_content(
             self.size,
             density,
             kind,
             self.icon_only,
             self.icon.is_some() || self.loading,
         );
+        if self.label_top {
+            geometry.padding_top = 0.;
+        }
         let id = self.id.clone();
         let pointer =
             window.use_keyed_state((id.clone(), "pointer"), cx, |_, _| Pointer::default());
@@ -922,12 +957,15 @@ impl RenderOnce for Button {
                 .when_some(icon, |this, icon| this.child(icon));
         } else {
             button = button
-                .map(|this| {
-                    if self.full_width {
-                        this.w_full()
-                    } else {
-                        this.max_w(rem(320.))
-                    }
+                .map(|this| match self.flex_share {
+                    // `flex: <weight>; min-width: 0; max-width: none`.
+                    Some(weight) => this
+                        .flex_grow(weight)
+                        .flex_shrink(1.)
+                        .flex_basis(rem(geometry.flex_basis()))
+                        .min_w_0(),
+                    None if self.full_width => this.w_full(),
+                    None => this.max_w(rem(320.)),
                 })
                 // Base centers its content; Carbon's label starts at the padding box.
                 .justify_start()
