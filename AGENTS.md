@@ -24,7 +24,7 @@ relative to `$U0UI_DESIGN_DIR`:
 | `components/<Name>/README.md` + `preview.html` | Spec and demo content for each of the ~256 cards (the gallery must show the same content) |
 | `components/index.d.ts` | The public API surface (props, variants, sizes) to mirror in Rust builders |
 | `components/bundle.css` | Compiled `@carbon/styles` CSS, with the exact geometry, paddings and per-state colors of each Carbon component (`.cds--btn`, `.cds--text-input`, …) |
-| `src/custom.css`, `src/ghost.css`, `src/t3.css`, `src/patterns.css` | CSS of the non-Carbon components (`cu-*`, Ghost, T3, Patterns), including all animations |
+| `src/custom.css`, `src/ghost.css`, `src/t3.css`, `src/patterns.css` | CSS of the non-Carbon components (`cu-*`, u0, T3, Patterns), including all animations |
 | `src/index.jsx`, `src/ghost/*.jsx`, `src/t3/*.jsx` | Component structure and behavior |
 
 Derived sources are generated from it and committed, so the repo builds without it:
@@ -84,7 +84,7 @@ short doc comment next to the value.
 
 ## Gallery rules
 
-- Navigation follows the artifact's groups (core shadcn groups, Chat & AI, T3 · …, Ghost · …,
+- Navigation follows the artifact's groups (core shadcn groups, Chat & AI, T3 · …, u0 · …,
   Carbon · Patterns). The top bar has a theme switch (4 Carbon themes), a density switch, and a
   reduced-motion switch.
 - Each component page shows a live, working preview (clicks, keyboard, menus, dialogs and

@@ -13,7 +13,7 @@ gpui-base.workspace = true
 gpui-material-symbols.workspace = true
 # "Today" in the local time zone (Calendar, DatePicker); already in the tree via GPUI.
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
-# QR encoding for `ghost::primitives::QRCode` (MIT OR Apache-2.0), without its image/SVG renderers.
+# QR encoding for `u0::primitives::QRCode` (MIT OR Apache-2.0), without its image/SVG renderers.
 qrcode = { version = "0.14", default-features = false }
 
 [dev-dependencies]

@@ -14,7 +14,7 @@
 //! | [`density`] | [`Density`] (compact desktop default / comfortable) |
 //! | [`components`] | Carbon components ([`components::button`] is the reference) |
 //! | [`t3`] | The T3 Code pattern library, composed from the components |
-//! | [`ghost`] | The Ghost pattern library (`Ghost · …` cards: foundations, primitives, …) |
+//! | [`u0`] | The u0 pattern library (`u0 · …` cards: foundations, primitives, …) |
 //! | [`patterns`] | Building blocks of the Carbon pattern examples (`Carbon · Patterns` cards) |
 //!
 //! ```no_run
@@ -43,7 +43,6 @@
 pub mod clock;
 pub mod components;
 pub mod density;
-pub mod ghost;
 pub mod icons;
 pub mod motion;
 pub mod patterns;
@@ -51,6 +50,7 @@ pub mod t3;
 pub mod theme;
 pub mod tokens;
 pub mod typography;
+pub mod u0;
 
 pub use density::Density;
 pub use icons::{Assets, CarbonIcon, Icon, IconSize};

@@ -265,7 +265,7 @@ impl Render for Overview {
             let (title, text) = if query.trim().is_empty() {
                 (
                     "Nothing here yet",
-                    "The pattern libraries (Carbon patterns, T3 Code and Ghost) arrive with the next waves.",
+                    "The pattern libraries (Carbon patterns, T3 Code and u0) arrive with the next waves.",
                 )
             } else {
                 (

@@ -9,7 +9,7 @@
 //! - **Assistant**: provenance first (provider, model · duration · time) with
 //!   24px Copy / Reply / Fork icon buttons at its end (gemini-A), then the
 //!   14/22 prose body; inline code is 13px mono on a quiet `layer-accent-01`
-//!   tint (r2-desk), drawn by the helper shared with the Ghost
+//!   tint (r2-desk), drawn by the helper shared with the u0
 //!   MarkdownProse ([`crate::components::inline_code`]).
 use super::super::action::{ActionButton, ActionKind, Part};
 use crate::components::button::{Button, ButtonKind, ButtonSize, ButtonVariant};

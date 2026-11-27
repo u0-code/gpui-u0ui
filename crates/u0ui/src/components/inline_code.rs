@@ -1,4 +1,4 @@
-//! Inline code in prose, shared by the Ghost `MarkdownProse` and the T3
+//! Inline code in prose, shared by the u0 `MarkdownProse` and the T3
 //! `AssistantMessage` [`Prose`](crate::t3::timeline::Prose).
 //!
 //! Every rule for it, in cascade order (`components/bundle.css`):

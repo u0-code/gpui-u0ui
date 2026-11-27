@@ -96,7 +96,7 @@ fn main() {
 | Chat & AI | Bubble、Message、Marker、MessageScroller、Attachment、Questionnaire、Trace | 已完成 |
 | Carbon · Patterns | 16 个 Carbon 模式（全局页头、表单、对话框、空状态……） | 计划中 |
 | T3 · … | T3 Code 模式库的 92 张卡片 | 计划中 |
-| Ghost · … | Ghost 模式库的 81 张卡片 | 计划中 |
+| u0 · … | u0 模式库的 81 张卡片 | 计划中 |
 
 “已完成”表示已实现、有测试并在 Gallery 中实时展示；对照参考的评审仍在继续，1.0 之前细节可能还会调整。
 

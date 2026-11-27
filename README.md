@@ -99,7 +99,7 @@ component keep its state.
 | Chat & AI | Bubble, Message, Marker, MessageScroller, Attachment, Questionnaire, Trace | Done |
 | Carbon · Patterns | 16 Carbon patterns (global header, forms, dialogs, empty states, …) | Planned |
 | T3 · … | 92 cards from the T3 Code pattern library | Planned |
-| Ghost · … | 81 cards from the Ghost pattern library | Planned |
+| u0 · … | 81 cards from the u0 pattern library | Planned |
 
 "Done" means implemented with tests and shown live in the gallery; reviews
 against the reference continue, so details may still change before 1.0.

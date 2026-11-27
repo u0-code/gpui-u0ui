@@ -9,8 +9,8 @@ use gpui_kit::{
     Window, WindowBounds, WindowOptions, div, px, size,
 };
 use std::{cell::RefCell, rc::Rc, time::Duration};
-use u0ui::ghost::primitives::{Tree, TreeItem};
 use u0ui::patterns::FluidDropdown;
+use u0ui::u0::primitives::{Tree, TreeItem};
 
 struct Page {
     before: FocusHandle,

@@ -145,7 +145,7 @@ One file plus one registry line.
 
    with the stable id (the reference card, kebab-case), the title, the
    artifact's group (a constant, or the group string such as
-   `"T3 · Composer"`; `T3 · `, `Ghost · ` and `Carbon · ` groups land under
+   `"T3 · Composer"`; `T3 · `, `u0 · ` and `Carbon · ` groups land under
    Patterns) and the README's first sentence from
    `crates/gallery/src/generated/descriptions.rs` (every reference component
    already has a variant). Optional on the same line:

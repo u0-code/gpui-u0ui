@@ -26,14 +26,14 @@ use gpui_kit::{
     TestAppContext, Window, WindowBounds, WindowOptions, div, px, size,
 };
 use std::time::Duration;
-use u0ui::ghost::devices::PairConfirmSheet;
-use u0ui::ghost::diagnostics::{Process, ProcessTree};
-use u0ui::ghost::panels::{
-    ChangedFile, CodeViewer, CommitComposer, ImageViewer, TerminalTab, TerminalTabs, TerminalView,
-};
-use u0ui::ghost::settings::ConsentSheet;
 use u0ui::t3::review::FileStatus;
 use u0ui::t3::timeline::{InputOption, InputQuestion, UserInputCard};
+use u0ui::u0::devices::PairConfirmSheet;
+use u0ui::u0::diagnostics::{Process, ProcessTree};
+use u0ui::u0::panels::{
+    ChangedFile, CodeViewer, CommitComposer, ImageViewer, TerminalTab, TerminalTabs, TerminalView,
+};
+use u0ui::u0::settings::ConsentSheet;
 
 const CODE: &str = "import { tokens } from './tokens';\n\n// Resolve a token for the active theme\nexport function resolve(name: string, theme = 'g100') {\n  const value = tokens[theme]?.[name];\n  if (value === undefined) throw new Error(`Unknown token ${name}`);\n  return value;\n}\n\nexport const DEFAULT_THEME = 'white';";
 
@@ -96,7 +96,7 @@ fn sections() -> Vec<(&'static str, usize, AnyElement)> {
             ProcessTree::new(
                 "pt",
                 vec![
-                    Process::new(4120, "ghost-server", 3.2, 180.).children([
+                    Process::new(4120, "u0-server", 3.2, 180.).children([
                         Process::new(4188, "claude", 42.5, 610.)
                             .kind("Claude")
                             .children([Process::new(4301, "pnpm test", 88.1, 1540.)]),
@@ -119,7 +119,7 @@ fn sections() -> Vec<(&'static str, usize, AnyElement)> {
             "ConsentSheet",
             5,
             ConsentSheet::new("consent")
-                .app_name("Ghost")
+                .app_name("u0")
                 .into_any_element(),
         ),
         (

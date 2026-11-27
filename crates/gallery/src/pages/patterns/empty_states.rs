@@ -108,7 +108,7 @@ fn example(i: usize, p: &str, k: Knobs, entity: Option<&Entity<Page>>) -> AnyEle
             CarbonIcon::Folder,
             120.,
             "Start by adding a project",
-            "Ghost works on folders on this Mac or on a paired server. Add one to start your first thread.",
+            "u0 works on folders on this Mac or on a paired server. Add one to start your first thread.",
         ),
         _ => (
             EmptyStateSize::Lg,

@@ -101,27 +101,27 @@ pub const LAYOUT: &str = "Layout";
 /// `Chat & AI`.
 pub const CHAT_AI: &str = "Chat & AI";
 
-/// `Ghost · Foundations`: Ghost's desktop rules over the tokens.
-pub const GHOST_FOUNDATIONS: &str = "Ghost · Foundations";
-/// `Ghost · Primitives`: desktop-density building blocks.
-pub const GHOST_PRIMITIVES: &str = "Ghost · Primitives";
-/// `Ghost · Thread`: the pieces of an agent transcript.
-pub const GHOST_THREAD: &str = "Ghost · Thread";
-/// `Ghost · Settings`: the settings window and the rows and editors in it.
-pub const GHOST_SETTINGS: &str = "Ghost · Settings";
+/// `u0 · Foundations`: u0's desktop rules over the tokens.
+pub const U0_FOUNDATIONS: &str = "u0 · Foundations";
+/// `u0 · Primitives`: desktop-density building blocks.
+pub const U0_PRIMITIVES: &str = "u0 · Primitives";
+/// `u0 · Thread`: the pieces of an agent transcript.
+pub const U0_THREAD: &str = "u0 · Thread";
+/// `u0 · Settings`: the settings window and the rows and editors in it.
+pub const U0_SETTINGS: &str = "u0 · Settings";
 
-/// `Ghost · Shell`: the sidebar pieces Ghost adds to the T3 shell.
-pub const GHOST_SHELL: &str = "Ghost · Shell";
+/// `u0 · Shell`: the sidebar pieces u0 adds to the T3 shell.
+pub const U0_SHELL: &str = "u0 · Shell";
 
 /// `RichText` is new in the reference and has no card folder (so no generated
 /// summary): its `index.d.ts` doc comment.
 const RICH_TEXT: &str = "Renders `value` as-is: a string or an element (inline code, links), for parts whose text holes would stringify an element, such as a SettingsRow description.";
 
-/// `Ghost · Right column`: viewers, terminal, git history.
-pub const GHOST_RIGHT: &str = "Ghost · Right column";
+/// `u0 · Right column`: viewers, terminal, git history.
+pub const U0_RIGHT: &str = "u0 · Right column";
 
 /// The reference artifact's group order (`components/index.d.ts` sections).
-/// Other groups (`T3 · …`, `Ghost · …`, `Carbon · Patterns`) follow in
+/// Other groups (`T3 · …`, `u0 · …`, `Carbon · Patterns`) follow in
 /// first-use order.
 pub const GROUP_ORDER: &[&str] = &[
     FOUNDATIONS,
@@ -142,7 +142,7 @@ pub enum Section {
     Foundations,
     /// The shadcn component groups and Chat & AI.
     Components,
-    /// `T3 · …`, `Ghost · …` and `Carbon · Patterns`.
+    /// `T3 · …`, `u0 · …` and `Carbon · Patterns`.
     Patterns,
 }
 
@@ -169,7 +169,7 @@ impl Section {
                 "Every shadcn/ui component drawn in Carbon v11, plus Chat & AI. Live, keyboard-ready, themeable."
             }
             Self::Patterns => {
-                "Carbon patterns and the T3 Code and Ghost pattern libraries, composed from the components."
+                "Carbon patterns and the T3 Code and u0 pattern libraries, composed from the components."
             }
         }
     }
@@ -188,7 +188,7 @@ impl Section {
         if group == FOUNDATIONS {
             Self::Foundations
         } else if group.starts_with("T3 · ")
-            || group.starts_with("Ghost · ")
+            || group.starts_with("u0 · ")
             || group.starts_with("Carbon · ")
         {
             Self::Patterns
@@ -347,35 +347,35 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("workspace-page-header", "WorkspacePageHeader", "T3 · Shell", Component::WorkspacePageHeader.summary(), pages::t3_shell::chrome::build_page_header).thumbnail(pages::t3_shell::chrome::header_thumbnail),
     PageDef::new("right-panel-tabs", "RightPanelTabs", "T3 · Shell", Component::RightPanelTabs.summary(), pages::t3_shell::chrome::build_right_panel_tabs).thumbnail(pages::t3_shell::chrome::tabs_thumbnail),
     PageDef::new("panel-layout-controls", "PanelLayoutControls", "T3 · Shell", Component::PanelLayoutControls.summary(), pages::t3_shell::chrome::build_layout_controls).thumbnail(pages::t3_shell::chrome::layout_thumbnail),
-    // Ghost · Foundations (src/ghost/foundations.jsx)
-    PageDef::new("agent-colors", "AgentColors", GHOST_FOUNDATIONS, Component::AgentColors.summary(), pages::ghost_foundations::agent_colors::build).thumbnail(pages::ghost_foundations::agent_colors::thumbnail),
-    PageDef::new("cjk-typography", "CJKTypography", GHOST_FOUNDATIONS, Component::CJKTypography.summary(), pages::ghost_foundations::cjk_typography::build).thumbnail(pages::ghost_foundations::cjk_typography::thumbnail),
-    PageDef::new("density", "Density", GHOST_FOUNDATIONS, Component::Density.summary(), pages::ghost_foundations::density::build).thumbnail(pages::ghost_foundations::density::thumbnail),
-    PageDef::new("focus-states", "FocusStates", GHOST_FOUNDATIONS, Component::FocusStates.summary(), pages::ghost_foundations::focus_states::build).thumbnail(pages::ghost_foundations::focus_states::thumbnail),
-    PageDef::new("icon", "Icon", GHOST_FOUNDATIONS, Component::Icon.summary(), pages::ghost_foundations::icon::build).thumbnail(pages::ghost_foundations::icon::thumbnail),
-    PageDef::new("layout-rules", "LayoutRules", GHOST_FOUNDATIONS, Component::LayoutRules.summary(), pages::ghost_foundations::layout_rules::build).thumbnail(pages::ghost_foundations::layout_rules::thumbnail),
-    PageDef::new("reduced-motion", "ReducedMotion", GHOST_FOUNDATIONS, Component::ReducedMotion.summary(), pages::ghost_foundations::reduced_motion::build).thumbnail(pages::ghost_foundations::reduced_motion::thumbnail),
-    PageDef::new("scrim", "Scrim", GHOST_FOUNDATIONS, Component::Scrim.summary(), pages::ghost_foundations::scrim::build).thumbnail(pages::ghost_foundations::scrim::thumbnail),
-    PageDef::new("syntax-colors", "SyntaxColors", GHOST_FOUNDATIONS, Component::SyntaxColors.summary(), pages::ghost_foundations::syntax_colors::build).thumbnail(pages::ghost_foundations::syntax_colors::thumbnail),
-    PageDef::new("terminal-colors", "TerminalColors", GHOST_FOUNDATIONS, Component::TerminalColors.summary(), pages::ghost_foundations::terminal_colors::build).thumbnail(pages::ghost_foundations::terminal_colors::thumbnail),
-    PageDef::new("truncation", "Truncation", GHOST_FOUNDATIONS, Component::Truncation.summary(), pages::ghost_foundations::truncation::build).thumbnail(pages::ghost_foundations::truncation::thumbnail),
-    PageDef::new("window-chrome", "WindowChrome", GHOST_FOUNDATIONS, Component::WindowChrome.summary(), pages::ghost_foundations::window_chrome::build).thumbnail(pages::ghost_foundations::window_chrome::thumbnail),
-    // Ghost · Primitives (src/ghost/primitives.jsx)
-    PageDef::new("color-picker", "ColorPicker", GHOST_PRIMITIVES, Component::ColorPicker.summary(), pages::ghost_primitives::color_picker::build).thumbnail(pages::ghost_primitives::color_picker::thumbnail),
-    PageDef::new("copy-field", "CopyField", GHOST_PRIMITIVES, Component::CopyField.summary(), pages::ghost_primitives::copy_field::build).thumbnail(pages::ghost_primitives::copy_field::thumbnail),
-    PageDef::new("dropzone", "Dropzone", GHOST_PRIMITIVES, Component::Dropzone.summary(), pages::ghost_primitives::dropzone::build).thumbnail(pages::ghost_primitives::dropzone::thumbnail),
-    PageDef::new("editable-text", "EditableText", GHOST_PRIMITIVES, Component::EditableText.summary(), pages::ghost_primitives::editable_text::build).thumbnail(pages::ghost_primitives::editable_text::thumbnail),
-    PageDef::new("highlighted-text", "HighlightedText", GHOST_PRIMITIVES, Component::HighlightedText.summary(), pages::ghost_primitives::highlighted_text::build).thumbnail(pages::ghost_primitives::highlighted_text::thumbnail),
-    PageDef::new("key-recorder", "KeyRecorder", GHOST_PRIMITIVES, Component::KeyRecorder.summary(), pages::ghost_primitives::key_recorder::build).thumbnail(pages::ghost_primitives::key_recorder::thumbnail),
-    PageDef::new("key-value-editor", "KeyValueEditor", GHOST_PRIMITIVES, Component::KeyValueEditor.summary(), pages::ghost_primitives::key_value_editor::build).thumbnail(pages::ghost_primitives::key_value_editor::thumbnail),
-    PageDef::new("qr-code", "QRCode", GHOST_PRIMITIVES, Component::QRCode.summary(), pages::ghost_primitives::qr_code::build).thumbnail(pages::ghost_primitives::qr_code::thumbnail),
-    PageDef::new("secret-field", "SecretField", GHOST_PRIMITIVES, Component::SecretField.summary(), pages::ghost_primitives::secret_field::build).thumbnail(pages::ghost_primitives::secret_field::thumbnail),
-    PageDef::new("stepped-slider", "SteppedSlider", GHOST_PRIMITIVES, Component::SteppedSlider.summary(), pages::ghost_primitives::stepped_slider::build).thumbnail(pages::ghost_primitives::stepped_slider::thumbnail),
-    PageDef::new("stepper", "Stepper", GHOST_PRIMITIVES, Component::Stepper.summary(), pages::ghost_primitives::stepper::build).thumbnail(pages::ghost_primitives::stepper::thumbnail),
-    PageDef::new("tag-input", "TagInput", GHOST_PRIMITIVES, Component::TagInput.summary(), pages::ghost_primitives::tag_input::build).thumbnail(pages::ghost_primitives::tag_input::thumbnail),
-    PageDef::new("time-field", "TimeField", GHOST_PRIMITIVES, Component::TimeField.summary(), pages::ghost_primitives::time_field::build).thumbnail(pages::ghost_primitives::time_field::thumbnail),
-    PageDef::new("tree", "Tree", GHOST_PRIMITIVES, Component::Tree.summary(), pages::ghost_primitives::tree::build).thumbnail(pages::ghost_primitives::tree::thumbnail),
-    PageDef::new("tree-table", "TreeTable", GHOST_PRIMITIVES, Component::TreeTable.summary(), pages::ghost_primitives::tree_table::build).thumbnail(pages::ghost_primitives::tree_table::thumbnail),
+    // u0 · Foundations (src/ghost/foundations.jsx)
+    PageDef::new("agent-colors", "AgentColors", U0_FOUNDATIONS, Component::AgentColors.summary(), pages::u0_foundations::agent_colors::build).thumbnail(pages::u0_foundations::agent_colors::thumbnail),
+    PageDef::new("cjk-typography", "CJKTypography", U0_FOUNDATIONS, Component::CJKTypography.summary(), pages::u0_foundations::cjk_typography::build).thumbnail(pages::u0_foundations::cjk_typography::thumbnail),
+    PageDef::new("density", "Density", U0_FOUNDATIONS, Component::Density.summary(), pages::u0_foundations::density::build).thumbnail(pages::u0_foundations::density::thumbnail),
+    PageDef::new("focus-states", "FocusStates", U0_FOUNDATIONS, Component::FocusStates.summary(), pages::u0_foundations::focus_states::build).thumbnail(pages::u0_foundations::focus_states::thumbnail),
+    PageDef::new("icon", "Icon", U0_FOUNDATIONS, Component::Icon.summary(), pages::u0_foundations::icon::build).thumbnail(pages::u0_foundations::icon::thumbnail),
+    PageDef::new("layout-rules", "LayoutRules", U0_FOUNDATIONS, Component::LayoutRules.summary(), pages::u0_foundations::layout_rules::build).thumbnail(pages::u0_foundations::layout_rules::thumbnail),
+    PageDef::new("reduced-motion", "ReducedMotion", U0_FOUNDATIONS, Component::ReducedMotion.summary(), pages::u0_foundations::reduced_motion::build).thumbnail(pages::u0_foundations::reduced_motion::thumbnail),
+    PageDef::new("scrim", "Scrim", U0_FOUNDATIONS, Component::Scrim.summary(), pages::u0_foundations::scrim::build).thumbnail(pages::u0_foundations::scrim::thumbnail),
+    PageDef::new("syntax-colors", "SyntaxColors", U0_FOUNDATIONS, Component::SyntaxColors.summary(), pages::u0_foundations::syntax_colors::build).thumbnail(pages::u0_foundations::syntax_colors::thumbnail),
+    PageDef::new("terminal-colors", "TerminalColors", U0_FOUNDATIONS, Component::TerminalColors.summary(), pages::u0_foundations::terminal_colors::build).thumbnail(pages::u0_foundations::terminal_colors::thumbnail),
+    PageDef::new("truncation", "Truncation", U0_FOUNDATIONS, Component::Truncation.summary(), pages::u0_foundations::truncation::build).thumbnail(pages::u0_foundations::truncation::thumbnail),
+    PageDef::new("window-chrome", "WindowChrome", U0_FOUNDATIONS, Component::WindowChrome.summary(), pages::u0_foundations::window_chrome::build).thumbnail(pages::u0_foundations::window_chrome::thumbnail),
+    // u0 · Primitives (src/ghost/primitives.jsx)
+    PageDef::new("color-picker", "ColorPicker", U0_PRIMITIVES, Component::ColorPicker.summary(), pages::u0_primitives::color_picker::build).thumbnail(pages::u0_primitives::color_picker::thumbnail),
+    PageDef::new("copy-field", "CopyField", U0_PRIMITIVES, Component::CopyField.summary(), pages::u0_primitives::copy_field::build).thumbnail(pages::u0_primitives::copy_field::thumbnail),
+    PageDef::new("dropzone", "Dropzone", U0_PRIMITIVES, Component::Dropzone.summary(), pages::u0_primitives::dropzone::build).thumbnail(pages::u0_primitives::dropzone::thumbnail),
+    PageDef::new("editable-text", "EditableText", U0_PRIMITIVES, Component::EditableText.summary(), pages::u0_primitives::editable_text::build).thumbnail(pages::u0_primitives::editable_text::thumbnail),
+    PageDef::new("highlighted-text", "HighlightedText", U0_PRIMITIVES, Component::HighlightedText.summary(), pages::u0_primitives::highlighted_text::build).thumbnail(pages::u0_primitives::highlighted_text::thumbnail),
+    PageDef::new("key-recorder", "KeyRecorder", U0_PRIMITIVES, Component::KeyRecorder.summary(), pages::u0_primitives::key_recorder::build).thumbnail(pages::u0_primitives::key_recorder::thumbnail),
+    PageDef::new("key-value-editor", "KeyValueEditor", U0_PRIMITIVES, Component::KeyValueEditor.summary(), pages::u0_primitives::key_value_editor::build).thumbnail(pages::u0_primitives::key_value_editor::thumbnail),
+    PageDef::new("qr-code", "QRCode", U0_PRIMITIVES, Component::QRCode.summary(), pages::u0_primitives::qr_code::build).thumbnail(pages::u0_primitives::qr_code::thumbnail),
+    PageDef::new("secret-field", "SecretField", U0_PRIMITIVES, Component::SecretField.summary(), pages::u0_primitives::secret_field::build).thumbnail(pages::u0_primitives::secret_field::thumbnail),
+    PageDef::new("stepped-slider", "SteppedSlider", U0_PRIMITIVES, Component::SteppedSlider.summary(), pages::u0_primitives::stepped_slider::build).thumbnail(pages::u0_primitives::stepped_slider::thumbnail),
+    PageDef::new("stepper", "Stepper", U0_PRIMITIVES, Component::Stepper.summary(), pages::u0_primitives::stepper::build).thumbnail(pages::u0_primitives::stepper::thumbnail),
+    PageDef::new("tag-input", "TagInput", U0_PRIMITIVES, Component::TagInput.summary(), pages::u0_primitives::tag_input::build).thumbnail(pages::u0_primitives::tag_input::thumbnail),
+    PageDef::new("time-field", "TimeField", U0_PRIMITIVES, Component::TimeField.summary(), pages::u0_primitives::time_field::build).thumbnail(pages::u0_primitives::time_field::thumbnail),
+    PageDef::new("tree", "Tree", U0_PRIMITIVES, Component::Tree.summary(), pages::u0_primitives::tree::build).thumbnail(pages::u0_primitives::tree::thumbnail),
+    PageDef::new("tree-table", "TreeTable", U0_PRIMITIVES, Component::TreeTable.summary(), pages::u0_primitives::tree_table::build).thumbnail(pages::u0_primitives::tree_table::thumbnail),
     PageDef::new("control-pill", "ControlPill", "T3 · Mobile", Component::ControlPill.summary(), pages::t3_mobile::control_pill::build).thumbnail(pages::t3_mobile::control_pill::thumbnail),
     PageDef::new("floating-action-button", "FloatingActionButton", "T3 · Mobile", Component::FloatingActionButton.summary(), pages::t3_mobile::floating_action_button::build).thumbnail(pages::t3_mobile::floating_action_button::thumbnail),
     PageDef::new("floating-working-control", "FloatingWorkingControl", "T3 · Mobile", Component::FloatingWorkingControl.summary(), pages::t3_mobile::floating_working_control::build).thumbnail(pages::t3_mobile::floating_working_control::thumbnail),
@@ -387,37 +387,37 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("split-button", "SplitButton", "T3 · Mobile", Component::SplitButton.summary(), pages::t3_mobile::split_button::build).thumbnail(pages::t3_mobile::split_button::thumbnail),
     PageDef::new("command-palette", "CommandPalette", "T3 · Shell", Component::CommandPalette.summary(), pages::t3_shell::palette::build_command_palette).thumbnail(pages::t3_shell::palette::palette_thumbnail),
     PageDef::new("list-toolbar", "ListToolbar", "T3 · Shell", Component::ListToolbar.summary(), pages::t3_shell::palette::build_list_toolbar).thumbnail(pages::t3_shell::palette::toolbar_thumbnail),
-    // Ghost · Composer (src/ghost/workspace.jsx)
-    PageDef::new("composer-chip", "ComposerChip", "Ghost · Composer", Component::ComposerChip.summary(), pages::ghost_composer::build_composer_chip).thumbnail(pages::ghost_composer::chip_thumbnail),
-    PageDef::new("composer-compact", "ComposerCompact", "Ghost · Composer", Component::ComposerCompact.summary(), pages::ghost_composer::build_composer_compact).thumbnail(pages::ghost_composer::compact_thumbnail),
-    PageDef::new("mention-list", "MentionList", "Ghost · Composer", Component::MentionList.summary(), pages::ghost_composer::build_mention_list).thumbnail(pages::ghost_composer::mention_thumbnail),
-    PageDef::new("mode-menu", "ModeMenu", "Ghost · Composer", Component::ModeMenu.summary(), pages::ghost_composer::build_mode_menu).thumbnail(pages::ghost_composer::mode_thumbnail),
-    // Ghost · Palette (src/ghost/workspace.jsx)
-    PageDef::new("file-result-row", "FileResultRow", "Ghost · Palette", Component::FileResultRow.summary(), pages::ghost_palette::build_file_result_row).thumbnail(pages::ghost_palette::file_thumbnail),
-    PageDef::new("palette-page", "PalettePage", "Ghost · Palette", Component::PalettePage.summary(), pages::ghost_palette::build_palette_page).thumbnail(pages::ghost_palette::palette_thumbnail),
-    // Ghost · Right column (src/ghost/panels.jsx)
-    PageDef::new("code-viewer", "CodeViewer", GHOST_RIGHT, Component::CodeViewer.summary(), pages::ghost_panels::code_viewer::build).thumbnail(pages::ghost_panels::code_viewer::thumbnail),
-    PageDef::new("commit-composer", "CommitComposer", GHOST_RIGHT, Component::CommitComposer.summary(), pages::ghost_panels::git::build_commit_composer).thumbnail(pages::ghost_panels::git::composer_thumbnail),
-    PageDef::new("commit-row", "CommitRow", GHOST_RIGHT, Component::CommitRow.summary(), pages::ghost_panels::git::build_commit_row).thumbnail(pages::ghost_panels::git::commit_thumbnail),
-    PageDef::new("diff-word-highlight", "DiffWordHighlight", GHOST_RIGHT, Component::DiffWordHighlight.summary(), pages::ghost_panels::diff_word_highlight::build).thumbnail(pages::ghost_panels::diff_word_highlight::thumbnail),
-    PageDef::new("image-viewer", "ImageViewer", GHOST_RIGHT, Component::ImageViewer.summary(), pages::ghost_panels::image_viewer::build).thumbnail(pages::ghost_panels::image_viewer::thumbnail),
-    PageDef::new("linked-items-section", "LinkedItemsSection", GHOST_RIGHT, Component::LinkedItemsSection.summary(), pages::ghost_panels::git::build_linked_items).thumbnail(pages::ghost_panels::git::linked_thumbnail),
-    PageDef::new("pdf-viewer", "PdfViewer", GHOST_RIGHT, Component::PdfViewer.summary(), pages::ghost_panels::pdf_viewer::build).thumbnail(pages::ghost_panels::pdf_viewer::thumbnail),
-    PageDef::new("stash-row", "StashRow", GHOST_RIGHT, Component::StashRow.summary(), pages::ghost_panels::git::build_stash_row).thumbnail(pages::ghost_panels::git::stash_thumbnail),
-    PageDef::new("terminal-view", "TerminalView", GHOST_RIGHT, Component::TerminalView.summary(), pages::ghost_panels::terminal_view::build).thumbnail(pages::ghost_panels::terminal_view::thumbnail),
-    // Ghost · Tasks & workflows (src/ghost/admin.jsx)
-    PageDef::new("schedule-editor", "ScheduleEditor", "Ghost · Tasks & workflows", Component::ScheduleEditor.summary(), pages::ghost_tasks::schedule_editor::build).thumbnail(pages::ghost_tasks::schedule_editor::thumbnail),
-    PageDef::new("task-row", "TaskRow", "Ghost · Tasks & workflows", Component::TaskRow.summary(), pages::ghost_tasks::task_row::build).thumbnail(pages::ghost_tasks::task_row::thumbnail),
-    PageDef::new("workflow-row", "WorkflowRow", "Ghost · Tasks & workflows", Component::WorkflowRow.summary(), pages::ghost_tasks::workflow_row::build).thumbnail(pages::ghost_tasks::workflow_row::thumbnail),
-    PageDef::new("workflow-step-editor", "WorkflowStepEditor", "Ghost · Tasks & workflows", Component::WorkflowStepEditor.summary(), pages::ghost_tasks::workflow_step_editor::build).thumbnail(pages::ghost_tasks::workflow_step_editor::thumbnail),
+    // u0 · Composer (src/ghost/workspace.jsx)
+    PageDef::new("composer-chip", "ComposerChip", "u0 · Composer", Component::ComposerChip.summary(), pages::u0_composer::build_composer_chip).thumbnail(pages::u0_composer::chip_thumbnail),
+    PageDef::new("composer-compact", "ComposerCompact", "u0 · Composer", Component::ComposerCompact.summary(), pages::u0_composer::build_composer_compact).thumbnail(pages::u0_composer::compact_thumbnail),
+    PageDef::new("mention-list", "MentionList", "u0 · Composer", Component::MentionList.summary(), pages::u0_composer::build_mention_list).thumbnail(pages::u0_composer::mention_thumbnail),
+    PageDef::new("mode-menu", "ModeMenu", "u0 · Composer", Component::ModeMenu.summary(), pages::u0_composer::build_mode_menu).thumbnail(pages::u0_composer::mode_thumbnail),
+    // u0 · Palette (src/ghost/workspace.jsx)
+    PageDef::new("file-result-row", "FileResultRow", "u0 · Palette", Component::FileResultRow.summary(), pages::u0_palette::build_file_result_row).thumbnail(pages::u0_palette::file_thumbnail),
+    PageDef::new("palette-page", "PalettePage", "u0 · Palette", Component::PalettePage.summary(), pages::u0_palette::build_palette_page).thumbnail(pages::u0_palette::palette_thumbnail),
+    // u0 · Right column (src/ghost/panels.jsx)
+    PageDef::new("code-viewer", "CodeViewer", U0_RIGHT, Component::CodeViewer.summary(), pages::u0_panels::code_viewer::build).thumbnail(pages::u0_panels::code_viewer::thumbnail),
+    PageDef::new("commit-composer", "CommitComposer", U0_RIGHT, Component::CommitComposer.summary(), pages::u0_panels::git::build_commit_composer).thumbnail(pages::u0_panels::git::composer_thumbnail),
+    PageDef::new("commit-row", "CommitRow", U0_RIGHT, Component::CommitRow.summary(), pages::u0_panels::git::build_commit_row).thumbnail(pages::u0_panels::git::commit_thumbnail),
+    PageDef::new("diff-word-highlight", "DiffWordHighlight", U0_RIGHT, Component::DiffWordHighlight.summary(), pages::u0_panels::diff_word_highlight::build).thumbnail(pages::u0_panels::diff_word_highlight::thumbnail),
+    PageDef::new("image-viewer", "ImageViewer", U0_RIGHT, Component::ImageViewer.summary(), pages::u0_panels::image_viewer::build).thumbnail(pages::u0_panels::image_viewer::thumbnail),
+    PageDef::new("linked-items-section", "LinkedItemsSection", U0_RIGHT, Component::LinkedItemsSection.summary(), pages::u0_panels::git::build_linked_items).thumbnail(pages::u0_panels::git::linked_thumbnail),
+    PageDef::new("pdf-viewer", "PdfViewer", U0_RIGHT, Component::PdfViewer.summary(), pages::u0_panels::pdf_viewer::build).thumbnail(pages::u0_panels::pdf_viewer::thumbnail),
+    PageDef::new("stash-row", "StashRow", U0_RIGHT, Component::StashRow.summary(), pages::u0_panels::git::build_stash_row).thumbnail(pages::u0_panels::git::stash_thumbnail),
+    PageDef::new("terminal-view", "TerminalView", U0_RIGHT, Component::TerminalView.summary(), pages::u0_panels::terminal_view::build).thumbnail(pages::u0_panels::terminal_view::thumbnail),
+    // u0 · Tasks & workflows (src/ghost/admin.jsx)
+    PageDef::new("schedule-editor", "ScheduleEditor", "u0 · Tasks & workflows", Component::ScheduleEditor.summary(), pages::u0_tasks::schedule_editor::build).thumbnail(pages::u0_tasks::schedule_editor::thumbnail),
+    PageDef::new("task-row", "TaskRow", "u0 · Tasks & workflows", Component::TaskRow.summary(), pages::u0_tasks::task_row::build).thumbnail(pages::u0_tasks::task_row::thumbnail),
+    PageDef::new("workflow-row", "WorkflowRow", "u0 · Tasks & workflows", Component::WorkflowRow.summary(), pages::u0_tasks::workflow_row::build).thumbnail(pages::u0_tasks::workflow_row::thumbnail),
+    PageDef::new("workflow-step-editor", "WorkflowStepEditor", "u0 · Tasks & workflows", Component::WorkflowStepEditor.summary(), pages::u0_tasks::workflow_step_editor::build).thumbnail(pages::u0_tasks::workflow_step_editor::thumbnail),
     PageDef::new("app-shell", "AppShell", "T3 · Shell", Component::AppShell.summary(), pages::t3_shell::app_shell::build).thumbnail(pages::t3_shell::app_shell::thumbnail),
     PageDef::new("swipe-row", "SwipeRow", "T3 · Mobile", Component::SwipeRow.summary(), pages::t3_mobile::swipe_row::build).thumbnail(pages::t3_mobile::swipe_row::thumbnail),
-    // Ghost · Shell (src/ghost/workspace.jsx)
-    PageDef::new("filter-menu", "FilterMenu", GHOST_SHELL, Component::FilterMenu.summary(), pages::ghost_shell::rows::build_filter_menu).thumbnail(pages::ghost_shell::rows::filter_thumbnail),
-    PageDef::new("ghost-thread-row", "GhostThreadRow", GHOST_SHELL, Component::GhostThreadRow.summary(), pages::ghost_shell::rows::build_ghost_thread_row).thumbnail(pages::ghost_shell::rows::row_thumbnail),
-    PageDef::new("right-panel-tabs-overflow", "RightPanelTabsOverflow", GHOST_SHELL, Component::RightPanelTabsOverflow.summary(), pages::ghost_shell::right_panel_tabs_overflow::build).thumbnail(pages::ghost_shell::right_panel_tabs_overflow::thumbnail),
-    PageDef::new("server-chip", "ServerChip", GHOST_SHELL, Component::ServerChip.summary(), pages::ghost_shell::server::build_server_chip).thumbnail(pages::ghost_shell::server::chip_thumbnail),
-    PageDef::new("server-header", "ServerHeader", GHOST_SHELL, Component::ServerHeader.summary(), pages::ghost_shell::server::build_server_header).thumbnail(pages::ghost_shell::server::header_thumbnail),
+    // u0 · Shell (src/ghost/workspace.jsx)
+    PageDef::new("filter-menu", "FilterMenu", U0_SHELL, Component::FilterMenu.summary(), pages::u0_shell::rows::build_filter_menu).thumbnail(pages::u0_shell::rows::filter_thumbnail),
+    PageDef::new("u0-thread-row", "ThreadRow", U0_SHELL, Component::GhostThreadRow.summary(), pages::u0_shell::rows::build_thread_row).thumbnail(pages::u0_shell::rows::row_thumbnail),
+    PageDef::new("right-panel-tabs-overflow", "RightPanelTabsOverflow", U0_SHELL, Component::RightPanelTabsOverflow.summary(), pages::u0_shell::right_panel_tabs_overflow::build).thumbnail(pages::u0_shell::right_panel_tabs_overflow::thumbnail),
+    PageDef::new("server-chip", "ServerChip", U0_SHELL, Component::ServerChip.summary(), pages::u0_shell::server::build_server_chip).thumbnail(pages::u0_shell::server::chip_thumbnail),
+    PageDef::new("server-header", "ServerHeader", U0_SHELL, Component::ServerHeader.summary(), pages::u0_shell::server::build_server_header).thumbnail(pages::u0_shell::server::header_thumbnail),
     // Carbon · Patterns (src/patterns.css)
     PageDef::new("pattern-common-actions", "PatternCommonActions", "Carbon · Patterns", Component::PatternCommonActions.summary(), pages::patterns::common_actions::build).thumbnail(pages::patterns::common_actions::thumbnail),
     PageDef::new("pattern-dialogs", "PatternDialogs", "Carbon · Patterns", Component::PatternDialogs.summary(), pages::patterns::dialogs::build).thumbnail(pages::patterns::dialogs::thumbnail),
@@ -460,40 +460,40 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("no-projects-hero", "NoProjectsHero", "T3 · Onboarding & feedback", Component::NoProjectsHero.summary(), pages::t3_workspace::onboarding::build_no_projects_hero).thumbnail(pages::t3_workspace::onboarding::no_projects_hero_thumbnail),
     PageDef::new("permission-checklist", "PermissionChecklist", "T3 · Onboarding & feedback", Component::PermissionChecklist.summary(), pages::t3_workspace::onboarding::build_permission_checklist).thumbnail(pages::t3_workspace::onboarding::permission_checklist_thumbnail),
     PageDef::new("truncated-text", "TruncatedText", "T3 · Onboarding & feedback", Component::TruncatedText.summary(), pages::t3_workspace::onboarding::build_truncated_text).thumbnail(pages::t3_workspace::onboarding::truncated_text_thumbnail),
-    // Ghost · Thread (src/ghost/workspace.jsx)
-    PageDef::new("checkpoint-marker", "CheckpointMarker", GHOST_THREAD, Component::CheckpointMarker.summary(), pages::ghost_thread::parts::build_checkpoint_marker).thumbnail(pages::ghost_thread::parts::checkpoint_thumbnail),
-    PageDef::new("continue-row", "ContinueRow", GHOST_THREAD, Component::ContinueRow.summary(), pages::ghost_thread::parts::build_continue_row).thumbnail(pages::ghost_thread::parts::continue_thumbnail),
-    PageDef::new("markdown-prose", "MarkdownProse", GHOST_THREAD, Component::MarkdownProse.summary(), pages::ghost_thread::markdown_prose::build).thumbnail(pages::ghost_thread::markdown_prose::thumbnail),
-    PageDef::new("message-image", "MessageImage", GHOST_THREAD, Component::MessageImage.summary(), pages::ghost_thread::parts::build_message_image).thumbnail(pages::ghost_thread::parts::image_thumbnail),
-    PageDef::new("note-line", "NoteLine", GHOST_THREAD, Component::NoteLine.summary(), pages::ghost_thread::parts::build_note_line).thumbnail(pages::ghost_thread::parts::note_thumbnail),
-    PageDef::new("plan-checklist", "PlanChecklist", GHOST_THREAD, Component::PlanChecklist.summary(), pages::ghost_thread::parts::build_plan_checklist).thumbnail(pages::ghost_thread::parts::plan_thumbnail),
-    PageDef::new("thinking-block", "ThinkingBlock", GHOST_THREAD, Component::ThinkingBlock.summary(), pages::ghost_thread::thinking_block::build).thumbnail(pages::ghost_thread::thinking_block::thumbnail),
-    PageDef::new("tool-call-fold", "ToolCallFold", GHOST_THREAD, Component::ToolCallFold.summary(), pages::ghost_thread::tool_call_fold::build).thumbnail(pages::ghost_thread::tool_call_fold::thumbnail),
-    PageDef::new("transcript-view-switch", "TranscriptViewSwitch", GHOST_THREAD, Component::TranscriptViewSwitch.summary(), pages::ghost_thread::transcript_view_switch::build).thumbnail(pages::ghost_thread::transcript_view_switch::thumbnail),
-    PageDef::new("turn-footer", "TurnFooter", GHOST_THREAD, Component::TurnFooter.summary(), pages::ghost_thread::turn_footer::build).thumbnail(pages::ghost_thread::turn_footer::thumbnail),
-    // Ghost · Settings (src/ghost/admin.jsx)
-    PageDef::new("script-row", "ScriptRow", GHOST_SETTINGS, Component::ScriptRow.summary(), pages::ghost_settings::script_row::build).thumbnail(pages::ghost_settings::script_row::thumbnail),
-    PageDef::new("settings-list-row", "SettingsListRow", GHOST_SETTINGS, Component::SettingsListRow.summary(), pages::ghost_settings::settings_list_row::build).thumbnail(pages::ghost_settings::settings_list_row::thumbnail),
-    PageDef::new("telemetry-preview", "TelemetryPreview", GHOST_SETTINGS, Component::TelemetryPreview.summary(), pages::ghost_settings::telemetry_preview::build).thumbnail(pages::ghost_settings::telemetry_preview::thumbnail),
-    PageDef::new("theme-editor", "ThemeEditor", GHOST_SETTINGS, Component::ThemeEditor.summary(), pages::ghost_settings::theme_editor::build).thumbnail(pages::ghost_settings::theme_editor::thumbnail),
-    PageDef::new("account-row", "AccountRow", "Ghost · Settings", Component::AccountRow.summary(), pages::ghost_settings::account_row::build).thumbnail(pages::ghost_settings::account_row::thumbnail),
-    PageDef::new("agent-row", "AgentRow", "Ghost · Settings", Component::AgentRow.summary(), pages::ghost_settings::agent_row::build).thumbnail(pages::ghost_settings::agent_row::thumbnail),
-    PageDef::new("consent-sheet", "ConsentSheet", "Ghost · Settings", Component::ConsentSheet.summary(), pages::ghost_settings::consent_sheet::build).thumbnail(pages::ghost_settings::consent_sheet::thumbnail),
-    PageDef::new("dictionary-editor", "DictionaryEditor", "Ghost · Settings", Component::DictionaryEditor.summary(), pages::ghost_settings::dictionary_editor::build).thumbnail(pages::ghost_settings::dictionary_editor::thumbnail),
-    PageDef::new("read-aloud-control", "ReadAloudControl", "Ghost · Settings", Component::ReadAloudControl.summary(), pages::ghost_settings::read_aloud_control::build).thumbnail(pages::ghost_settings::read_aloud_control::thumbnail),
-    PageDef::new("scope-header", "ScopeHeader", "Ghost · Settings", Component::ScopeHeader.summary(), pages::ghost_settings::scope_header::build).thumbnail(pages::ghost_settings::scope_header::thumbnail),
-    PageDef::new("settings-dialog", "SettingsDialog", "Ghost · Settings", Component::SettingsDialog.summary(), pages::ghost_settings::settings_dialog::build).thumbnail(pages::ghost_settings::settings_dialog::thumbnail),
-    PageDef::new("settings-row-overridden", "SettingsRowOverridden", "Ghost · Settings", Component::SettingsRowOverridden.summary(), pages::ghost_settings::settings_row_overridden::build).thumbnail(pages::ghost_settings::settings_row_overridden::thumbnail),
-    // Ghost · Devices (src/ghost/admin.jsx)
-    PageDef::new("device-row", "DeviceRow", "Ghost · Devices", Component::DeviceRow.summary(), pages::ghost_devices::device_row::build).thumbnail(pages::ghost_devices::device_row::thumbnail),
-    PageDef::new("mac-row", "MacRow", "Ghost · Devices", Component::MacRow.summary(), pages::ghost_devices::mac_row::build).thumbnail(pages::ghost_devices::mac_row::thumbnail),
-    PageDef::new("pair-confirm-sheet", "PairConfirmSheet", "Ghost · Devices", Component::PairConfirmSheet.summary(), pages::ghost_devices::pair_confirm_sheet::build).thumbnail(pages::ghost_devices::pair_confirm_sheet::thumbnail),
-    PageDef::new("pairing-card", "PairingCard", "Ghost · Devices", Component::PairingCard.summary(), pages::ghost_devices::pairing_card::build).thumbnail(pages::ghost_devices::pairing_card::thumbnail),
-    PageDef::new("tunnel-row", "TunnelRow", "Ghost · Devices", Component::TunnelRow.summary(), pages::ghost_devices::tunnel_row::build).thumbnail(pages::ghost_devices::tunnel_row::thumbnail),
-    // Ghost · Diagnostics (src/ghost/admin.jsx)
-    PageDef::new("log-trouble-row", "LogTroubleRow", "Ghost · Diagnostics", Component::LogTroubleRow.summary(), pages::ghost_diagnostics::log_trouble_row::build).thumbnail(pages::ghost_diagnostics::log_trouble_row::thumbnail),
-    PageDef::new("process-tree", "ProcessTree", "Ghost · Diagnostics", Component::ProcessTree.summary(), pages::ghost_diagnostics::process_tree::build).thumbnail(pages::ghost_diagnostics::process_tree::thumbnail),
-    PageDef::new("storage-breakdown", "StorageBreakdown", "Ghost · Diagnostics", Component::StorageBreakdown.summary(), pages::ghost_diagnostics::storage_breakdown::build).thumbnail(pages::ghost_diagnostics::storage_breakdown::thumbnail),
+    // u0 · Thread (src/ghost/workspace.jsx)
+    PageDef::new("checkpoint-marker", "CheckpointMarker", U0_THREAD, Component::CheckpointMarker.summary(), pages::u0_thread::parts::build_checkpoint_marker).thumbnail(pages::u0_thread::parts::checkpoint_thumbnail),
+    PageDef::new("continue-row", "ContinueRow", U0_THREAD, Component::ContinueRow.summary(), pages::u0_thread::parts::build_continue_row).thumbnail(pages::u0_thread::parts::continue_thumbnail),
+    PageDef::new("markdown-prose", "MarkdownProse", U0_THREAD, Component::MarkdownProse.summary(), pages::u0_thread::markdown_prose::build).thumbnail(pages::u0_thread::markdown_prose::thumbnail),
+    PageDef::new("message-image", "MessageImage", U0_THREAD, Component::MessageImage.summary(), pages::u0_thread::parts::build_message_image).thumbnail(pages::u0_thread::parts::image_thumbnail),
+    PageDef::new("note-line", "NoteLine", U0_THREAD, Component::NoteLine.summary(), pages::u0_thread::parts::build_note_line).thumbnail(pages::u0_thread::parts::note_thumbnail),
+    PageDef::new("plan-checklist", "PlanChecklist", U0_THREAD, Component::PlanChecklist.summary(), pages::u0_thread::parts::build_plan_checklist).thumbnail(pages::u0_thread::parts::plan_thumbnail),
+    PageDef::new("thinking-block", "ThinkingBlock", U0_THREAD, Component::ThinkingBlock.summary(), pages::u0_thread::thinking_block::build).thumbnail(pages::u0_thread::thinking_block::thumbnail),
+    PageDef::new("tool-call-fold", "ToolCallFold", U0_THREAD, Component::ToolCallFold.summary(), pages::u0_thread::tool_call_fold::build).thumbnail(pages::u0_thread::tool_call_fold::thumbnail),
+    PageDef::new("transcript-view-switch", "TranscriptViewSwitch", U0_THREAD, Component::TranscriptViewSwitch.summary(), pages::u0_thread::transcript_view_switch::build).thumbnail(pages::u0_thread::transcript_view_switch::thumbnail),
+    PageDef::new("turn-footer", "TurnFooter", U0_THREAD, Component::TurnFooter.summary(), pages::u0_thread::turn_footer::build).thumbnail(pages::u0_thread::turn_footer::thumbnail),
+    // u0 · Settings (src/ghost/admin.jsx)
+    PageDef::new("script-row", "ScriptRow", U0_SETTINGS, Component::ScriptRow.summary(), pages::u0_settings::script_row::build).thumbnail(pages::u0_settings::script_row::thumbnail),
+    PageDef::new("settings-list-row", "SettingsListRow", U0_SETTINGS, Component::SettingsListRow.summary(), pages::u0_settings::settings_list_row::build).thumbnail(pages::u0_settings::settings_list_row::thumbnail),
+    PageDef::new("telemetry-preview", "TelemetryPreview", U0_SETTINGS, Component::TelemetryPreview.summary(), pages::u0_settings::telemetry_preview::build).thumbnail(pages::u0_settings::telemetry_preview::thumbnail),
+    PageDef::new("theme-editor", "ThemeEditor", U0_SETTINGS, Component::ThemeEditor.summary(), pages::u0_settings::theme_editor::build).thumbnail(pages::u0_settings::theme_editor::thumbnail),
+    PageDef::new("account-row", "AccountRow", "u0 · Settings", Component::AccountRow.summary(), pages::u0_settings::account_row::build).thumbnail(pages::u0_settings::account_row::thumbnail),
+    PageDef::new("agent-row", "AgentRow", "u0 · Settings", Component::AgentRow.summary(), pages::u0_settings::agent_row::build).thumbnail(pages::u0_settings::agent_row::thumbnail),
+    PageDef::new("consent-sheet", "ConsentSheet", "u0 · Settings", Component::ConsentSheet.summary(), pages::u0_settings::consent_sheet::build).thumbnail(pages::u0_settings::consent_sheet::thumbnail),
+    PageDef::new("dictionary-editor", "DictionaryEditor", "u0 · Settings", Component::DictionaryEditor.summary(), pages::u0_settings::dictionary_editor::build).thumbnail(pages::u0_settings::dictionary_editor::thumbnail),
+    PageDef::new("read-aloud-control", "ReadAloudControl", "u0 · Settings", Component::ReadAloudControl.summary(), pages::u0_settings::read_aloud_control::build).thumbnail(pages::u0_settings::read_aloud_control::thumbnail),
+    PageDef::new("scope-header", "ScopeHeader", "u0 · Settings", Component::ScopeHeader.summary(), pages::u0_settings::scope_header::build).thumbnail(pages::u0_settings::scope_header::thumbnail),
+    PageDef::new("settings-dialog", "SettingsDialog", "u0 · Settings", Component::SettingsDialog.summary(), pages::u0_settings::settings_dialog::build).thumbnail(pages::u0_settings::settings_dialog::thumbnail),
+    PageDef::new("settings-row-overridden", "SettingsRowOverridden", "u0 · Settings", Component::SettingsRowOverridden.summary(), pages::u0_settings::settings_row_overridden::build).thumbnail(pages::u0_settings::settings_row_overridden::thumbnail),
+    // u0 · Devices (src/ghost/admin.jsx)
+    PageDef::new("device-row", "DeviceRow", "u0 · Devices", Component::DeviceRow.summary(), pages::u0_devices::device_row::build).thumbnail(pages::u0_devices::device_row::thumbnail),
+    PageDef::new("mac-row", "MacRow", "u0 · Devices", Component::MacRow.summary(), pages::u0_devices::mac_row::build).thumbnail(pages::u0_devices::mac_row::thumbnail),
+    PageDef::new("pair-confirm-sheet", "PairConfirmSheet", "u0 · Devices", Component::PairConfirmSheet.summary(), pages::u0_devices::pair_confirm_sheet::build).thumbnail(pages::u0_devices::pair_confirm_sheet::thumbnail),
+    PageDef::new("pairing-card", "PairingCard", "u0 · Devices", Component::PairingCard.summary(), pages::u0_devices::pairing_card::build).thumbnail(pages::u0_devices::pairing_card::thumbnail),
+    PageDef::new("tunnel-row", "TunnelRow", "u0 · Devices", Component::TunnelRow.summary(), pages::u0_devices::tunnel_row::build).thumbnail(pages::u0_devices::tunnel_row::thumbnail),
+    // u0 · Diagnostics (src/ghost/admin.jsx)
+    PageDef::new("log-trouble-row", "LogTroubleRow", "u0 · Diagnostics", Component::LogTroubleRow.summary(), pages::u0_diagnostics::log_trouble_row::build).thumbnail(pages::u0_diagnostics::log_trouble_row::thumbnail),
+    PageDef::new("process-tree", "ProcessTree", "u0 · Diagnostics", Component::ProcessTree.summary(), pages::u0_diagnostics::process_tree::build).thumbnail(pages::u0_diagnostics::process_tree::thumbnail),
+    PageDef::new("storage-breakdown", "StorageBreakdown", "u0 · Diagnostics", Component::StorageBreakdown.summary(), pages::u0_diagnostics::storage_breakdown::build).thumbnail(pages::u0_diagnostics::storage_breakdown::thumbnail),
 ];
 
 /// Look a page up by id.
