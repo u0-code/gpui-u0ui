@@ -391,6 +391,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("code-viewer", "CodeViewer", GHOST_RIGHT, Component::CodeViewer.summary(), pages::ghost_panels::code_viewer::build).thumbnail(pages::ghost_panels::code_viewer::thumbnail),
     PageDef::new("commit-composer", "CommitComposer", GHOST_RIGHT, Component::CommitComposer.summary(), pages::ghost_panels::git::build_commit_composer).thumbnail(pages::ghost_panels::git::composer_thumbnail),
     PageDef::new("commit-row", "CommitRow", GHOST_RIGHT, Component::CommitRow.summary(), pages::ghost_panels::git::build_commit_row).thumbnail(pages::ghost_panels::git::commit_thumbnail),
+    PageDef::new("diff-word-highlight", "DiffWordHighlight", GHOST_RIGHT, Component::DiffWordHighlight.summary(), pages::ghost_panels::diff_word_highlight::build).thumbnail(pages::ghost_panels::diff_word_highlight::thumbnail),
     PageDef::new("image-viewer", "ImageViewer", GHOST_RIGHT, Component::ImageViewer.summary(), pages::ghost_panels::image_viewer::build).thumbnail(pages::ghost_panels::image_viewer::thumbnail),
     PageDef::new("linked-items-section", "LinkedItemsSection", GHOST_RIGHT, Component::LinkedItemsSection.summary(), pages::ghost_panels::git::build_linked_items).thumbnail(pages::ghost_panels::git::linked_thumbnail),
     PageDef::new("pdf-viewer", "PdfViewer", GHOST_RIGHT, Component::PdfViewer.summary(), pages::ghost_panels::pdf_viewer::build).thumbnail(pages::ghost_panels::pdf_viewer::thumbnail),
