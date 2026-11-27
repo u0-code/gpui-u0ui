@@ -474,7 +474,13 @@ impl RenderOnce for Tree {
                 let on_select = on_select.clone();
                 let id = n.id.clone();
                 let focus = focus.clone();
-                move |_: &gpui_kit::ClickEvent, window: &mut Window, cx: &mut App| {
+                move |e: &gpui_kit::ClickEvent, window: &mut Window, cx: &mut App| {
+                    // Enter/Space only select, in the key handler (`onKeyDown`).
+                    // GPUI also turns them into a click on key up; ignore it, or
+                    // the row would select twice and toggle open.
+                    if e.is_keyboard() {
+                        return;
+                    }
                     focus.focus(window, cx);
                     model.update(cx, |m, cx| {
                         m.focus = Some(id.clone());

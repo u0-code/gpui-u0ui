@@ -275,9 +275,16 @@ impl RenderOnce for Dropzone {
                     cx.notify();
                 })
             })
+            // GPUI already turns Enter/Space on a focused clickable element into a
+            // click (on key up); the key handler below acts on the key itself, so a
+            // keyboard click is ignored here or the action would run twice.
             .on_click({
                 let choose = choose.clone();
-                move |_, window, cx| choose(window, cx)
+                move |e, window, cx| {
+                    if !e.is_keyboard() {
+                        choose(window, cx)
+                    }
+                }
             })
             .on_key_down({
                 let choose = choose.clone();
