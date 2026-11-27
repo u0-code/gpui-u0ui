@@ -101,6 +101,9 @@ pub const LAYOUT: &str = "Layout";
 /// `Chat & AI`.
 pub const CHAT_AI: &str = "Chat & AI";
 
+/// `Ghost · Primitives`: desktop-density building blocks.
+pub const GHOST_PRIMITIVES: &str = "Ghost · Primitives";
+
 /// The reference artifact's group order (`components/index.d.ts` sections).
 /// Other groups (`T3 · …`, `Ghost · …`, `Carbon · Patterns`) follow in
 /// first-use order.
@@ -273,6 +276,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("diff-file-tree", "DiffFileTree", "T3 · Diff & review", Component::DiffFileTree.summary(), pages::t3_review::diff_file_tree::build).thumbnail(pages::t3_review::diff_file_tree::thumbnail),
     PageDef::new("diff-view", "DiffView", "T3 · Diff & review", Component::DiffView.summary(), pages::t3_review::diff_view::build).thumbnail(pages::t3_review::diff_view::thumbnail),
     PageDef::new("review-thread-card", "ReviewThreadCard", "T3 · Diff & review", Component::ReviewThreadCard.summary(), pages::t3_review::review_thread_card::build).thumbnail(pages::t3_review::review_thread_card::thumbnail),
+    PageDef::new("highlighted-text", "HighlightedText", GHOST_PRIMITIVES, Component::HighlightedText.summary(), pages::highlighted_text::build).thumbnail(pages::highlighted_text::thumbnail),
 ];
 
 /// Look a page up by id.

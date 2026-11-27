@@ -14,6 +14,7 @@
 //! | [`density`] | [`Density`] (compact desktop default / comfortable) |
 //! | [`components`] | Carbon components ([`components::button`] is the reference) |
 //! | [`t3`] | The T3 Code pattern library |
+//! | [`ghost`] | The Ghost pattern library (`Ghost · …` cards: foundations, primitives, …) |
 //!
 //! ```no_run
 //! use gpui_kit::*;
@@ -41,6 +42,7 @@
 pub mod clock;
 pub mod components;
 pub mod density;
+pub mod ghost;
 pub mod icons;
 pub mod motion;
 pub mod t3;
