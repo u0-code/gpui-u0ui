@@ -22,6 +22,7 @@ use super::controls::{ComposerControl, EffortGlyph, EffortLevel};
 use super::voice::VoiceInputPill;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::kbd::Kbd;
+use crate::components::textarea;
 use crate::t3::press::{Handler, rem};
 use crate::t3::shell::{IdentitySize, ProviderIcon};
 use crate::{icons::CarbonIcon, theme::color, tokens::ColorRole};
@@ -116,21 +117,6 @@ pub fn tab_action(forward: bool, suggestion_showing: bool) -> TabAction {
         (true, true) => TabAction::Accept,
         (true, false) => TabAction::FocusNext,
         (false, _) => TabAction::FocusPrev,
-    }
-}
-
-/// Move focus one stop through Base's `root::Tab` / `root::TabPrev`, so an
-/// open dialog's focus trap still holds; plain GPUI traversal otherwise.
-fn move_focus(forward: bool, window: &mut Window, cx: &mut App) {
-    let name = if forward {
-        "root::Tab"
-    } else {
-        "root::TabPrev"
-    };
-    match cx.build_action(name, None) {
-        Ok(action) => window.dispatch_action(action, cx),
-        Err(_) if forward => window.focus_next(cx),
-        Err(_) => window.focus_prev(cx),
     }
 }
 
@@ -460,8 +446,8 @@ impl RenderOnce for Composer {
                             input.update(cx, |state, cx| state.insert(s, window, cx));
                         }
                     }
-                    TabAction::FocusNext => move_focus(true, window, cx),
-                    TabAction::FocusPrev => move_focus(false, window, cx),
+                    TabAction::FocusNext => textarea::move_focus(true, window, cx),
+                    TabAction::FocusPrev => textarea::move_focus(false, window, cx),
                 }
             }
         };

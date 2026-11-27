@@ -442,7 +442,8 @@ impl RenderOnce for InputGroup {
                 // 1.42857; flex-basis: 100% }` (Kit insets its text by 2px/4px); no
                 // resize grip (`t3.css` craft pass: `.cu-ig-textarea { resize: none }`).
                 let height = textarea_height(area.rows);
-                let element = div()
+                // Tab and Shift+Tab move focus, as in a `<textarea>`.
+                let element = super::textarea::tab_moves_focus(div())
                     .relative()
                     .w_full()
                     .h(rem(height))

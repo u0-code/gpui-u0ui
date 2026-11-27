@@ -15,6 +15,8 @@
 //!   `min-block-size: 2.5rem`) and cannot be dragged (`t3.css` global craft
 //!   pass: `.g-ta, .cu-ig-textarea, .cds--text-area { resize: none }`).
 //! - **Motion**: background and outline 70ms ([`super::input::FIELD_MOTION`]).
+//! - **Keyboard**: Tab and Shift+Tab move focus, like an HTML `<textarea>`;
+//!   they never insert whitespace ([`tab_moves_focus`]).
 //!
 //! ```ignore
 //! let state = cx.new(|cx| TextareaState::new(window, cx));
@@ -26,7 +28,10 @@ use crate::{motion, theme::LayerLevel, tokens::TypeStyle, typography::TypeStyled
 use gpui_kit::{
     App, CursorStyle, ElementId, Entity, Focusable as _, Hsla, InteractiveElement, IntoElement,
     MouseButton, ParentElement, RenderOnce, SharedString, Styled, Window,
-    component::{Sizable as _, Size, input::Textarea as KitTextarea},
+    component::{
+        Sizable as _, Size,
+        input::{IndentInline, OutdentInline, Textarea as KitTextarea},
+    },
     div,
     prelude::FluentBuilder as _,
 };
@@ -42,6 +47,37 @@ pub const LINE: f32 = 20.;
 /// Kit insets multi-line text by its XSmall input padding (2px block, 4px
 /// inline); the field padding subtracts it.
 const KIT_INSET: (f32, f32) = (2., 4.);
+
+/// Move focus to the next (`forward`) or previous tab stop, through the Kit
+/// root's `Tab` / `TabPrev` actions when they are bound (so a focus trap,
+/// e.g. a dialog's, still applies), else straight through the window.
+pub fn move_focus(forward: bool, window: &mut Window, cx: &mut App) {
+    let name = if forward {
+        "root::Tab"
+    } else {
+        "root::TabPrev"
+    };
+    match cx.build_action(name, None) {
+        Ok(action) => window.dispatch_action(action, cx),
+        Err(_) if forward => window.focus_next(cx),
+        Err(_) => window.focus_prev(cx),
+    }
+}
+
+/// Make Tab and Shift+Tab inside a multi-line Kit editor move focus, as they
+/// do in an HTML `<textarea>`, instead of Kit's indent. Put it on an element
+/// that contains the editor: the capture phase runs before the editor's own
+/// `IndentInline` / `OutdentInline` handlers.
+pub fn tab_moves_focus<E: InteractiveElement>(el: E) -> E {
+    el.capture_action(|_: &IndentInline, window, cx| {
+        cx.stop_propagation();
+        move_focus(true, window, cx);
+    })
+    .capture_action(|_: &OutdentInline, window, cx| {
+        cx.stop_propagation();
+        move_focus(false, window, cx);
+    })
+}
 
 /// `.cds--text-area { min-block-size: 2.5rem }`.
 pub const MIN_HEIGHT: f32 = 40.;
@@ -274,8 +310,7 @@ impl RenderOnce for Textarea {
         let icon = form::status_icon(&validation)
             .map(|icon| div().absolute().top(rem(12.)).right(rem(16.)).child(icon));
 
-        let field = div()
-            .id((id.clone(), "field"))
+        let field = tab_moves_focus(div().id((id.clone(), "field")))
             .relative()
             .w_full()
             .h(rem(height))

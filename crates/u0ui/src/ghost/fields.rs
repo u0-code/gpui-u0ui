@@ -116,7 +116,8 @@ pub fn text_area(
         .text_size(rem(14.))
         .line_height(rem(TA_LINE))
         .text_color(color(ColorRole::TextPrimary));
-    div()
+    // Tab and Shift+Tab move focus, as in the reference's `<textarea>`.
+    crate::components::textarea::tab_moves_focus(div())
         .relative()
         .w_full()
         .min_w_0()
