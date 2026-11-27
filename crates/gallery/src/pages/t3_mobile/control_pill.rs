@@ -82,9 +82,12 @@ impl Render for Page {
         if self.icon {
             pill = pill.icon(CarbonIcon::Bot);
         }
+        // `.t3-cpill { display: inline-flex }`: the pill hugs its content
+        // rather than stretching across the column.
         let live = div()
             .flex()
             .flex_col()
+            .items_start()
             .gap(tokens::SPACING_05)
             .child(pill)
             .child(
