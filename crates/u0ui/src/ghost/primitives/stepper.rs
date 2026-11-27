@@ -141,6 +141,10 @@ pub fn readonly_box_look_on(level: LayerLevel, focused: bool) -> (Hsla, Hsla, Hs
     (clear, color(level.border_subtle()), outline)
 }
 
+/// `.g-stepper-input { width: calc(5ch + 20px) }` (t3.css), border-box: `ch`
+/// is the advance of IBM Plex Sans "0" (600/1000 em) at 14px, so 42 + 20 = 62px.
+pub const INPUT_WIDTH_PX: f32 = 5. * 0.6 * 14. + 20.;
+
 type ValueHandler = Rc<dyn Fn(f64, &mut Window, &mut App)>;
 
 struct Model {
@@ -433,10 +437,15 @@ impl RenderOnce for Stepper {
                     .disabled(disabled)
                     .accessibility_label(label)
                     .flex()
-                    .flex_none()
+                    // The buttons keep `flex-shrink: 1`: once the input's
+                    // fixed width and the unit are placed they share what is
+                    // left of the box (25px each in a 7rem stepper).
+                    .flex_shrink(1.)
+                    .min_w_0()
                     .items_center()
                     .justify_center()
-                    .size(rem(field_h))
+                    .w(rem(field_h))
+                    .h(rem(field_h))
                     // `border-left: 1px solid var(--border-subtle)`.
                     .border_l(px(1.))
                     .border_color(color(level.border_subtle()))
@@ -528,14 +537,16 @@ impl RenderOnce for Stepper {
             })
             .child(
                 // `.g-stepper-input { padding: 0 var(--spacing-03) 0 var(--spacing-04);
-                // font-variant-numeric: tabular-nums }`.
+                // font-variant-numeric: tabular-nums }`, then t3.css `.g-stepper-input
+                // { flex: none; width: calc(5ch + 20px) }` and `{ text-align: right;
+                // padding-right: 6px }`.
                 div()
                     .flex()
-                    .flex_1()
-                    .min_w_0()
+                    .flex_none()
+                    .w(rem(INPUT_WIDTH_PX))
                     .h(rem(field_h))
                     .pl(rem(12.))
-                    .pr(rem(8.))
+                    .pr(rem(6.))
                     .items_center()
                     .cursor(if self.disabled {
                         CursorStyle::OperationNotAllowed
@@ -547,6 +558,7 @@ impl RenderOnce for Stepper {
                             .disabled(self.disabled)
                             .readonly(self.readonly)
                             .when_some(self.label.clone(), |e, l| e.aria_label(l))
+                            .text_right()
                             .text_color(color(ColorRole::TextPrimary)),
                     ),
             )
@@ -605,6 +617,12 @@ mod tests {
         assert_eq!(parse_float("-"), None);
         assert_eq!(format_number(3.), "3");
         assert_eq!(format_number(0.5), "0.5");
+    }
+
+    #[test]
+    fn input_is_five_ch_plus_twenty() {
+        // refrender --computed `.g-stepper-input`: 62px wide in every stepper.
+        assert_eq!(INPUT_WIDTH_PX, 62.);
     }
 
     #[test]
