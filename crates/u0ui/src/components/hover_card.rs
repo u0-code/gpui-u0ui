@@ -9,7 +9,9 @@
 //!   Base's `Popup` via [`super::floating`].
 //! - **Appearance**: the Popover's (`layer-01`, 2px radius, the popover drop shadow,
 //!   `.cu-popover-content` padding), aligned `bottom-start` by default with a
-//!   4px gap (no caret).
+//!   4px gap (no caret). [`HoverCard::bare`] drops that surface for
+//!   content that is a popup surface itself (e.g. `ThreadHoverCard`,
+//!   `.t3-hovercard`), so only one surface is drawn.
 //!
 //! ```ignore
 //! HoverCard::new("profile", Button::new("l", "@carbon-design").variant(ButtonVariant::Link))
@@ -39,6 +41,7 @@ pub struct HoverCard {
     align: Align,
     default_open: bool,
     open_delay: Duration,
+    bare: bool,
 }
 
 impl HoverCard {
@@ -51,6 +54,7 @@ impl HoverCard {
             align: Align::BottomLeft,
             default_open: false,
             open_delay: OPEN_DELAY,
+            bare: false,
         }
     }
 
@@ -70,6 +74,14 @@ impl HoverCard {
     /// Delay before opening on hover (default 300ms).
     pub fn open_delay(mut self, delay: Duration) -> Self {
         self.open_delay = delay;
+        self
+    }
+
+    /// Draw no surface of its own (no background, radius, shadow, padding or
+    /// width limits): for children that are a complete popup surface, such
+    /// as `ThreadHoverCard` (`.t3-hovercard`). Default `false`.
+    pub fn bare(mut self, bare: bool) -> Self {
+        self.bare = bare;
         self
     }
 }
@@ -136,10 +148,13 @@ impl RenderOnce for HoverCard {
             .into_any_element();
 
         let look = PopoverLook::current();
+        let bare = self.bare;
         let surface = open.then(|| {
-            div()
-                .id((id.clone(), "surface"))
-                .on_hover(on_hover)
+            let surface = div().id((id.clone(), "surface")).on_hover(on_hover);
+            if bare {
+                return surface.children(self.children);
+            }
+            surface
                 .rounded(px(RADIUS))
                 .bg(look.background)
                 .text_color(look.text)
@@ -172,6 +187,8 @@ mod tests {
         let card = HoverCard::new("h", div());
         assert_eq!(card.align, Align::BottomLeft);
         assert_eq!(card.open_delay.as_millis(), 300);
+        assert!(!card.bare, "the popover surface is drawn by default");
+        assert!(HoverCard::new("b", div()).bare(true).bare);
         assert_eq!(CLOSE_DELAY.as_millis(), 150);
         // No caret: 4px gap, start edge 1rem before the trigger center.
         let placement = floating::Placement::of(card.align, false, 0.);

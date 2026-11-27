@@ -52,6 +52,9 @@ impl Render for Page {
             "thc-live",
             Button::new("thc-trigger", "Fix flaky date picker test").variant(ButtonVariant::Link),
         )
+        // `.t3-hovercard` is the popup surface itself (20rem, 16px padding,
+        // layer-01, `0 2px 6px` shadow): no popover surface around it.
+        .bare(true)
         .child(card(status));
         let config = controls::field(
             "status",
@@ -67,6 +70,9 @@ impl Render for Page {
                 div()
                     .flex()
                     .flex_col()
+                    // Children keep their own width: the link (and its focus
+                    // ring) hugs its text instead of stretching across.
+                    .items_start()
                     .gap(rems(1.))
                     .child(card(status))
                     .child(hover),
