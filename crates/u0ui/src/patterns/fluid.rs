@@ -232,12 +232,14 @@ impl RenderOnce for FluidTextInput {
             .aria_label(self.label.clone())
             .p_0()
             .w_full()
-            // One 18px line: Kit's `XSmall` input is 20px tall (`h_5`), which
-            // made the row 66px instead of `.cds--text-input--fluid`'s 64.
-            .h(rems(18. / REM_PX))
             .text_size(rems(14. / REM_PX))
             .line_height(rems(18. / REM_PX))
             .text_color(look.text);
+        // One 18px line: Kit's `XSmall` input is 20px tall (`h_5`), which
+        // made the row 66px instead of `.cds--text-input--fluid`'s 64. Kit's
+        // `Input` has its own inherent `h()` that only sizes multi-line
+        // inputs, so the `Styled` one is named explicitly.
+        let editor = Styled::h(editor, rems(18. / REM_PX));
         let placeholder = self.placeholder.filter(|_| empty).map(|text| {
             div()
                 .absolute()
