@@ -863,6 +863,7 @@ impl RenderOnce for ConnectionStatusDot {
             .flex_none()
             .tooltip(title_tooltip(label))
             .child(dot)
+            .test_support()
     }
 }
 
@@ -971,7 +972,11 @@ impl RenderOnce for EnvironmentBadge {
             .text_color(color(ColorRole::TextPrimary))
             .whitespace_nowrap()
             .child(EnvironmentMachineIcon::new(self.kind).size(14.))
-            .child(div().min_w_0().truncate().child(self.name))
+            // `<span>{name}</span>` has no ellipsis: when a header squeezes
+            // the badge (`.t3-folder-main .t3-envbadge { min-width: 0;
+            // overflow: hidden }`) the name keeps its width and the clip
+            // takes the dot first.
+            .child(div().flex_none().child(self.name))
             .child(ConnectionStatusDot::new(self.status).id(id))
     }
 }
