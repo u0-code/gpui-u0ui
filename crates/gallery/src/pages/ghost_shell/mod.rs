@@ -1,5 +1,6 @@
 //! Ghost · Shell pages (`src/ghost/workspace.jsx` "Shell" in the design
 //! reference). The layout helpers are the T3 · Shell ones.
+pub mod right_panel_tabs_overflow;
 pub mod server;
 
 use gpui_kit::{IntoElement, ParentElement, SharedString, Styled, div};
