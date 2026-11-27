@@ -1,5 +1,7 @@
 //! Overlays › Sheet: the reference preview (a contained sheet, open), and a
-//! live window-level sheet with every side and option.
+//! live window-level sheet with every side and option, and an editor drawer
+//! (a 600px contained sheet whose footer is a row: actions at the start, a
+//! danger ghost at the end).
 use crate::page::Body;
 use crate::{controls, stand_in};
 use gpui_kit::{
@@ -261,5 +263,52 @@ impl Render for SheetPage {
             .hint("opens over the whole window")
             .config(config)
             .example(reference)
+            .example(controls::block(
+                "Editor drawer: width(600), footer_row(true)",
+                drawer(),
+            ))
     }
+}
+
+/// A 600px contained sheet with a row footer: Duplicate and the overflow at
+/// the start, Remove at the end (u0's theme editor drawer).
+fn drawer() -> impl IntoElement {
+    div()
+        .relative()
+        .w_full()
+        .h(rems(26.))
+        .overflow_hidden()
+        .bg(color(ColorRole::Background))
+        .border_1()
+        .border_color(color(ColorRole::BorderSubtle01))
+        .child(
+            Sheet::new("drawer-sheet")
+                .contained(true)
+                .default_open(true)
+                .width(600.)
+                .footer_row(true)
+                .title("Customize Midnight")
+                .description(
+                    "Your dark theme. Edits save as you go and show the next time the system is dark.",
+                )
+                .footer(
+                    Button::new("drawer-duplicate", "Duplicate")
+                        .variant(ButtonVariant::Tertiary)
+                        .size(ButtonSize::Sm),
+                )
+                .footer(
+                    Button::new("drawer-more", "Export as a theme file, or reset")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .icon(CarbonIcon::OverflowMenuHorizontal)
+                        .icon_only(true),
+                )
+                .footer(div().flex_1())
+                .footer(
+                    Button::new("drawer-remove", "Remove theme")
+                        .variant(ButtonVariant::DangerGhost)
+                        .size(ButtonSize::Sm),
+                )
+                .child(div().child("The editor goes here.")),
+        )
 }
