@@ -20,7 +20,9 @@ use crate::{
     icons::{CarbonIcon, Icon},
     motion,
     t3::{
-        base::{endless_phase, radio_step, reduced_pulse_opacity, visually_hidden},
+        base::{
+            active_after_close, endless_phase, radio_step, reduced_pulse_opacity, visually_hidden,
+        },
         craft::{mono, rem, sans},
     },
     theme::color,
@@ -533,6 +535,8 @@ impl TerminalTabs {
     }
 
     /// The first current tab when uncontrolled (`defaultValue`, default 0).
+    /// Closing a tab then moves it as a browser tab strip does
+    /// ([`active_after_close`]), which assumes `on_close` removes that tab.
     pub fn default_value(mut self, value: usize) -> Self {
         self.default_value = value;
         self
@@ -587,7 +591,11 @@ impl RenderOnce for TerminalTabs {
         let n = self.tabs.len();
         let default = self.default_value;
         let store = window.use_keyed_state((id.clone(), "value"), cx, |_, _| default);
-        let current = self.value.unwrap_or(*store.read(cx));
+        let controlled = self.value.is_some();
+        let current = self
+            .value
+            .unwrap_or(*store.read(cx))
+            .min(n.saturating_sub(1));
         let handles: Vec<FocusHandle> = (0..n)
             .map(|i| {
                 keyed_focus(
@@ -610,6 +618,21 @@ impl RenderOnce for TerminalTabs {
                 }
             })
         };
+        // A tab closed (× or Delete): when uncontrolled, the selection moves
+        // as a browser tab strip's does ([`active_after_close`]); this assumes
+        // the `on_close` handler removes that tab.
+        let on_close: Option<IndexHandler> = self.on_close.clone().map(|f| {
+            let store = store.clone();
+            Rc::new(move |i, window: &mut Window, cx: &mut App| {
+                if !controlled {
+                    store.update(cx, |v, cx| {
+                        *v = active_after_close(current, i, n);
+                        cx.notify();
+                    });
+                }
+                f(i, window, cx)
+            }) as IndexHandler
+        });
         let rule = terminal_tint(14.);
         let tabs = self
             .tabs
@@ -626,8 +649,8 @@ impl RenderOnce for TerminalTabs {
                 let pick = select.clone();
                 let keys = select.clone();
                 let handles = handles.clone();
-                let close = self.on_close.clone();
-                let close_key = self.on_close.clone();
+                let close = on_close.clone();
+                let close_key = on_close.clone();
                 let glyph: AnyElement = if tab.running {
                     // `.g-ttab-dot { width: 6px; height: 6px; border-radius: 50%;
                     // background: var(--ansi-green) }`.
@@ -670,6 +693,8 @@ impl RenderOnce for TerminalTabs {
                         sans(gpui_kit::base::Button::new(tid.clone()), 12., 400)
                             .track_focus(&focus)
                             .tab_stop(on)
+                            // `aria-selected={v === i}`.
+                            .aria_selected(on)
                             .relative()
                             .flex()
                             .items_center()

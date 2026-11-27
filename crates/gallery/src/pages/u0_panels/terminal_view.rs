@@ -8,6 +8,7 @@ use gpui_kit::{
     Window, div, prelude::FluentBuilder as _, rems,
 };
 use u0ui::prelude::*;
+use u0ui::t3::base::active_after_close;
 use u0ui::u0::panels::{TerminalTab, TerminalTabs, TerminalView};
 
 /// `components/TerminalView/preview.html`'s screen.
@@ -122,10 +123,8 @@ impl Render for Page {
                     .on_close(move |i, _, cx| {
                         close.update(cx, |p, cx| {
                             if p.tabs.len() > 1 {
+                                p.current = active_after_close(p.current, i, p.tabs.len());
                                 p.tabs.remove(i);
-                                if p.current >= p.tabs.len() || p.current > i {
-                                    p.current = p.current.saturating_sub(1);
-                                }
                             }
                             cx.notify();
                         })
