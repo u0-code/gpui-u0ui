@@ -33,6 +33,7 @@ pub use telemetry_preview::{
     Payload, Syn, TelemetryLevel, TelemetryPreview, TelemetryPreviewTexts, line_runs,
 };
 pub use theme_editor::{
-    MIN_CONTRAST, ThemeEditor, ThemeEditorTexts, ThemeToken, contrast_ratio, grid_columns,
-    import_vscode, parse_hex, to_hex, vscode_token,
+    MIN_CONTRAST, ThemeEditor, ThemeEditorLayout, ThemeEditorTexts, ThemeToken, contrast_checks,
+    contrast_ratio, grid_columns, import_vscode, on_color, parse_hex, ratio_text, to_hex,
+    vscode_token,
 };
