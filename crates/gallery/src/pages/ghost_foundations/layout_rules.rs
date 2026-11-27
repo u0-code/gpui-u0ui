@@ -2,6 +2,7 @@
 //! reference widths (scaled to 60% as in the preview) and a live shell whose
 //! width, zoom and open columns you set.
 use crate::controls;
+use crate::fit::fit_width;
 use crate::page::Body;
 use gpui_kit::{
     AnyElement, AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render,
@@ -30,6 +31,11 @@ struct LayoutRulesPage {
 
 const WIDTHS: [f32; 4] = [1120., 960., 800., 600.];
 const ZOOMS: [f32; 4] = [0.8, 1., 1.333, 2.];
+
+/// The live specimen's width: the chosen window width at half size.
+fn live_natural_rems(window_px: f32) -> f32 {
+    window_px * 0.5 / 16.
+}
 
 /// `.g-shellmock`: a bold title over three placeholder bars.
 fn mock(title: &'static str) -> impl IntoElement {
@@ -138,8 +144,7 @@ impl Render for LayoutRulesPage {
             .gap(tokens::SPACING_03)
             .child(
                 div()
-                    .w(rems(width * 0.5 / 16.))
-                    .max_w_full()
+                    .w(rems(live_natural_rems(width)))
                     .h(rems(160. / 16.))
                     .overflow_hidden()
                     .child(rem_scale(scale, move |_, _| {
@@ -197,8 +202,10 @@ impl Render for LayoutRulesPage {
                 self.right,
                 controls::setter(&entity, |this: &mut Self, on| this.right = on),
             ));
+        // The specimen keeps its proportions: a stage narrower than its
+        // half-size window draws it scaled down whole instead of clipping it.
         Body::new()
-            .playground(live)
+            .playground(fit_width("layout-live-fit", live_natural_rems(width), live))
             .hint("Below 1080 CSS px the right column floats; below 720 the sidebar floats too")
             .config(config)
             .example(controls::block("Reference preview", reference()))

@@ -140,7 +140,9 @@ fn playground(
                                     .size(IconSize::S16)
                                     .color(color(ColorRole::IconSecondary)),
                             )
-                            .child(hint),
+                            // A long hint wraps in a narrow stage instead
+                            // of running out under its clip.
+                            .child(div().flex_1().min_w_0().child(hint)),
                     )
                 })
                 // Top-aligned: a component that grows (a Textarea dragged by
