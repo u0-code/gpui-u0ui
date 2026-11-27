@@ -299,6 +299,9 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("sidebar-shelf-header", "SidebarShelfHeader", "T3 · Shell", Component::SidebarShelfHeader.summary(), pages::t3_shell::sidebar::build_shelf_header).thumbnail(pages::t3_shell::sidebar::shelf_thumbnail),
     PageDef::new("thread-row", "ThreadRow", "T3 · Shell", Component::ThreadRow.summary(), pages::t3_shell::sidebar::build_thread_row).thumbnail(pages::t3_shell::sidebar::thread_thumbnail),
     PageDef::new("update-pill", "UpdatePill", "T3 · Shell", Component::UpdatePill.summary(), pages::t3_shell::sidebar::build_update_pill).thumbnail(pages::t3_shell::sidebar::update_thumbnail),
+    PageDef::new("workspace-page-header", "WorkspacePageHeader", "T3 · Shell", Component::WorkspacePageHeader.summary(), pages::t3_shell::chrome::build_page_header).thumbnail(pages::t3_shell::chrome::header_thumbnail),
+    PageDef::new("right-panel-tabs", "RightPanelTabs", "T3 · Shell", Component::RightPanelTabs.summary(), pages::t3_shell::chrome::build_right_panel_tabs).thumbnail(pages::t3_shell::chrome::tabs_thumbnail),
+    PageDef::new("panel-layout-controls", "PanelLayoutControls", "T3 · Shell", Component::PanelLayoutControls.summary(), pages::t3_shell::chrome::build_layout_controls).thumbnail(pages::t3_shell::chrome::layout_thumbnail),
 ];
 
 /// Look a page up by id.

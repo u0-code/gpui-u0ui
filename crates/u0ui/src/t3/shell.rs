@@ -5,7 +5,7 @@
 //! [`EnvironmentMachineIcon`], [`ConnectionStatusDot`], [`EnvironmentBadge`],
 //! [`StatusPill`] and the split-button chevron [`IconMenu`].
 //!
-//! The cards: the sidebar ([`sidebar`]).
+//! The cards: the sidebar ([`sidebar`]) and the page chrome ([`chrome`]).
 //!
 //! Values come from `src/t3.css` (`/* Identity */`), with the later craft
 //! passes applied: provider marks are glyphs, never two-letter tiles
@@ -32,8 +32,13 @@ use gpui_kit::{
 use std::rc::Rc;
 use std::time::Duration;
 
+pub mod chrome;
 pub mod sidebar;
 
+pub use chrome::{
+    Crumb, LayoutPanel, PanelLayoutControls, RightPanelTabs, SurfaceKind, SurfaceTab,
+    WorkspaceBreadcrumb, WorkspacePageHeader,
+};
 pub use sidebar::{
     FolderCounts, PrState, ProjectFolderHeader, PullRequestMiniBadge, SidebarBrandHeader,
     SidebarShelfHeader, ThreadRow, UpdatePill, UpdateState,
