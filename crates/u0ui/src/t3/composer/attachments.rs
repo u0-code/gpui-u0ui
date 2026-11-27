@@ -477,10 +477,15 @@ impl RenderOnce for ComposerAttachmentStrip {
             if let Some(size) = file.size {
                 chip = chip.meta(size);
             }
-            if let Some(f) = self.on_remove.clone() {
-                let name = file.name.clone();
-                chip = chip.on_remove(move |w, cx| f(name.clone(), w, cx));
-            }
+            // `onRemove={() => onRemove && onRemove(f.name)}`: every file chip
+            // has its ×, with or without a handler (as the image thumbs do).
+            let remove = self.on_remove.clone();
+            let name = file.name.clone();
+            chip = chip.on_remove(move |w, cx| {
+                if let Some(f) = remove.as_ref() {
+                    f(name.clone(), w, cx)
+                }
+            });
             children.push(chip.into_any_element());
         }
         // `.t3-attstrip { display: flex; flex-wrap: wrap; gap: spacing-03 }`; in the composer
