@@ -6,7 +6,12 @@ pub mod code_viewer;
 pub mod head;
 pub mod image_viewer;
 pub mod pdf_viewer;
+pub mod terminal;
 
 pub use code_viewer::{CodeViewer, CodeViewerTexts, SyntaxKind, highlight};
 pub use image_viewer::{ImageViewer, ImageViewerTexts, StageBackground, Zoom};
 pub use pdf_viewer::{PdfViewer, PdfViewerTexts};
+pub use terminal::{
+    AnsiColor, AnsiRun, TerminalTab, TerminalTabs, TerminalTabsTexts, TerminalTexts, TerminalView,
+    parse_ansi,
+};

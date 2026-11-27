@@ -384,6 +384,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("code-viewer", "CodeViewer", GHOST_RIGHT, Component::CodeViewer.summary(), pages::ghost_panels::code_viewer::build).thumbnail(pages::ghost_panels::code_viewer::thumbnail),
     PageDef::new("image-viewer", "ImageViewer", GHOST_RIGHT, Component::ImageViewer.summary(), pages::ghost_panels::image_viewer::build).thumbnail(pages::ghost_panels::image_viewer::thumbnail),
     PageDef::new("pdf-viewer", "PdfViewer", GHOST_RIGHT, Component::PdfViewer.summary(), pages::ghost_panels::pdf_viewer::build).thumbnail(pages::ghost_panels::pdf_viewer::thumbnail),
+    PageDef::new("terminal-view", "TerminalView", GHOST_RIGHT, Component::TerminalView.summary(), pages::ghost_panels::terminal_view::build).thumbnail(pages::ghost_panels::terminal_view::thumbnail),
     // Ghost · Tasks & workflows (src/ghost/admin.jsx)
     PageDef::new("task-row", "TaskRow", "Ghost · Tasks & workflows", Component::TaskRow.summary(), pages::ghost_tasks::task_row::build).thumbnail(pages::ghost_tasks::task_row::thumbnail),
     PageDef::new("workflow-row", "WorkflowRow", "Ghost · Tasks & workflows", Component::WorkflowRow.summary(), pages::ghost_tasks::workflow_row::build).thumbnail(pages::ghost_tasks::workflow_row::thumbnail),

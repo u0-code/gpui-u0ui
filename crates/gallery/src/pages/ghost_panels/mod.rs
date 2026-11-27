@@ -2,3 +2,4 @@
 pub mod code_viewer;
 pub mod image_viewer;
 pub mod pdf_viewer;
+pub mod terminal_view;
