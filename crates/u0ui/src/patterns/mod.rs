@@ -23,6 +23,7 @@
 //!   wizard step indicator.
 //! - [`row`]: [`PatternRow`] (`.cu-prow`), a list row with trailing actions.
 //! - [`search`]: [`PatternSearch`] (`.cds--search`), the search field.
+//! - [`table_skeleton`]: [`DataTableSkeleton`] (`.cds--data-table.cds--skeleton`).
 //! - [`text_toolbar`]: the rich-text formatting toolbar (`.cu-ptbar`).
 pub mod actionable_toast;
 pub mod badge;
@@ -37,6 +38,7 @@ pub mod popover_panel;
 pub mod progress_indicator;
 pub mod row;
 pub mod search;
+pub mod table_skeleton;
 pub mod text_toolbar;
 
 pub use actionable_toast::ActionableToast;
@@ -52,4 +54,5 @@ pub use popover_panel::{PatternLink, PatternPopover, PatternRule};
 pub use progress_indicator::{ProgressIndicator, ProgressStep, StepStatus};
 pub use row::PatternRow;
 pub use search::PatternSearch;
+pub use table_skeleton::DataTableSkeleton;
 pub use text_toolbar::{TextToolbar, ToolbarAction, ToolbarItem};
