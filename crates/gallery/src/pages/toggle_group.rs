@@ -16,6 +16,7 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
         kind: 0,
         size: 1,
         disabled_item: false,
+        fit: false,
         value: vec!["week".into()],
     })
     .into()
@@ -25,6 +26,7 @@ struct ToggleGroupPage {
     kind: usize,
     size: usize,
     disabled_item: bool,
+    fit: bool,
     value: Vec<SharedString>,
 }
 
@@ -87,6 +89,7 @@ impl Render for ToggleGroupPage {
                     ToggleGroup::new(SharedString::from(format!("live-{}", kind.name())))
                         .kind(kind)
                         .size(size)
+                        .fit_content(self.fit)
                         .value(self.value.clone())
                         .on_value_change({
                             let entity = entity.clone();
@@ -134,6 +137,35 @@ impl Render for ToggleGroupPage {
                 )
             }));
 
+        // `fit_content`: each segment as wide as its label, never clipped, even
+        // in a column narrower than the labels' share would be.
+        let fitted = div()
+            .flex()
+            .flex_col()
+            .gap(tokens::SPACING_05)
+            .child(controls::section("Fit content (long and CJK labels)"))
+            .children(
+                [
+                    ("fit-density", &["Comfortable", "Compact"][..]),
+                    ("fit-sound", &["System", "On", "Off"][..]),
+                    (
+                        "fit-de",
+                        &["Systemeinstellung", "Immer an", "Ausgeschaltet"][..],
+                    ),
+                    ("fit-ru", &["Системная", "Включено", "Выключено"][..]),
+                    ("fit-cjk", &["ゆったり表示", "コンパクト表示"][..]),
+                    ("fit-zh", &["跟随系统", "始终开启", "关闭"][..]),
+                ]
+                .into_iter()
+                .map(|(id, labels)| {
+                    let mut group = ToggleGroup::new(id).fit_content(true);
+                    for (i, label) in labels.iter().enumerate() {
+                        group = group.item(ToggleGroupItem::new(i.to_string()).child(*label));
+                    }
+                    group
+                }),
+            );
+
         let config = div()
             .flex()
             .flex_col()
@@ -156,6 +188,15 @@ impl Render for ToggleGroupPage {
                     set(|this, i| this.size = i),
                 ),
             ))
+            .child(controls::toggle("tg-fit", "fit_content", self.fit, {
+                let entity = entity.clone();
+                move |on, _, cx| {
+                    entity.update(cx, |this, cx| {
+                        this.fit = on;
+                        cx.notify();
+                    })
+                }
+            }))
             .child(controls::toggle(
                 "tg-disabled",
                 "Month disabled",
@@ -177,5 +218,6 @@ impl Render for ToggleGroupPage {
             .config(config)
             .example(reference)
             .example(sizes)
+            .example(fitted)
     }
 }

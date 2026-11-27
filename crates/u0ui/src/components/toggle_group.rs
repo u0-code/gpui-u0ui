@@ -317,6 +317,7 @@ pub struct ToggleGroup {
     value: Option<Vec<SharedString>>,
     default_value: Option<Vec<SharedString>>,
     size: ToggleSize,
+    fit_content: bool,
     items: Vec<ToggleGroupItem>,
     on_value_change: Option<ChangeHandler>,
 }
@@ -330,6 +331,7 @@ impl ToggleGroup {
             value: None,
             default_value: None,
             size: ToggleSize::Md,
+            fit_content: false,
             items: Vec::new(),
             on_value_change: None,
         }
@@ -368,6 +370,16 @@ impl ToggleGroup {
     /// `size` (default `md`).
     pub fn size(mut self, size: ToggleSize) -> Self {
         self.size = size;
+        self
+    }
+
+    /// Size a single-select group by its labels instead of filling its
+    /// parent: the track is as wide as its segments, and each segment as wide
+    /// as its label plus its padding, so no label (long, translated or CJK)
+    /// is ever clipped. Off by default (Carbon's content switcher fills its
+    /// container and shares the width equally).
+    pub fn fit_content(mut self, fit_content: bool) -> Self {
+        self.fit_content = fit_content;
         self
     }
 
@@ -521,12 +533,13 @@ impl RenderOnce for ToggleGroup {
             }
         };
 
+        let fit = self.fit_content;
         div()
             .id(id.clone())
             .relative()
             .flex()
             .flex_row()
-            .w_full()
+            .map(|this| if fit { this.flex_none() } else { this.w_full() })
             .h(rem(height))
             .on_key_down(on_key)
             .children(self.items.into_iter().enumerate().map(|(i, item)| {
@@ -545,8 +558,14 @@ impl RenderOnce for ToggleGroup {
                     .tab_stop(i == selected)
                     .disabled(state.disabled)
                     .relative()
-                    .flex_1()
-                    .min_w_0()
+                    // Fitted: as wide as the label and padding; else an equal share.
+                    .map(|this| {
+                        if fit {
+                            this.flex_none()
+                        } else {
+                            this.flex_1().min_w_0()
+                        }
+                    })
                     .h_full()
                     .flex()
                     .items_center()
@@ -624,8 +643,8 @@ impl RenderOnce for ToggleGroup {
                     .child(
                         div()
                             .relative()
-                            .min_w_0()
-                            .overflow_hidden()
+                            .when(!fit, |this| this.min_w_0().overflow_hidden())
+                            .when(fit, |this| this.flex_none())
                             .whitespace_nowrap()
                             .flex()
                             .items_center()
