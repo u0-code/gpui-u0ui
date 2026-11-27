@@ -1,11 +1,9 @@
 //! T3 · Shell › AppShell: the reference frame (sidebar with brand, a
 //! project and three threads; a chat header; the body; a Diff/Browser
-//! right panel; a terminal drawer) with every region switchable.
-//!
-//! The reference fills the header, body and terminal with `ChatHeader`,
-//! `UserMessage`, `WorkingIndicator` and `TerminalDrawer`, which other T3
-//! modules own; until they land, plain stand-ins with the same text hold
-//! their place.
+//! right panel; a terminal drawer) with every region switchable. The header,
+//! body and terminal are the real `ChatHeader`, `UserMessage` +
+//! `WorkingIndicator` and `TerminalDrawer`, as in
+//! `components/AppShell/preview.html`.
 use super::stack;
 use crate::controls;
 use crate::page::Body;
@@ -15,11 +13,13 @@ use gpui_kit::{
 };
 use u0ui::prelude::*;
 use u0ui::t3::Status;
-use u0ui::t3::review::DiffStat;
+use u0ui::t3::review::{ChatHeader, DiffStat};
 use u0ui::t3::shell::{
     AppShell, FolderCounts, ProjectFolderHeader, RightPanelTabs, SidebarBrandHeader, SurfaceKind,
     SurfaceTab, ThreadRow,
 };
+use u0ui::t3::timeline::{UserMessage, WorkingIndicator, WorkingState};
+use u0ui::t3::workspace::{TerminalDrawer, TerminalTab};
 
 struct ShellPage {
     sidebar: bool,
@@ -51,92 +51,39 @@ fn text(s: &'static str, style: TypeStyle, role: ColorRole) -> gpui_kit::Div {
     div().type_style(style).text_color(color(role)).child(s)
 }
 
-/// Stand-in for `ChatHeader` (title, project · branch, status).
-fn header_stand_in() -> impl IntoElement {
-    div()
-        .flex()
-        .items_center()
-        .gap(px(12.))
-        .h(px(48.))
-        .px(px(16.))
-        .border_b_1()
-        .border_color(color(ColorRole::BorderSubtle01))
-        .child(text(
-            "Add dark theme tokens",
-            TypeStyle::HeadingCompact01,
-            ColorRole::TextPrimary,
-        ))
-        .child(text(
-            "carbon-ui · feat/dark-tokens",
-            TypeStyle::Label01,
-            ColorRole::TextSecondary,
-        ))
-        .child(u0ui::t3::StatusPill::new(Status::Working).id("shell-head-pill"))
+/// `h(C.ChatHeader,{title:'Add dark theme tokens',project:'carbon-ui',
+/// branch:'feat/dark-tokens',status:'working'})`.
+fn chat_header(id: gpui_kit::ElementId) -> impl IntoElement {
+    ChatHeader::new(id, "Add dark theme tokens")
+        .project("carbon-ui")
+        .branch("feat/dark-tokens")
+        .status(Status::Working)
 }
 
-/// Stand-in for `TerminalDrawer` (one `dev` tab and its lines).
-fn terminal_stand_in() -> impl IntoElement {
-    let mono = |s: &'static str| {
-        div()
-            .font_family("IBM Plex Mono")
-            .text_size(px(12.))
-            .text_color(color(ColorRole::TextPrimary))
-            .child(s)
-    };
-    stack()
-        .size_full()
-        .bg(color(ColorRole::Layer01))
-        .child(
-            div()
-                .flex()
-                .items_center()
-                .h(px(32.))
-                .px(px(16.))
-                .border_b_1()
-                .border_color(color(ColorRole::BorderSubtle01))
-                .child(text("dev", TypeStyle::Label01, ColorRole::TextPrimary)),
-        )
-        .child(
-            stack()
-                .p(px(12.))
-                .gap(px(2.))
-                .child(mono("$ pnpm dev"))
-                .child(mono("  VITE v6  ready in 412 ms"))
-                .child(mono("  ➜  Local: http://localhost:5173/")),
-        )
+/// `h(C.TerminalDrawer,{tabs:[{title:'dev',running:true}],lines:[…]})`.
+fn terminal_drawer(id: gpui_kit::ElementId) -> impl IntoElement {
+    TerminalDrawer::new(id, [TerminalTab::new("dev").running(true)]).lines([
+        "$ pnpm dev",
+        "  VITE v6  ready in 412 ms",
+        "  \u{279c}  Local: http://localhost:5173/",
+    ])
 }
 
-/// Stand-in for the body's `UserMessage` and `WorkingIndicator`.
-fn body_stand_in() -> impl IntoElement {
+/// `h('div',{style:{padding:24,display:'flex',flexDirection:'column',gap:16}},
+/// h(C.UserMessage,{time:'10:42'},…),h(C.WorkingIndicator,{seconds:74}))`.
+fn body(prefix: &str) -> impl IntoElement {
+    let id = |n: &str| super::eid(prefix, n);
     stack()
         .p(px(24.))
         .gap(px(16.))
         .child(
-            div().flex().justify_end().child(
-                div()
-                    .min_w_0()
-                    .px(px(16.))
-                    .py(px(12.))
-                    .bg(color(ColorRole::Layer01))
-                    .child(text(
-                        "Add the G90 theme and update the cover.",
-                        TypeStyle::Body01,
-                        ColorRole::TextPrimary,
-                    )),
-            ),
+            UserMessage::new(id("umsg"), "Add the G90 theme and update the cover.").time("10:42"),
         )
-        .child(
-            div()
-                .flex()
-                .items_center()
-                .gap(px(8.))
-                .child(u0ui::t3::Spin::new("shell-body-spin"))
-                .child(text(
-                    "Working · 1m 14s",
-                    TypeStyle::BodyCompact01,
-                    ColorRole::TextSecondary,
-                )),
-        )
+        .child(WorkingIndicator::new(
+            id("working"),
+            WorkingState::Working,
+            74,
+        ))
 }
 
 /// Region switches: sidebar, header, right panel, terminal, active thread.
@@ -183,7 +130,7 @@ fn shell(flags: Flags, prefix: &str, entity: Option<Entity<ShellPage>>) -> AnyEl
         );
     }
     if header {
-        frame = frame.header(header_stand_in());
+        frame = frame.header(chat_header(id("head")));
     }
     if right {
         frame = frame.right_panel(
@@ -199,9 +146,9 @@ fn shell(flags: Flags, prefix: &str, entity: Option<Entity<ShellPage>>) -> AnyEl
         );
     }
     if terminal {
-        frame = frame.terminal(terminal_stand_in());
+        frame = frame.terminal(terminal_drawer(id("term")));
     }
-    frame.child(body_stand_in()).into_any_element()
+    frame.child(body(prefix)).into_any_element()
 }
 
 /// Overview specimen.
