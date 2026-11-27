@@ -68,8 +68,11 @@ short doc comment next to the value.
 ## Carbon rules (enforce everywhere)
 
 - Square corners by default. Rounded only where the reference says: Tag/switch track 16 (pill),
-  radio/switch knob/avatar full, checkbox 2, Kbd 4. Chat bubbles and attachment chips are square
-  (the design's 2026-11-27 craft pass removed their radius); the later rule in cascade order wins.
+  radio/switch knob/avatar full, checkbox 2, Kbd 4. The core chat `Bubble` (`.cu-bubble`) keeps
+  `border-radius-08` (8px) with its sender-side bottom corner square; the T3 user bubble and
+  attachment/context chips are square (the 2026-11-27 craft pass in `t3.css` lists only
+  `.t3-umsg-bubble, .t3-cchip, .t3-ctx, .t3-mention, .t3-attach, .t3-composer-box`). Read the
+  actual selectors: the later matching rule in cascade order wins, not a comment's wording.
 - Fields: filled `field-0x`, 1px `border-strong-0x` bottom line, no four-sided border; focus = 2px `focus`
   inset outline; error = 2px `support-error` outline plus the error icon.
 - Only floating layers (menus, popovers, toasts, sheets, dialogs) have a shadow, `0 2px 6px shadow`.

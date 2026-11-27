@@ -4,12 +4,13 @@
 //!
 //! - **Box**: `.cu-bubble { max-width: min(36rem, 85%); padding: spacing-04
 //!   spacing-05; font-size: 0.875rem; line-height: 1.42857 }` (`body-01`),
-//!   square: the `t3.css` global craft pass ("One geometry: Carbon is square.
-//!   Chat bubbles and attachment chips lose their consumer-IM radius",
-//!   `.t3-umsg-bubble, .t3-cchip, .t3-ctx, .t3-mention, .t3-attach,
-//!   .t3-composer-box { border-radius: 0 !important }`) overrides
-//!   `.cu-bubble { border-radius: border-radius-08 }` and its square
-//!   sender-side corner. `align-self` follows `align`. Inside a [`super::message::MessageContent`] the cap is 100%
+//!   `border-radius: border-radius-08` (8px) with the sender-side bottom
+//!   corner square (`.cu-bubble--end { border-bottom-right-radius:
+//!   border-radius-00 }`, `--start` bottom-left). The `t3.css` craft pass
+//!   that squares chat bubbles lists only the T3 ones (`.t3-umsg-bubble,
+//!   .t3-cchip, .t3-ctx, .t3-mention, .t3-attach, .t3-composer-box
+//!   { border-radius: 0 !important }`), not `.cu-bubble`, so the core
+//!   bubble keeps its radius. `align-self` follows `align`. Inside a [`super::message::MessageContent`] the cap is 100%
 //!   (`.cu-msg-content .cu-bubble { max-width: 100% }`): call
 //!   [`Bubble::fill_message`].
 //! - **Variants** ([`BubbleLook::of`]): default (user) `chat-bubble-user` /
@@ -30,7 +31,8 @@ use super::form::rem;
 use crate::{
     theme::color,
     tokens::{
-        BORDER_RADIUS_16, ColorRole, SPACING_02, SPACING_03, SPACING_04, SPACING_05, TypeStyle,
+        BORDER_RADIUS_00, BORDER_RADIUS_08, BORDER_RADIUS_16, ColorRole, SPACING_02, SPACING_03,
+        SPACING_04, SPACING_05, TypeStyle,
     },
     typography::TypeStyled as _,
 };
@@ -186,6 +188,18 @@ pub const MAX_FRACTION: f32 = 0.85;
 /// `.cu-bubble-reactions--top/bottom { top/bottom: -0.75rem }` in px.
 pub const REACTIONS_OVERHANG: f32 = 12.;
 
+/// The bubble's corner radii in px, `[top-left, top-right, bottom-right,
+/// bottom-left]`: `.cu-bubble { border-radius: border-radius-08 }` with
+/// `.cu-bubble--end { border-bottom-right-radius: border-radius-00 }` /
+/// `.cu-bubble--start { border-bottom-left-radius: border-radius-00 }`.
+pub fn corner_radii(align: BubbleAlign) -> [f32; 4] {
+    let (r, square) = (BORDER_RADIUS_08.px_value(), BORDER_RADIUS_00.px_value());
+    match align {
+        BubbleAlign::End => [r, r, square, r],
+        BubbleAlign::Start => [r, r, r, square],
+    }
+}
+
 /// A chat bubble. See the module docs.
 #[derive(IntoElement, Default)]
 pub struct Bubble {
@@ -236,7 +250,14 @@ impl ParentElement for Bubble {
 impl RenderOnce for Bubble {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let look = BubbleLook::of(self.variant);
-        let mut bubble = div()
+        let [tl, tr, br, bl] = corner_radii(self.align).map(rem);
+        let round = move |el: gpui_kit::Div| {
+            el.rounded_tl(tl)
+                .rounded_tr(tr)
+                .rounded_br(br)
+                .rounded_bl(bl)
+        };
+        let mut bubble = round(div())
             .relative()
             .flex()
             .flex_col()
@@ -249,8 +270,9 @@ impl RenderOnce for Bubble {
             .type_style(TypeStyle::Body01)
             .children(self.children)
             .when_some(look.outline, |this, line| {
+                // `outline` follows `border-radius`.
                 this.child(
-                    div()
+                    round(div())
                         .absolute()
                         .top_0()
                         .left_0()
@@ -461,5 +483,12 @@ mod tests {
         assert_eq!((SPACING_04.px_value(), SPACING_05.px_value()), (12., 16.));
         assert_eq!(REACTIONS_OVERHANG, 12.);
         assert_eq!(SPACING_02.px_value(), 4.);
+    }
+
+    #[test]
+    fn corners_follow_custom_css_not_the_t3_craft_pass() {
+        // `.cu-bubble { border-radius: border-radius-08 }`, square tail corner.
+        assert_eq!(corner_radii(BubbleAlign::End), [8., 8., 0., 8.]);
+        assert_eq!(corner_radii(BubbleAlign::Start), [8., 8., 8., 0.]);
     }
 }
