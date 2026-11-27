@@ -4,14 +4,15 @@
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
-    AnyElement, AnyView, App, AppContext as _, Context, Entity, FontStyle, FontWeight, Hsla,
-    IntoElement, ParentElement, Render, SharedString, Styled, StyledText, TextRun, UnderlineStyle,
-    Window, component::input::InputState, div, prelude::FluentBuilder as _, px, rems,
+    AnyElement, AnyView, App, AppContext as _, Context, Entity, FontStyle, Hsla, IntoElement,
+    ParentElement, Render, SharedString, Styled, StyledText, TextRun, UnderlineStyle, Window,
+    component::input::InputState, div, prelude::FluentBuilder as _, px, rems,
 };
 use u0ui::components::{FieldSize, Input, Select, SelectType};
 use u0ui::patterns::{Caption, TextToolbar, ToolbarAction, ToolbarItem};
 use u0ui::prelude::*;
 use u0ui::tokens::FontFamilyKey;
+use u0ui::typography::paragraph;
 
 /// Build the page.
 pub fn build(window: &mut Window, cx: &mut App) -> AnyView {
@@ -61,8 +62,11 @@ struct TextToolbarPage {
 const WIDTHS: [&str; 3] = ["fill", "36rem", "22rem"];
 const SAVE: [&str; 2] = ["Save draft", "Autosave"];
 
-/// `.cu-ptarea p`: the note, `1.5` in bold, styled by the toggles.
-fn note(format: Format) -> StyledText {
+/// `.cu-ptarea p`: the note, styled by the toggles. A bare `p`, so
+/// Carbon's global `p` rule makes it 16px/24px over the area's 14px. Its
+/// `<b>1.5</b>` stays at weight 400: Carbon's reset gives `b` `font:
+/// inherit` (only `strong` is 600).
+fn note(format: Format) -> impl IntoElement {
     let parts = [
         ("Release notes for ", false),
         ("1.5", true),
@@ -75,16 +79,11 @@ fn note(format: Format) -> StyledText {
     let fg = color(ColorRole::TextPrimary);
     let runs = parts
         .iter()
-        .map(|(t, strong)| {
-            let mut font = u0ui::typography::font(
-                FontFamilyKey::Sans,
-                if *strong || format.bold { 600 } else { 400 },
-            );
+        .map(|(t, _)| {
+            let mut font =
+                u0ui::typography::font(FontFamilyKey::Sans, if format.bold { 600 } else { 400 });
             if format.italic {
                 font.style = FontStyle::Italic;
-            }
-            if *strong {
-                font.weight = FontWeight(600.);
             }
             TextRun {
                 len: t.len(),
@@ -100,7 +99,7 @@ fn note(format: Format) -> StyledText {
             }
         })
         .collect::<Vec<_>>();
-    StyledText::new(text).with_runs(runs)
+    paragraph().child(StyledText::new(text).with_runs(runs))
 }
 
 /// `.cu-ptattach`: the attached file in the area's bottom-left corner.

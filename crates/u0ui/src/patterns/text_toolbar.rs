@@ -386,12 +386,14 @@ impl RenderOnce for TextToolbar {
         }
 
         let measure = canvas(
-            move |b, _, cx| {
+            move |b, window, cx| {
                 if *bounds.read(cx) != b {
-                    bounds.update(cx, |s, cx| {
-                        *s = b;
-                        cx.notify();
-                    });
+                    bounds.update(cx, |s, _| *s = b);
+                    // A notify from inside this frame's prepaint is dropped
+                    // when the frame ends, so a resize would keep the old
+                    // fit (items clipped, no "…") until something else
+                    // redraws. Ask for the next frame explicitly.
+                    window.on_next_frame(|window, _| window.refresh());
                 }
             },
             |_, _, _, _| {},
