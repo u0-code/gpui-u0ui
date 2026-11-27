@@ -31,6 +31,7 @@ pub mod dropdown_menu;
 pub mod empty;
 pub mod field;
 pub mod ghost_foundations;
+pub mod ghost_panels;
 pub mod ghost_primitives;
 pub mod ghost_shell;
 pub mod ghost_tasks;

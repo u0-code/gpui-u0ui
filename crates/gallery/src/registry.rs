@@ -115,6 +115,9 @@ pub const GHOST_SHELL: &str = "Ghost · Shell";
 /// summary): its `index.d.ts` doc comment.
 const RICH_TEXT: &str = "Renders `value` as-is: a string or an element (inline code, links), for parts whose text holes would stringify an element, such as a SettingsRow description.";
 
+/// `Ghost · Right column`: viewers, terminal, git history.
+pub const GHOST_RIGHT: &str = "Ghost · Right column";
+
 /// The reference artifact's group order (`components/index.d.ts` sections).
 /// Other groups (`T3 · …`, `Ghost · …`, `Carbon · Patterns`) follow in
 /// first-use order.
@@ -377,6 +380,10 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("split-button", "SplitButton", "T3 · Mobile", Component::SplitButton.summary(), pages::t3_mobile::split_button::build).thumbnail(pages::t3_mobile::split_button::thumbnail),
     PageDef::new("command-palette", "CommandPalette", "T3 · Shell", Component::CommandPalette.summary(), pages::t3_shell::palette::build_command_palette).thumbnail(pages::t3_shell::palette::palette_thumbnail),
     PageDef::new("list-toolbar", "ListToolbar", "T3 · Shell", Component::ListToolbar.summary(), pages::t3_shell::palette::build_list_toolbar).thumbnail(pages::t3_shell::palette::toolbar_thumbnail),
+    // Ghost · Right column (src/ghost/panels.jsx)
+    PageDef::new("code-viewer", "CodeViewer", GHOST_RIGHT, Component::CodeViewer.summary(), pages::ghost_panels::code_viewer::build).thumbnail(pages::ghost_panels::code_viewer::thumbnail),
+    PageDef::new("image-viewer", "ImageViewer", GHOST_RIGHT, Component::ImageViewer.summary(), pages::ghost_panels::image_viewer::build).thumbnail(pages::ghost_panels::image_viewer::thumbnail),
+    PageDef::new("pdf-viewer", "PdfViewer", GHOST_RIGHT, Component::PdfViewer.summary(), pages::ghost_panels::pdf_viewer::build).thumbnail(pages::ghost_panels::pdf_viewer::thumbnail),
     // Ghost · Tasks & workflows (src/ghost/admin.jsx)
     PageDef::new("task-row", "TaskRow", "Ghost · Tasks & workflows", Component::TaskRow.summary(), pages::ghost_tasks::task_row::build).thumbnail(pages::ghost_tasks::task_row::thumbnail),
     PageDef::new("workflow-row", "WorkflowRow", "Ghost · Tasks & workflows", Component::WorkflowRow.summary(), pages::ghost_tasks::workflow_row::build).thumbnail(pages::ghost_tasks::workflow_row::thumbnail),
