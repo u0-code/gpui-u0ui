@@ -417,6 +417,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("server-header", "ServerHeader", GHOST_SHELL, Component::ServerHeader.summary(), pages::ghost_shell::server::build_server_header).thumbnail(pages::ghost_shell::server::header_thumbnail),
     // Carbon · Patterns (src/patterns.css)
     PageDef::new("pattern-common-actions", "PatternCommonActions", "Carbon · Patterns", Component::PatternCommonActions.summary(), pages::patterns::common_actions::build).thumbnail(pages::patterns::common_actions::thumbnail),
+    PageDef::new("pattern-dialogs", "PatternDialogs", "Carbon · Patterns", Component::PatternDialogs.summary(), pages::patterns::dialogs::build).thumbnail(pages::patterns::dialogs::thumbnail),
     PageDef::new("pattern-text-toolbar", "PatternTextToolbar", "Carbon · Patterns", Component::PatternTextToolbar.summary(), pages::patterns::text_toolbar::build).thumbnail(pages::patterns::text_toolbar::thumbnail),
     // T3 · Files & preview, Settings, Usage & workflows, Onboarding & feedback (src/t3/workspace.jsx)
     PageDef::new("device-controls-rail", "DeviceControlsRail", "T3 · Files & preview", Component::DeviceControlsRail.summary(), pages::t3_workspace::files::build_device_controls_rail).thumbnail(pages::t3_workspace::files::device_controls_rail_thumbnail),
