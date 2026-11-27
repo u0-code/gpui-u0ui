@@ -434,6 +434,11 @@ const PAD_BLOCK_MAX: f32 = (48. - LINE) / 2. - 1.;
 /// var(--spacing-05) }`). Text-only buttons don't reserve Carbon's 63px icon slot.
 pub const TEXT_ONLY_END_PADDING: f32 = PAD;
 
+/// One turn of the loading spinner (`cu-spin 0.69s linear infinite`, as
+/// `.t3-spin svg`); under reduced motion it pulses instead (see
+/// [`crate::icons::spin_now`]).
+pub const LOADING_SPIN_PERIOD: Duration = Duration::from_millis(690);
+
 impl Geometry {
     /// Geometry for `size` under `density` of a button that carries an icon
     /// (Carbon's 63px end slot). Use [`Self::for_content`] for the geometry a
@@ -740,12 +745,12 @@ impl RenderOnce for Button {
 
         let icon = if self.loading {
             Some(
-                crate::icons::spin(
+                crate::icons::spin_now(
                     Icon::named("progress_activity")
                         .size(IconSize::S16)
                         .color(icon_color),
-                    (id.clone(), "spinner"),
-                    Duration::from_millis(690),
+                    LOADING_SPIN_PERIOD,
+                    window,
                     cx,
                 )
                 .into_any_element(),
@@ -931,6 +936,21 @@ impl RenderOnce for Button {
 mod tests {
     use super::*;
     use crate::tokens::CarbonTheme;
+
+    #[test]
+    fn the_loading_spinner_pulses_under_reduced_motion() {
+        use crate::t3::base::spin_frame;
+        assert_eq!(LOADING_SPIN_PERIOD, Duration::from_millis(690));
+        // Turning: a quarter turn a quarter period in, fully opaque.
+        let f = spin_frame(Duration::from_micros(172_500), LOADING_SPIN_PERIOD, false);
+        assert!((f.turn - 0.25).abs() < 1e-3 && f.opacity == 1.);
+        // Reduced: no rotation, `g-pulse 1.4s` 1 → 0.35 → 1.
+        let f = spin_frame(Duration::from_millis(700), LOADING_SPIN_PERIOD, true);
+        assert_eq!(f.turn, 0.);
+        assert!((f.opacity - 0.35).abs() < 1e-4);
+        let f = spin_frame(Duration::from_millis(1400), LOADING_SPIN_PERIOD, true);
+        assert!((f.opacity - 1.).abs() < 1e-4);
+    }
 
     fn hex(c: Hsla) -> String {
         let c = c.to_rgb();

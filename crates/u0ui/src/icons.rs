@@ -326,6 +326,11 @@ impl<F: AssetSource> AssetSource for Assets<F> {
 
 /// A continuously spinning element (loading indicators), one turn per `period`.
 /// Under reduced motion it pulses its opacity instead of rotating.
+///
+/// GPUI's `with_animation` holds a repeating animation on its first frame
+/// whenever reduced motion is on, so this pulse never plays; use
+/// [`spin_now`], which runs off a clock.
+#[deprecated(note = "freezes under reduced motion; use `spin_now`")]
 pub fn spin(icon: Icon, id: impl Into<ElementId>, period: Duration, cx: &App) -> impl IntoElement {
     let reduced = crate::motion::reduced_motion(cx);
     icon.with_animation(id, Animation::new(period).repeat(), move |icon, delta| {
@@ -337,6 +342,18 @@ pub fn spin(icon: Icon, id: impl Into<ElementId>, period: Duration, cx: &App) ->
             icon.transform(Transformation::rotate(percentage(delta)))
         }
     })
+}
+
+/// `icon` spinning one turn per `period` (`cu-spin linear infinite`), driven
+/// by a clock so it keeps moving under reduced motion, where the rotation
+/// becomes the `g-pulse` opacity pulse every spinner in the reference shares
+/// (`ghost.css`: `@media (prefers-reduced-motion: reduce) { .t3-spin svg,
+/// .t3-provider-spin, .g-motion-spin, … { animation: g-pulse 1.4s ease-in-out
+/// infinite !important } }`). Call while rendering: it asks for the next frame.
+pub fn spin_now(icon: Icon, period: Duration, window: &mut Window, cx: &App) -> Icon {
+    let frame = crate::t3::base::spin_frame_now(period, crate::motion::reduced_motion(cx), window);
+    icon.transform(Transformation::rotate(percentage(frame.turn)))
+        .opacity(frame.opacity)
 }
 
 /// Make Kit's default icons resolve to Sharp equivalents.
