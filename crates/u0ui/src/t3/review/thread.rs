@@ -1411,8 +1411,11 @@ impl RenderOnce for ThreadHoverCard {
                     .child(StatusPill::new(self.status)),
             )
             .child(sans(div(), 14., 600).child(self.title.clone()))
+            // `.t3-hovercard-last` is a `<p>` with no size rule of its own,
+            // so Carbon's bare `p` rule makes it 16px/24px (not the card's
+            // 14px); `{ color: text-secondary; -webkit-line-clamp: 3 }`.
             .child(
-                div()
+                crate::typography::paragraph()
                     .line_clamp(3)
                     .overflow_hidden()
                     .text_color(color(ColorRole::TextSecondary))
