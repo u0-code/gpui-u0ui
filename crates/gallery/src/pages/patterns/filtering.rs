@@ -262,20 +262,24 @@ fn vertical(p: &str, page: &Page, data: AnyElement, live: Option<&Entity<Page>>)
             }
             None => b.default_checked(STATUS_DEFAULT[i]),
         };
-        // The checkbox brings `.cds--checkbox-wrapper`'s 6px bottom margin.
-        b
+        // The checkbox brings `.cds--checkbox-wrapper`'s 6px bottom margin;
+        // `.cds--label + .cds--form-item.cds--checkbox-wrapper {
+        // margin-block-start: -0.125rem }` tucks the first one 2px under the
+        // legend, as in Disclosures.
+        div().when(i == 0, |d| d.mt(px(-2.))).child(b)
     });
-    // `style: {flex: 1}`: 94px each in the 188px panel, so "Apply filters"
-    // wraps and both buttons grow to two lines (50px).
+    // `style: {flex: 1}`: a zero basis floored at each button's padding,
+    // so Reset 94 / Apply 93 in the 187px panel; "Apply filters" wraps and
+    // both buttons grow to two lines (50px).
     let mut reset = Button::new(id(p, "reset"), "Reset")
         .variant(ButtonVariant::Secondary)
         .size(ButtonSize::Sm)
-        .full_width(true)
+        .flex_share(1.)
         .wrap_label(true);
     let mut apply = Button::new(id(p, "apply"), "Apply filters")
         .variant(ButtonVariant::Primary)
         .size(ButtonSize::Sm)
-        .full_width(true)
+        .flex_share(1.)
         .wrap_label(true)
         .disabled(live.is_some() && page.draft == page.applied);
     if let Some(e) = live {
@@ -304,12 +308,18 @@ fn vertical(p: &str, page: &Page, data: AnyElement, live: Option<&Entity<Page>>)
                 .flex_none()
                 .w(px(220.))
                 .gap(tokens::SPACING_05)
+                // `display: grid; align-content: start` in a 230px box: the
+                // rows keep their heights, so the 232px content (the first
+                // box's −2px included) overflows the 16px bottom padding by
+                // 2px and the buttons end 14px above the panel's edge
+                // (every row is `flex_none`).
                 .p(tokens::SPACING_05)
                 .bg(color(ColorRole::Layer01))
                 .border_r_1()
                 .border_color(color(ColorRole::BorderSubtle01))
                 .child(
                     div()
+                        .flex_none()
                         .flex()
                         .justify_between()
                         .items_center()
@@ -327,18 +337,15 @@ fn vertical(p: &str, page: &Page, data: AnyElement, live: Option<&Entity<Page>>)
                 )
                 .child(
                     div()
+                        .flex_none()
                         .flex()
                         .flex_col()
                         .child(form::label("Status", false))
                         .children(boxes),
                 )
                 .child(
-                    div()
-                        .flex()
-                        // `flex: 1` is a zero basis: equal halves whatever
-                        // the labels; the row stretches both to the taller.
-                        .child(div().flex().flex_1().min_w_0().child(reset))
-                        .child(div().flex().flex_1().min_w_0().child(apply)),
+                    // The row stretches both buttons to the taller.
+                    div().flex_none().flex().child(reset).child(apply),
                 ),
         )
         .child(div().flex_1().min_w_0().overflow_hidden().child(data))
@@ -348,13 +355,6 @@ fn vertical(p: &str, page: &Page, data: AnyElement, live: Option<&Entity<Page>>)
 /// The live data: the kept threads as rows, or a note when none are left.
 fn results(page: &Page) -> AnyElement {
     let rows = page.results();
-    let text = |s: String| {
-        div()
-            .min_w_0()
-            .overflow_hidden()
-            .whitespace_nowrap()
-            .child(s)
-    };
     div()
         .flex()
         .flex_col()
@@ -368,10 +368,34 @@ fn results(page: &Page) -> AnyElement {
                 .child("No threads match these filters")
         })
         .children(rows.into_iter().map(|(name, project, agent, status)| {
-            PatternRow::new().child(text(name.to_string())).child(
+            // Title at the start, meta at the end; when the column is too
+            // narrow for both (the batch panel at 940px), the meta wraps
+            // under the title instead of drawing over it.
+            PatternRow::new().child(
                 div()
-                    .text_color(color(ColorRole::TextSecondary))
-                    .child(format!("{project} · {agent} · {status}")),
+                    .flex()
+                    .flex_wrap()
+                    .justify_between()
+                    .gap_x(tokens::SPACING_05)
+                    .flex_1()
+                    .min_w_0()
+                    .child(
+                        div()
+                            .min_w_0()
+                            .overflow_hidden()
+                            .text_ellipsis()
+                            .whitespace_nowrap()
+                            .child(name),
+                    )
+                    .child(
+                        div()
+                            .min_w_0()
+                            .overflow_hidden()
+                            .text_ellipsis()
+                            .whitespace_nowrap()
+                            .text_color(color(ColorRole::TextSecondary))
+                            .child(format!("{project} · {agent} · {status}")),
+                    ),
             )
         }))
         .into_any_element()
