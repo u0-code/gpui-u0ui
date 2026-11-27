@@ -1,11 +1,11 @@
 //! T3 · Diff & review › DiffFileHeader: the three reference headers
 //! (modified, added + viewed, deleted + collapsed), a live header whose
-//! chevron collapses a stand-in body, and the parts on their own.
+//! chevron toggles its collapsed state, and the parts on their own.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
     AnyElement, AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled,
-    Window, div, prelude::FluentBuilder as _, rems,
+    Window, div, rems,
 };
 use u0ui::prelude::*;
 use u0ui::t3::review::{DiffFileHeader, DiffFileStatus, DiffStat, FileStatus, StartTruncatedPath};
@@ -80,39 +80,25 @@ impl Render for Page {
             );
 
         let (added, removed) = STATS[self.stat];
-        let live = div()
-            .flex()
-            .flex_col()
-            .w_full()
-            .max_w(rems(47.5))
-            .child(
-                DiffFileHeader::new("dfh-live", PATHS[self.path])
-                    .status(FileStatus::ALL[self.status])
-                    .stat(added, removed)
-                    .collapsed(self.collapsed)
-                    .viewed(self.viewed)
-                    .on_toggle({
-                        let entity = entity.clone();
-                        move |_, cx| {
-                            entity.update(cx, |this, cx| {
-                                this.collapsed = !this.collapsed;
-                                cx.notify();
-                            })
-                        }
-                    })
-                    .on_viewed(controls::setter(&entity, |this: &mut Page, v| {
-                        this.viewed = v
-                    })),
-            )
-            .when(!self.collapsed, |this| {
-                this.child(
-                    div()
-                        .h(rems(5.))
-                        .bg(color(ColorRole::Background))
-                        .border_b_1()
-                        .border_color(color(ColorRole::BorderSubtle01)),
-                )
-            });
+        let live = div().flex().flex_col().w_full().max_w(rems(47.5)).child(
+            DiffFileHeader::new("dfh-live", PATHS[self.path])
+                .status(FileStatus::ALL[self.status])
+                .stat(added, removed)
+                .collapsed(self.collapsed)
+                .viewed(self.viewed)
+                .on_toggle({
+                    let entity = entity.clone();
+                    move |_, cx| {
+                        entity.update(cx, |this, cx| {
+                            this.collapsed = !this.collapsed;
+                            cx.notify();
+                        })
+                    }
+                })
+                .on_viewed(controls::setter(&entity, |this: &mut Page, v| {
+                    this.viewed = v
+                })),
+        );
 
         let config = div()
             .flex()
