@@ -6,9 +6,10 @@
 //!   column-gap: 0.0625rem }`; the action keeps a minimum width per size
 //!   ([`primary_min_width`]) and is at most 14.9375rem wide, ellipsized.
 //! - **Behavior**: the action fires `on_click`; the chevron (pointer, Enter
-//!   or Space) toggles the menu, which is u0ui's Carbon `Menu` hung under the
-//!   container's start edge and at least as wide as the container. The menu
-//!   owns keyboard navigation, Escape and click-outside.
+//!   or Space) toggles the menu, which is u0ui's Carbon `Menu` centred under
+//!   the container and as wide as it within 10rem to 18rem
+//!   ([`menu::button_menu_width`]). The menu owns keyboard navigation, Escape
+//!   and click-outside.
 //! - **Motion**: the chevron turns 180° while open (`.cds--combo-button__trigger
 //!   svg { transition: transform 110ms }`), a cut under reduced motion.
 use crate::components::{
@@ -23,7 +24,7 @@ use crate::{
 };
 use gpui_kit::{
     App, Bounds, ClickEvent, ElementId, IntoElement, ParentElement, Pixels, RenderOnce,
-    SharedString, Styled, Window, canvas, div, px, rems,
+    SharedString, Styled, TestSupportExt as _, Window, canvas, div, px, rems,
 };
 use std::rc::Rc;
 
@@ -202,6 +203,7 @@ impl RenderOnce for ComboButton {
                 chevron.into_any_element(),
                 Rc::new(move |window, cx| set_open(!open, window, cx)),
             )
+            .test_support()
             .into_any_element()
         };
         let measure = canvas(
@@ -232,7 +234,13 @@ impl RenderOnce for ComboButton {
             .child(measure)
             .into_any_element();
 
-        menu::anchored_menu(
+        // Carbon `ComboButton` floats its `Menu` as `MenuButton` does:
+        // `menuAlignment="bottom"` centres it under the container, and
+        // floating-ui's `size` middleware sets its width to the container's,
+        // held to `.cds--menu`'s 10rem (12rem with icons) to 18rem. The
+        // 144px "Commit" combo gets a 160px menu, x −8…152, and long labels
+        // ellipsize.
+        let menu = menu::anchored_button_menu(
             &id,
             container,
             menu::MenuSpec {
@@ -241,12 +249,16 @@ impl RenderOnce for ComboButton {
                 label: self.menu_label,
                 open,
                 set_open,
-                min_width: Some(width_rem),
+                min_width: None,
                 on_unhandled_key: None,
             },
+            width_rem,
             window,
             cx,
-        )
+        );
+        // `display: inline-flex`: the container hugs its two buttons, so the
+        // menu centres under them, not under a stretched row.
+        div().flex().flex_row().child(menu)
     }
 }
 
