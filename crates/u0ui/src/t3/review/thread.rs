@@ -195,7 +195,9 @@ impl RenderOnce for ChatHeader {
             .text_color(color(ColorRole::TextPrimary))
             .tooltip(craft::title_tooltip(self.rename_label.clone()))
             .when_some(on_rename, |b, f| b.on_click(move |_, w, cx| f(w, cx)))
-            .child(self.title.clone())
+            // The text ellipsizes in its own box: the press's content box
+            // does not pass its max width down to a bare string child.
+            .child(div().min_w_0().truncate().child(self.title.clone()))
             .when(ring, |b| b.child(craft::focus_ring_offset(2.)));
         let sub_line = sans(div(), 12., 400)
             .flex()
