@@ -1037,34 +1037,15 @@ impl KeybindingRow {
 }
 
 /// The width of the longest word of `text` in 14px Plex Sans: the
-/// min-content width CSS gives the command (GPUI measures text only at its
-/// full width, so it cannot hold a wrapping column at its longest word).
+/// min-content width CSS gives the command.
 fn longest_word_width(text: &str, window: &Window) -> gpui_kit::Pixels {
-    let size = rem(14.).to_pixels(window.rem_size());
-    text.split_whitespace()
-        .map(|word| {
-            // With the space after it: GPUI's line wrapper keeps the space
-            // on the word's line, and one that does not fit becomes a line
-            // of its own.
-            let word = format!("{word} ");
-            let run = gpui_kit::TextRun {
-                len: word.len(),
-                font: crate::typography::font(crate::tokens::FontFamilyKey::Sans, 400),
-                color: gpui_kit::black(),
-                background_color: None,
-                underline: None,
-                strikethrough: None,
-            };
-            window
-                .text_system()
-                .shape_line(SharedString::from(word), size, &[run], None)
-                .width
-        })
-        .fold(px(0.), |a, b| a.max(b))
-        // Whole pixels and one to spare: the line wrapper breaks a word
-        // that only just fits its measured width.
-        .ceil()
-        + px(1.)
+    crate::typography::longest_word_width(
+        text,
+        14.,
+        crate::tokens::FontFamilyKey::Sans,
+        400,
+        window,
+    )
 }
 
 impl RenderOnce for KeybindingRow {

@@ -28,8 +28,9 @@ use crate::{
     u0::{rows as row, rows::StateTone, tasks::EnabledState},
 };
 use gpui_kit::{
-    AnyElement, App, ElementId, Hsla, IntoElement, ParentElement, RenderOnce, SharedString, Styled,
-    Window, div, prelude::FluentBuilder as _, px, relative,
+    AnyElement, App, ElementId, Hsla, InteractiveElement as _, IntoElement, ParentElement,
+    RenderOnce, SharedString, Styled, TestSupportExt as _, Window, div,
+    prelude::FluentBuilder as _, px, relative,
 };
 use std::rc::Rc;
 
@@ -378,6 +379,12 @@ impl AgentRow {
     }
 }
 
+/// The progress status's least width: its longest word (12px Plex Sans,
+/// `.g-agent-sub { font-size: 0.75rem }`), its CSS min-content.
+pub fn status_min_width(status: &str, window: &Window) -> gpui_kit::Pixels {
+    crate::typography::longest_word_width(status, 12., tokens::FontFamilyKey::Sans, 400, window)
+}
+
 impl RenderOnce for AgentRow {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
@@ -418,16 +425,25 @@ impl RenderOnce for AgentRow {
             .gap(tokens::SPACING_02)
             .min_w_0()
             .text_color(color(ColorRole::TextSecondary));
+        // The text column's least width: a few letters of the name, and the
+        // progress status's longest word beside a collapsed bar.
+        let mut text_min = rem(MIN_TEXT_WIDTH).to_pixels(window.rem_size());
         let sub = if self.state.in_progress() {
             let word = if self.state == AgentState::Installing {
                 self.texts.installing.clone()
             } else {
                 self.texts.updating.clone()
             };
+            let status = format!("{word} {}%", self.progress.round() as i64);
+            // The status is an anonymous flex item of `.g-agent-prog`: its
+            // `min-width: auto` is its min-content, the longest word, so it
+            // wraps between words only ("Installing" / "64%") and the bar
+            // (min-content 0) is what gives way.
+            let status_min = status_min_width(&status, window);
+            text_min = text_min
+                .max(status_min + rem(tokens::SPACING_03.px_value()).to_pixels(window.rem_size()));
             // `.g-agent-prog { display: inline-flex; align-items: center; gap:
             // var(--spacing-03); font-variant-numeric: tabular-nums }`.
-            // The status stays beside the bar and wraps its words; the bar
-            // shrinks with it (it never drops under the bar).
             sub.child(
                 div()
                     .flex()
@@ -437,9 +453,11 @@ impl RenderOnce for AgentRow {
                     .child(progress_bar(id.clone(), self.progress, window, cx))
                     .child(
                         div()
+                            .id((id.clone(), "status"))
+                            .test_support()
                             .flex_shrink(1.)
-                            .min_w_0()
-                            .child(format!("{word} {}%", self.progress.round() as i64)),
+                            .min_w(status_min)
+                            .child(status),
                     ),
             )
         } else if self.state == AgentState::Missing {
@@ -485,7 +503,7 @@ impl RenderOnce for AgentRow {
                     .flex_basis(px(0.))
                     // Never squeezed to a sliver: room for a few letters of
                     // the name ("Co…") and a word of the status per line.
-                    .min_w(rem(MIN_TEXT_WIDTH))
+                    .min_w(text_min)
                     .overflow_hidden()
                     .gap(px(2.))
                     .child(title)

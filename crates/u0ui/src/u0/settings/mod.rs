@@ -16,7 +16,9 @@ mod telemetry_preview;
 mod theme_editor;
 
 pub use account_row::{AccountRow, AccountRowTexts, TokenState};
-pub use agent_row::{AgentButton, AgentRow, AgentRowTexts, AgentState, progress_bar};
+pub use agent_row::{
+    AgentButton, AgentRow, AgentRowTexts, AgentState, progress_bar, status_min_width,
+};
 pub use consent_sheet::{ConsentActions, ConsentSheet, ConsentTexts, sample_payload};
 pub use dialog::{
     SettingsDialog, SettingsDialogTexts, SettingsNavItem, SettingsSection, filter_sections,

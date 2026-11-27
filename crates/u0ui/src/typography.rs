@@ -131,6 +131,44 @@ pub fn font(family: FontFamilyKey, weight: u16) -> Font {
     }
 }
 
+/// The width of the longest word of `text` at `size_px` in `family` /
+/// `weight`: the min-content width CSS gives wrapping text. GPUI wraps text
+/// only at its box's width and breaks a word that does not fit, so a box
+/// that may shrink holds this as its least width to wrap between words only.
+pub fn longest_word_width(
+    text: &str,
+    size_px: f32,
+    family: FontFamilyKey,
+    weight: u16,
+    window: &gpui_kit::Window,
+) -> gpui_kit::Pixels {
+    let size = gpui_kit::rems(size_px / crate::tokens::REM_PX).to_pixels(window.rem_size());
+    text.split_whitespace()
+        .map(|word| {
+            // With the space after it: GPUI's line wrapper keeps the space
+            // on the word's line, and one that does not fit becomes a line
+            // of its own.
+            let word = format!("{word} ");
+            let run = gpui_kit::TextRun {
+                len: word.len(),
+                font: font(family, weight),
+                color: gpui_kit::black(),
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            };
+            window
+                .text_system()
+                .shape_line(gpui_kit::SharedString::from(word), size, &[run], None)
+                .width
+        })
+        .fold(gpui_kit::px(0.), |a, b| a.max(b))
+        // Whole pixels and one to spare: the line wrapper breaks a word
+        // that only just fits its measured width.
+        .ceil()
+        + gpui_kit::px(1.)
+}
+
 /// Apply Carbon type styles to any [`Styled`] element.
 pub trait TypeStyled: Styled + Sized {
     /// Set family (with CJK fallbacks), size, line height and weight from a

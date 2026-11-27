@@ -115,3 +115,43 @@ fn switch_stays_inside_at_300(cx: &mut TestAppContext) {
 fn switch_stays_inside_at_160(cx: &mut TestAppContext) {
     assert_inside(160., cx);
 }
+
+/// The progress status's bounds and its longest word's width.
+fn status(cx: &mut TestAppContext, width: f32) -> (Bounds<Pixels>, Pixels) {
+    let _ = measure(cx, width);
+    let window = cx.windows()[0];
+    cx.update_window(window, |_, window, _| {
+        let status = window
+            .find((gpui_kit::ElementId::from("gemini"), "status"))
+            .bounds();
+        let word = u0ui::u0::settings::status_min_width("Installing 64%", window);
+        (status, word)
+    })
+    .unwrap()
+}
+
+/// The status wraps between words only ("Installing" / "64%"), never inside
+/// "Installing" (design review FG3D); the bar is what gives way.
+fn assert_no_mid_word_break(width: f32, cx: &mut TestAppContext) {
+    let (status, word) = status(cx, width);
+    assert!(
+        status.size.width + px(0.5) >= word,
+        "at {width}px the status is {:?} wide, under its longest word {word:?}",
+        status.size.width
+    );
+}
+
+#[gpui_kit::test]
+fn status_keeps_its_words_at_510(cx: &mut TestAppContext) {
+    assert_no_mid_word_break(510., cx);
+}
+
+#[gpui_kit::test]
+fn status_keeps_its_words_at_400(cx: &mut TestAppContext) {
+    assert_no_mid_word_break(400., cx);
+}
+
+#[gpui_kit::test]
+fn status_keeps_its_words_at_160(cx: &mut TestAppContext) {
+    assert_no_mid_word_break(160., cx);
+}
