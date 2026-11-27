@@ -679,8 +679,11 @@ impl RenderOnce for RightPanelTabs {
                     .overflow_x_scroll()
                     .children(cells),
             )
-            .children(overflow.map(|m| div().flex().items_center().child(m)))
-            .children(add.map(|b| div().flex().items_center().child(b)))
+            // `.t3-rptabs { align-items: stretch }`, but the "…" `.t3-iconmenu`
+            // and the "+" `.cds--btn` keep their own block size (32px compact),
+            // so they sit at the top of the strip, not centred in it.
+            .children(overflow.map(|m| div().flex().items_start().child(m)))
+            .children(add.map(|b| div().flex().items_start().child(b)))
             .when(has_trailing, |d| {
                 d.child(
                     div()
