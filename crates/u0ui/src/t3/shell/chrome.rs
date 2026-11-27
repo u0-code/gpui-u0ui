@@ -660,10 +660,13 @@ impl RenderOnce for RightPanelTabs {
             .border_b_1()
             .border_color(color(ColorRole::BorderSubtle01))
             .child(
+                // `.t3-rptabs-list { display: flex; flex: 1; min-width: 0;
+                // overflow-x: auto }`: the tablist takes the free width, so
+                // "…", "+" and any trailing controls sit at the far end.
                 div()
                     .id((id.clone(), "list"))
                     .flex()
-                    .flex_shrink(1.)
+                    .flex_1()
                     .min_w_0()
                     .overflow_x_scroll()
                     .children(cells),
@@ -671,7 +674,7 @@ impl RenderOnce for RightPanelTabs {
             .children(overflow.map(|m| div().flex().items_center().child(m)))
             .children(add.map(|b| div().flex().items_center().child(b)))
             .when(has_trailing, |d| {
-                d.child(div().flex_1()).child(
+                d.child(
                     div()
                         .flex()
                         .flex_none()
