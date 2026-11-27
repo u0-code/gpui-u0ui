@@ -76,6 +76,13 @@ pub fn sweep(t: f32) -> f32 {
     -1. + 2. * t
 }
 
+/// The transparent ends of the `transparent → layer-hover-01 → transparent`
+/// band: `hover` at alpha 0. GPUI blends gradient stops unpremultiplied, so a
+/// `transparent_black` stop would darken the band toward black.
+pub fn shimmer_clear(hover: Hsla) -> Hsla {
+    hover.opacity(0.)
+}
+
 /// The 16px ring: a 2px `layer-accent-01` track, its top quarter
 /// `interactive` (`border-top-color`), turned by `turn` (0–1).
 fn ring(turn: f32, track: Hsla, arc: Hsla) -> impl IntoElement {
@@ -156,7 +163,9 @@ impl RenderOnce for MotionSpecimen {
         let track_fill = color(ColorRole::Layer01);
         let accent = color(ColorRole::LayerAccent01);
         let hover = color(ColorRole::LayerHover01);
-        let clear = Hsla::transparent_black();
+        // CSS `transparent` interpolates in premultiplied space, so the band
+        // fades without darkening: `layer-hover-01` at alpha 0, not black.
+        let clear = shimmer_clear(hover);
         let [l_panel, l_spin, l_shimmer] = self.labels.clone();
         let [c_slide, c_fade, c_rotate, c_pulse, c_sweep, c_static] = self.captions.clone();
         let row = |label: SharedString, track: gpui_kit::AnyElement, caption: SharedString| {
@@ -292,5 +301,27 @@ mod tests {
         assert!((pulse(1.) - 1.).abs() < 1e-4);
         assert_eq!(sweep(0.5), 0.);
         assert_eq!(SPIN_PERIOD.as_millis(), 690);
+    }
+
+    /// `linear-gradient(90deg, transparent, var(--layer-hover-01), transparent)`:
+    /// CSS blends `transparent` premultiplied, so every point of the band is
+    /// `layer-hover-01` at some alpha and never darker (FG1B: the band dipped
+    /// to RGB 206 in White against the reference's ~237).
+    #[test]
+    fn shimmer_fades_hover_without_darkening() {
+        use crate::{CarbonTheme, theme::color_in};
+        for theme in CarbonTheme::ALL {
+            let hover = color_in(theme, ColorRole::LayerHover01);
+            let clear = shimmer_clear(hover);
+            assert_eq!(clear.a, 0.);
+            let (h, c) = (hover.to_rgb(), clear.to_rgb());
+            // GPUI interpolates the stops straight; equal channels keep the hue.
+            for t in [0.25_f32, 0.5, 0.75] {
+                let mid = |x: f32, y: f32| x + (y - x) * t;
+                assert!((mid(c.r, h.r) - h.r).abs() < 1e-6, "{theme:?}");
+                assert!((mid(c.g, h.g) - h.g).abs() < 1e-6, "{theme:?}");
+                assert!((mid(c.b, h.b) - h.b).abs() < 1e-6, "{theme:?}");
+            }
+        }
     }
 }
