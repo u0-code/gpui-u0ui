@@ -27,10 +27,11 @@ use crate::{
     tokens::{self, ColorRole},
 };
 use gpui_kit::{
-    AnyElement, App, AppContext as _, CursorStyle, ElementId, Entity, Focusable as _, Hsla,
-    InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton, ParentElement, RenderOnce,
-    SharedString, StatefulInteractiveElement as _, Styled, Window, component::input::InputState,
-    div, prelude::FluentBuilder as _, px,
+    AnyElement, App, AppContext as _, ClickEvent, CursorStyle, ElementId, Entity, FocusHandle,
+    Focusable as _, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent, KeyboardButton,
+    KeyboardClickEvent, MouseButton, ParentElement, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled, Window, component::input::InputState, div,
+    prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -105,6 +106,26 @@ pub fn trigger_ink(set: bool, hovered: bool) -> Hsla {
     } else {
         ColorRole::TextSecondary
     })
+}
+
+/// An option's focus handle as a tab stop in the panel's tab group, between
+/// the search field and the "Select all" / "Clear" links.
+pub fn option_focus(focus: FocusHandle) -> FocusHandle {
+    focus.tab_index(0).tab_stop(true)
+}
+
+/// Whether a click on a checkbox row toggles it: a pointer click or Space,
+/// as on `<input type="checkbox">`, but not Enter. GPUI already turns
+/// Space and Enter on a focused clickable element into a click (on key up),
+/// so a separate Space handler would toggle twice.
+pub fn toggles_checkbox(e: &ClickEvent) -> bool {
+    !matches!(
+        e,
+        ClickEvent::Keyboard(KeyboardClickEvent {
+            button: KeyboardButton::Enter,
+            ..
+        })
+    )
 }
 
 /// The menu's user-facing strings (the reference's defaults).
@@ -349,14 +370,16 @@ impl RenderOnce for FilterMenu {
                             set(toggle_value(&values, &value), w, cx)
                         }
                     };
-                    let key_flip = flip.clone();
                     // `.g-fmenu-opt { display: flex; align-items: center; gap:
                     // var(--spacing-03); min-height: var(--density-row-md); padding:
                     // 0 var(--spacing-04); font-size: 0.875rem }`, hover `layer-hover-01`.
+                    // Each option is a tab stop, toggled by Space, like the
+                    // reference's `<label><input type="checkbox">`. The handle
+                    // itself carries the stop: a tracked handle ignores the
+                    // div's own `tab_stop`.
                     sans(div(), 14., 400)
                         .id(oid)
-                        .track_focus(&focus)
-                        .tab_stop(true)
+                        .track_focus(&option_focus(focus))
                         .relative()
                         .flex()
                         .items_center()
@@ -374,11 +397,9 @@ impl RenderOnce for FilterMenu {
                                 }
                             })
                         })
-                        .on_click(move |_, w, cx| flip(w, cx))
-                        .on_key_down(move |e: &KeyDownEvent, w, cx| {
-                            if e.keystroke.key == "space" {
-                                key_flip(w, cx);
-                                cx.stop_propagation();
+                        .on_click(move |e, w, cx| {
+                            if toggles_checkbox(e) {
+                                flip(w, cx)
                             }
                         })
                         .child(check_box(on, ring))
@@ -579,5 +600,17 @@ mod tests {
         assert_eq!(trigger_ink(false, false), c(ColorRole::TextSecondary));
         assert_eq!(trigger_ink(false, true), c(ColorRole::TextPrimary));
         assert_eq!(trigger_ink(true, true), c(ColorRole::LinkPrimary));
+    }
+
+    #[test]
+    fn checkbox_rows_toggle_on_space_not_enter() {
+        let key = |button| {
+            ClickEvent::Keyboard(KeyboardClickEvent {
+                button,
+                bounds: Default::default(),
+            })
+        };
+        assert!(toggles_checkbox(&key(KeyboardButton::Space)));
+        assert!(!toggles_checkbox(&key(KeyboardButton::Enter)));
     }
 }

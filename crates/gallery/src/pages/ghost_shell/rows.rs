@@ -243,9 +243,12 @@ impl Render for FilterPage {
                 self.chosen.join(", ")
             ))));
         // `components/FilterMenu/preview.html`: 300px tall, carbon-ui chosen.
-        let reference = div()
-            .h(rems(18.75))
-            .child(FilterMenu::new("fm-ref", "Projects", projects()).default_value(["carbon-ui"]));
+        // The trigger is an inline-block at the start edge (`.g-fmenu {
+        // position: relative; display: inline-block }`).
+        let reference =
+            div().flex().flex_col().items_start().h(rems(18.75)).child(
+                FilterMenu::new("fm-ref", "Projects", projects()).default_value(["carbon-ui"]),
+            );
         Body::new()
             .playground(live)
             .hint("Open it, type to filter, toggle options; Esc or a press outside closes it")

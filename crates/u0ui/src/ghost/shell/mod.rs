@@ -10,7 +10,8 @@ mod server;
 mod thread_row;
 
 pub use filter_menu::{
-    FilterItem, FilterMenu, FilterMenuTexts, filter_items, toggle_value, trigger_ink,
+    FilterItem, FilterMenu, FilterMenuTexts, filter_items, option_focus, toggle_value,
+    toggles_checkbox, trigger_ink,
 };
 pub use server::{
     ServerChip, ServerChipLook, ServerChipSize, ServerHeader, ServerState, reason_rule,
