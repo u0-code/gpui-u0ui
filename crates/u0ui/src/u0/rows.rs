@@ -150,6 +150,20 @@ pub(crate) fn state_text(tone: StateTone, text: impl Into<SharedString>) -> Div 
         .child(text.into())
 }
 
+/// [`state_text`] that wraps at word boundaries in a narrow column instead of
+/// overflowing (the reference's inline-flex text wraps; the glyph stays
+/// centred beside it).
+pub(crate) fn state_text_wrapping(tone: StateTone, text: impl Into<SharedString>) -> Div {
+    sans(div(), 12., 400)
+        .flex()
+        .items_center()
+        .gap(tokens::SPACING_02)
+        .min_w_0()
+        .text_color(tone.ink())
+        .child(div().flex().flex_none().child(tone.glyph(12.)))
+        .child(div().min_w_0().whitespace_normal().child(text.into()))
+}
+
 /// A `flex: none` wrapper for a trailing control.
 pub(crate) fn tail(el: impl IntoElement) -> Div {
     div().flex().flex_none().items_center().child(el)

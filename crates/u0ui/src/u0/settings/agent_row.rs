@@ -119,6 +119,8 @@ impl Default for AgentRowTexts {
 /// `.g-bar { display: inline-block; width: 8rem; height: 4px; background:
 /// var(--layer-accent-01) }`.
 pub const BAR_WIDTH: f32 = 128.;
+/// The text column's least width in px, when buttons crowd a narrow row.
+pub const MIN_TEXT_WIDTH: f32 = 56.;
 /// `.g-bar { height: 4px }`.
 pub const BAR_HEIGHT: f32 = 4.;
 /// `.g-bar i { transition: width 240ms cubic-bezier(0.2,0,0.38,0.9) }`.
@@ -328,17 +330,22 @@ impl AgentRow {
             if !self.accounts.is_empty() {
                 t.push_str(&(self.texts.accounts)(self.accounts.len()));
             }
-            runs.push(row::state_text(StateTone::Ok, t).into_any_element());
+            runs.push(row::state_text_wrapping(StateTone::Ok, t).into_any_element());
         } else {
             runs.push(
-                row::state_text(StateTone::Warn, self.texts.not_signed_in.clone())
+                row::state_text_wrapping(StateTone::Warn, self.texts.not_signed_in.clone())
                     .into_any_element(),
             );
         }
         if self.has_update()
             && let Some(latest) = &self.latest
         {
-            runs.push(row::dim((self.texts.available)(latest), 12.).into_any_element());
+            runs.push(
+                row::dim((self.texts.available)(latest), 12.)
+                    .min_w_0()
+                    .whitespace_normal()
+                    .into_any_element(),
+            );
         }
         runs
     }
@@ -356,11 +363,21 @@ impl RenderOnce for AgentRow {
             s.on()
         });
 
-        let mut title = row::title(name_ink(on)).child(row::title_text(self.name.clone()));
+        // In a narrow column the version gives way first; the name keeps
+        // its width up to the whole line, then ends in an ellipsis.
+        let mut title = row::title(name_ink(on)).child(
+            row::title_text(self.name.clone())
+                .flex_shrink_0()
+                .max_w_full(),
+        );
         if let Some(v) = &self.version {
             // `<span className="g-dim g-mono"> {version}</span>`.
-            title =
-                title.child(row::mono_text(v.clone()).text_color(color(ColorRole::TextSecondary)));
+            title = title.child(
+                row::mono_text(v.clone())
+                    .min_w_0()
+                    .overflow_hidden()
+                    .text_color(color(ColorRole::TextSecondary)),
+            );
         }
 
         // `.g-agent-sub { display: flex; align-items: center; gap:
@@ -427,7 +444,9 @@ impl RenderOnce for AgentRow {
                     .flex()
                     .flex_col()
                     .flex_1()
-                    .min_w_0()
+                    // Never squeezed to a sliver: room for a few letters of
+                    // the name ("Co…") and a word of the status per line.
+                    .min_w(rem(MIN_TEXT_WIDTH))
                     .overflow_hidden()
                     .gap(px(2.))
                     .child(title)
