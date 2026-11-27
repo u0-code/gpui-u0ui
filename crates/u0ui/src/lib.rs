@@ -15,6 +15,7 @@
 //! | [`components`] | Carbon components ([`components::button`] is the reference) |
 //! | [`t3`] | The T3 Code pattern library, composed from the components |
 //! | [`ghost`] | The Ghost pattern library (`Ghost · …` cards: foundations, primitives, …) |
+//! | [`patterns`] | Building blocks of the Carbon pattern examples (`Carbon · Patterns` cards) |
 //!
 //! ```no_run
 //! use gpui_kit::*;
@@ -45,6 +46,7 @@ pub mod density;
 pub mod ghost;
 pub mod icons;
 pub mod motion;
+pub mod patterns;
 pub mod t3;
 pub mod theme;
 pub mod tokens;

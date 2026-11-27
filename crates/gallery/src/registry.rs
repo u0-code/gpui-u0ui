@@ -351,6 +351,8 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("right-panel-tabs-overflow", "RightPanelTabsOverflow", GHOST_SHELL, Component::RightPanelTabsOverflow.summary(), pages::ghost_shell::right_panel_tabs_overflow::build).thumbnail(pages::ghost_shell::right_panel_tabs_overflow::thumbnail),
     PageDef::new("server-chip", "ServerChip", GHOST_SHELL, Component::ServerChip.summary(), pages::ghost_shell::server::build_server_chip).thumbnail(pages::ghost_shell::server::chip_thumbnail),
     PageDef::new("server-header", "ServerHeader", GHOST_SHELL, Component::ServerHeader.summary(), pages::ghost_shell::server::build_server_header).thumbnail(pages::ghost_shell::server::header_thumbnail),
+    // Carbon · Patterns (src/patterns.css)
+    PageDef::new("pattern-text-toolbar", "PatternTextToolbar", "Carbon · Patterns", Component::PatternTextToolbar.summary(), pages::patterns::text_toolbar::build).thumbnail(pages::patterns::text_toolbar::thumbnail),
 ];
 
 /// Look a page up by id.

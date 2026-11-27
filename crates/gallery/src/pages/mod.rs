@@ -50,6 +50,7 @@ pub mod motion;
 pub mod native_select;
 pub mod navigation_menu;
 pub mod pagination;
+pub mod patterns;
 pub mod popover;
 pub mod progress;
 pub mod questionnaire;
