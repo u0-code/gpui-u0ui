@@ -640,7 +640,8 @@ impl RenderOnce for PreviewEmptyState {
                         ConnectionStatusDot::new(ConnectionStatus::Connected)
                             .id(child_id(&id, "server-dot", i))
                             .into_any_element(),
-                        sans(div(), 14., 600)
+                        // A bare `<b>` (Carbon's `b { font: inherit }`): 400.
+                        sans(div(), 14., 400)
                             .child(SharedString::from(format!(":{}", s.port)))
                             .into_any_element(),
                         span(s.name.clone()).into_any_element(),
@@ -691,9 +692,12 @@ impl RenderOnce for PreviewEmptyState {
             ))
             // `h3 { margin: 0; font-size: 1.25rem; font-weight: 400 }`.
             .child(sans(div(), 20., 400).child(self.texts.title.clone()))
-            // `p { margin: 0; font-size: 0.875rem; color: text-secondary }`.
+            // `p { margin: 0; font-size: 0.875rem; color: text-secondary }`; the
+            // line height is Carbon's `p { line-height: var(--body-02-line-height, 1.5) }`
+            // (`bundle.css`): 21px.
             .child(
                 sans(div(), 14., 400)
+                    .line_height(relative(1.5))
                     .text_color(secondary)
                     .child(self.texts.body.clone()),
             )
