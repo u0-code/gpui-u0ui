@@ -111,6 +111,20 @@ impl ScrollAxes {
     }
 }
 
+/// When a focusable [`ScrollArea`] draws its 2px inset `focus` ring.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ScrollFocusRing {
+    /// Keyboard focus only (`.cu-scroll:focus-visible`; the default).
+    #[default]
+    FocusVisible,
+    /// Any focus, pointer included (`:focus`, e.g.
+    /// `.cds--snippet--single .cds--snippet-container:focus`).
+    Focus,
+    /// Never: the caller draws its own ring (e.g. a `:focus-within` outline
+    /// on an ancestor).
+    Hidden,
+}
+
 /// The colors a Carbon scrollbar paints.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ScrollbarLook {
@@ -270,6 +284,7 @@ pub struct ScrollArea {
     focus_handle: Option<FocusHandle>,
     scroll_handle: Option<ScrollHandle>,
     restrict_wheel: bool,
+    focus_ring: ScrollFocusRing,
 }
 
 impl ScrollArea {
@@ -284,7 +299,14 @@ impl ScrollArea {
             focus_handle: None,
             scroll_handle: None,
             restrict_wheel: false,
+            focus_ring: ScrollFocusRing::FocusVisible,
         }
+    }
+
+    /// When the focus ring shows (default keyboard focus only).
+    pub fn focus_ring(mut self, ring: ScrollFocusRing) -> Self {
+        self.focus_ring = ring;
+        self
     }
 
     /// Let a wheel scroll only along its own axis: a vertical wheel over a
@@ -359,8 +381,13 @@ impl RenderOnce for ScrollArea {
         // read from the last layout; when this layout changes which bars
         // show, the next frame is drawn again with them.
         let (v_bar, h_bar) = bars(axes, handle.max_offset());
-        let focus_visible =
-            self.focusable && focus.is_focused(window) && window.last_input_was_keyboard();
+        let focus_visible = self.focusable
+            && focus.is_focused(window)
+            && match self.focus_ring {
+                ScrollFocusRing::FocusVisible => window.last_input_was_keyboard(),
+                ScrollFocusRing::Focus => true,
+                ScrollFocusRing::Hidden => false,
+            };
 
         // The content column: as wide as the viewport, or wider when its
         // children are (horizontal scrolling), and inset by the bars.

@@ -139,7 +139,7 @@ pub use radio_group::{RadioGroup, RadioGroupItem, RadioOrientation};
 pub use resizable::{
     Resizable, ResizableHandle, ResizableOrientation, ResizablePanel, ResizablePanelGroup,
 };
-pub use scroll_area::{ScrollArea, ScrollAxes, ScrollBar, carbon_scrollbar};
+pub use scroll_area::{ScrollArea, ScrollAxes, ScrollBar, ScrollFocusRing, carbon_scrollbar};
 pub use select::{Select, SelectType};
 pub use separator::{Separator, SeparatorOrientation};
 pub use sheet::{Sheet, SheetSide};
