@@ -8,7 +8,7 @@ use gpui_kit::{
     ParentElement, Render, SharedString, Styled, StyledText, TextRun, UnderlineStyle, Window,
     component::input::InputState, div, prelude::FluentBuilder as _, px, rems,
 };
-use u0ui::components::{FieldSize, Input, Select, SelectType};
+use u0ui::components::{FieldSize, Input, Select, SelectType, form};
 use u0ui::patterns::{Caption, TextToolbar, ToolbarAction, ToolbarItem};
 use u0ui::prelude::*;
 use u0ui::tokens::FontFamilyKey;
@@ -128,10 +128,10 @@ fn attachment(id: &'static str, on_remove: Option<Entity<TextToolbarPage>>) -> A
         .items_center()
         .gap(tokens::SPACING_03)
         .pl(tokens::SPACING_03)
-        // `background: var(--layer-02); box-shadow: inset 0 0 0 1px var(--border-subtle-01)`.
+        // `background: var(--layer-02); box-shadow: inset 0 0 0 1px var(--border-subtle-01)`:
+        // drawn over the chip, taking no room (a border made it 34px, not 32).
         .bg(color(ColorRole::Layer02))
-        .border_1()
-        .border_color(color(ColorRole::BorderSubtle01))
+        .child(form::inset_outline(1., color(ColorRole::BorderSubtle01)))
         // `font-size: 0.75rem`.
         .type_style(TypeStyle::Label01)
         .text_color(color(ColorRole::TextPrimary))
