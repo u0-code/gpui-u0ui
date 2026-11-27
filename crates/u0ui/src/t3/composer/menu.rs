@@ -4,7 +4,9 @@
 //!
 //! The reference is presentational (`activeIndex` comes from the composer,
 //! which owns the keys), so this draws the list and reports pointer picks
-//! through [`ComposerCommandMenu::on_select`] when given.
+//! through [`ComposerCommandMenu::on_select`] when given. When the active
+//! row changes it is scrolled into view (as a browser keeps the
+//! `aria-selected` option visible while arrowing).
 use crate::components::overlay::floating_shadow;
 use crate::t3::press::rem;
 use crate::{
@@ -14,10 +16,11 @@ use crate::{
     typography::font,
 };
 use gpui_kit::{
-    App, CursorStyle, ElementId, InteractiveElement as _, IntoElement, ParentElement, RenderOnce,
-    SharedString, StatefulInteractiveElement as _, Styled, Window, div,
+    AnyElement, App, CursorStyle, ElementId, InteractiveElement as _, IntoElement, ParentElement,
+    RenderOnce, ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
     prelude::FluentBuilder as _, px,
 };
+use std::cell::Cell;
 use std::rc::Rc;
 
 /// One suggestion (`{ title, description, icon, source }`).
@@ -129,22 +132,49 @@ impl ComposerCommandMenu {
 }
 
 impl RenderOnce for ComposerCommandMenu {
-    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let secondary = color(ColorRole::TextSecondary);
+        // The scroll position and the active row it was last scrolled to.
+        let (scroll, scrolled_to) = window
+            .use_keyed_state((self.id.clone(), "scroll"), cx, |_, _| {
+                (ScrollHandle::new(), Rc::new(Cell::new(None::<usize>)))
+            })
+            .read(cx)
+            .clone();
+        // Headers and rows are the scroller's direct children (the groups are
+        // flattened) so `scroll_to_item` can reach the active row.
+        let mut children: Vec<AnyElement> = Vec::new();
+        let mut active_child = None;
         let mut index = 0usize;
-        let mut groups = Vec::new();
-        for (s, section) in self.sections.into_iter().enumerate() {
-            let mut rows = Vec::new();
+        for section in self.sections {
+            // `.t3-cmdmenu-h { padding: spacing-04 spacing-04 spacing-02; font-size: 0.75rem; color: text-secondary }`.
+            children.push(
+                div()
+                    .flex_none()
+                    .pt(rem(12.))
+                    .px(rem(12.))
+                    .pb(rem(4.))
+                    .text_size(rem(12.))
+                    .line_height(rem(16.))
+                    .text_color(secondary)
+                    .child(section.label)
+                    .into_any_element(),
+            );
             for item in section.items {
                 let i = index;
                 index += 1;
                 let on = i == self.active_index;
                 let on_select = self.on_select.clone();
-                rows.push(
+                if on {
+                    active_child = Some(children.len());
+                }
+                children.push(
                     // `.t3-cmdmenu-item { display: flex; align-items: center; gap: spacing-03;
                     // min-height: size-sm; padding: spacing-02 spacing-04; font-size: 0.875rem }`.
                     div()
                         .id((self.id.clone(), SharedString::from(format!("item-{i}"))))
+                        .relative()
+                        .flex_none()
                         .flex()
                         .flex_row()
                         .items_center()
@@ -156,8 +186,19 @@ impl RenderOnce for ComposerCommandMenu {
                         .line_height(rem(18.))
                         .text_color(color(ColorRole::TextPrimary))
                         .cursor(CursorStyle::PointingHand)
-                        // `.t3-cmdmenu-item--on { background: layer-selected-01 }`.
-                        .when(on, |this| this.bg(color(ColorRole::LayerSelected01)))
+                        // `.t3-cmdmenu-item--on { background: layer-selected-01 }` and the
+                        // later `{ box-shadow: inset 2px 0 0 border-interactive }`.
+                        .when(on, |this| {
+                            this.bg(color(ColorRole::LayerSelected01)).child(
+                                div()
+                                    .absolute()
+                                    .top_0()
+                                    .bottom_0()
+                                    .left_0()
+                                    .w(px(2.))
+                                    .bg(color(ColorRole::BorderInteractive)),
+                            )
+                        })
                         .when_some(on_select, |this, f| {
                             this.on_click(move |_, window, cx| f(i, window, cx))
                         })
@@ -200,27 +241,17 @@ impl RenderOnce for ComposerCommandMenu {
                                     .whitespace_nowrap()
                                     .child(source),
                             )
-                        }),
+                        })
+                        .into_any_element(),
                 );
             }
-            groups.push(
-                div()
-                    .id((self.id.clone(), SharedString::from(format!("group-{s}"))))
-                    .flex()
-                    .flex_col()
-                    // `.t3-cmdmenu-h { padding: spacing-04 spacing-04 spacing-02; font-size: 0.75rem; color: text-secondary }`.
-                    .child(
-                        div()
-                            .pt(rem(12.))
-                            .px(rem(12.))
-                            .pb(rem(4.))
-                            .text_size(rem(12.))
-                            .line_height(rem(16.))
-                            .text_color(secondary)
-                            .child(section.label),
-                    )
-                    .children(rows),
-            );
+        }
+        let has_query = self.query.is_some();
+        if let Some(child) = active_child
+            && scrolled_to.get() != Some(self.active_index)
+        {
+            scrolled_to.set(Some(self.active_index));
+            scroll.scroll_to_item(child + usize::from(has_query));
         }
         // `.t3-cmdmenu { width: 100%; max-width: 28rem; max-height: 20rem; overflow-y: auto;
         // padding-bottom: spacing-03; background: layer-01; box-shadow: 0 2px 6px shadow }`.
@@ -232,6 +263,7 @@ impl RenderOnce for ComposerCommandMenu {
             .max_w(rem(COMMAND_MENU_SIZE.0))
             .max_h(rem(COMMAND_MENU_SIZE.1))
             .overflow_y_scroll()
+            .track_scroll(&scroll)
             .pb(rem(8.))
             .bg(color(ColorRole::Layer01))
             .shadow(floating_shadow())
@@ -252,6 +284,6 @@ impl RenderOnce for ComposerCommandMenu {
                         .child(q),
                 )
             })
-            .children(groups)
+            .children(children)
     }
 }
