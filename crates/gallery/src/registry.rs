@@ -413,6 +413,8 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("app-shell", "AppShell", "T3 · Shell", Component::AppShell.summary(), pages::t3_shell::app_shell::build).thumbnail(pages::t3_shell::app_shell::thumbnail),
     PageDef::new("swipe-row", "SwipeRow", "T3 · Mobile", Component::SwipeRow.summary(), pages::t3_mobile::swipe_row::build).thumbnail(pages::t3_mobile::swipe_row::thumbnail),
     // Ghost · Shell (src/ghost/workspace.jsx)
+    PageDef::new("filter-menu", "FilterMenu", GHOST_SHELL, Component::FilterMenu.summary(), pages::ghost_shell::rows::build_filter_menu).thumbnail(pages::ghost_shell::rows::filter_thumbnail),
+    PageDef::new("ghost-thread-row", "GhostThreadRow", GHOST_SHELL, Component::GhostThreadRow.summary(), pages::ghost_shell::rows::build_ghost_thread_row).thumbnail(pages::ghost_shell::rows::row_thumbnail),
     PageDef::new("right-panel-tabs-overflow", "RightPanelTabsOverflow", GHOST_SHELL, Component::RightPanelTabsOverflow.summary(), pages::ghost_shell::right_panel_tabs_overflow::build).thumbnail(pages::ghost_shell::right_panel_tabs_overflow::thumbnail),
     PageDef::new("server-chip", "ServerChip", GHOST_SHELL, Component::ServerChip.summary(), pages::ghost_shell::server::build_server_chip).thumbnail(pages::ghost_shell::server::chip_thumbnail),
     PageDef::new("server-header", "ServerHeader", GHOST_SHELL, Component::ServerHeader.summary(), pages::ghost_shell::server::build_server_header).thumbnail(pages::ghost_shell::server::header_thumbnail),
