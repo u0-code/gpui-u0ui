@@ -16,8 +16,11 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
         status: 1,
         enabled: true,
         next_run: true,
+        selected: false,
+        show_monograms: true,
         agent: 0,
         runs: 0,
+        clicks: 0,
         toggles: Vec::new(),
     })
     .into()
@@ -28,12 +31,15 @@ struct Page {
     status: usize,
     enabled: bool,
     next_run: bool,
+    selected: bool,
+    show_monograms: bool,
     agent: usize,
     runs: usize,
+    clicks: usize,
     toggles: Vec<bool>,
 }
 
-const STATUSES: [&str; 3] = ["none", "ok", "failed"];
+const STATUSES: [&str; 4] = ["none", "ok", "failed", "running"];
 const AGENTS: [&str; 3] = ["Claude", "Codex", "Gemini"];
 
 /// `components/TaskRow/preview.html`: three rows, 620px wide on `layer-01`.
@@ -88,6 +94,7 @@ impl Render for Page {
         let entity = cx.entity();
         let runs = entity.clone();
         let toggles = entity.clone();
+        let clicks = entity.clone();
         let status = self.status.checked_sub(1).map(|i| TaskStatus::ALL[i]);
         let log: Vec<&str> = self
             .toggles
@@ -107,10 +114,18 @@ impl Render for Page {
                     .schedule("Weekdays at 09:00")
                     .agent(AGENTS[self.agent])
                     .project("carbon-ui")
+                    .show_monograms(self.show_monograms)
                     .last_run("today 09:00")
                     .when_some(status, |r, s| r.last_status(s))
                     .when(self.next_run, |r| r.next_run("tomorrow 09:00"))
                     .enabled(self.enabled)
+                    .selected(self.selected)
+                    .on_click(move |_, _, cx| {
+                        clicks.update(cx, |p, cx| {
+                            p.clicks += 1;
+                            cx.notify();
+                        })
+                    })
                     .on_run(move |_, cx| {
                         runs.update(cx, |p, cx| {
                             p.runs += 1;
@@ -129,7 +144,8 @@ impl Render for Page {
                     .type_style(TypeStyle::Label01)
                     .text_color(color(ColorRole::TextSecondary))
                     .child(format!(
-                        "onRun × {} · onToggle: {}",
+                        "onClick × {} · onRun × {} · onToggle: {}",
+                        self.clicks,
                         self.runs,
                         if log.is_empty() {
                             "—".to_string()
@@ -171,6 +187,18 @@ impl Render for Page {
                 "nextRun",
                 self.next_run,
                 controls::setter(&entity, |this: &mut Page, v| this.next_run = v),
+            ))
+            .child(controls::toggle(
+                "tr-selected",
+                "selected",
+                self.selected,
+                controls::setter(&entity, |this: &mut Page, v| this.selected = v),
+            ))
+            .child(controls::toggle(
+                "tr-monograms",
+                "showMonograms",
+                self.show_monograms,
+                controls::setter(&entity, |this: &mut Page, v| this.show_monograms = v),
             ));
         Body::new()
             .playground(live)

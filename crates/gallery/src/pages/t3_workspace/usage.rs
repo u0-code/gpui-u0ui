@@ -247,6 +247,8 @@ impl Render for FeedPage {
 
 struct RunRowPage {
     state: usize,
+    selected: bool,
+    show_icon: bool,
     opened: Option<SharedString>,
 }
 
@@ -254,6 +256,8 @@ struct RunRowPage {
 pub fn build_workflow_run_row(_: &mut Window, cx: &mut App) -> AnyView {
     cx.new(|_| RunRowPage {
         state: 0,
+        selected: false,
+        show_icon: true,
         opened: None,
     })
     .into()
@@ -328,6 +332,8 @@ impl Render for RunRowPage {
                     .trigger("Scheduled")
                     .started("10m ago")
                     .elapsed(610)
+                    .selected(self.selected)
+                    .show_icon(self.show_icon)
                     .on_click({
                         let entity = entity.clone();
                         move |_, cx| {
@@ -341,15 +347,28 @@ impl Render for RunRowPage {
             )
             .when_some(self.opened.clone(), |this, o| this.child(note(o)));
         let states = RunState::ALL.map(|s| s.name());
-        let config = controls::field(
-            "state",
-            controls::choices(
-                "wfrow-state",
-                &states,
-                self.state,
-                controls::setter(&entity, |this: &mut RunRowPage, i| this.state = i),
-            ),
-        );
+        let config = stack(16.)
+            .child(controls::field(
+                "state",
+                controls::choices(
+                    "wfrow-state",
+                    &states,
+                    self.state,
+                    controls::setter(&entity, |this: &mut RunRowPage, i| this.state = i),
+                ),
+            ))
+            .child(controls::toggle(
+                "wfrow-selected",
+                "selected",
+                self.selected,
+                controls::setter(&entity, |this: &mut RunRowPage, v| this.selected = v),
+            ))
+            .child(controls::toggle(
+                "wfrow-icon",
+                "showIcon",
+                self.show_icon,
+                controls::setter(&entity, |this: &mut RunRowPage, v| this.show_icon = v),
+            ));
         // `components/WorkflowRunRow/preview.html` (`max-width: 720`).
         let reference =
             div()

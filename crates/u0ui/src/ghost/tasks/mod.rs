@@ -12,7 +12,7 @@ pub use schedule_editor::{
     DailySummary, IntervalSummary, IntervalUnit, Schedule, ScheduleEditor, ScheduleKind,
     ScheduleTexts, day_look, segment_look,
 };
-pub use task_row::{EnabledState, TaskRow, TaskRowTexts, TaskStatus};
+pub use task_row::{EnabledState, TaskRow, TaskRowTexts, TaskStatus, row_look};
 pub use workflow_row::{WorkflowRow, WorkflowRowTexts};
 pub use workflow_step_editor::{
     StepType, WorkflowStep, WorkflowStepEditor, WorkflowStepEditorTexts, move_step,

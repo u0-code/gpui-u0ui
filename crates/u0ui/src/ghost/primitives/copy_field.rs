@@ -14,12 +14,12 @@ use crate::{
     components::form,
     density,
     icons::CarbonIcon,
-    theme::color,
+    theme::{LayerLevel, color},
     tokens::{ColorRole, FontFamilyKey},
 };
 use gpui_kit::{
-    App, ClickEvent, ClipboardItem, ElementId, InteractiveElement, IntoElement, ParentElement,
-    RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window,
+    App, ClickEvent, ClipboardItem, ElementId, Hsla, InteractiveElement, IntoElement,
+    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window,
     component::tooltip::Tooltip, div, prelude::FluentBuilder as _,
 };
 use std::rc::Rc;
@@ -35,6 +35,11 @@ pub fn masked(value: &str) -> String {
     format!("{head}…{tail}")
 }
 
+/// Contextual colors of `.g-copy` on `level`: `(fill, border_strong)`.
+pub fn box_look(level: LayerLevel) -> (Hsla, Hsla) {
+    (color(level.field()), color(level.border_strong()))
+}
+
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 
 /// A read-only value with copy and open buttons. See the module docs.
@@ -45,6 +50,8 @@ pub struct CopyField {
     value: SharedString,
     mono: bool,
     masked: bool,
+    dashed: bool,
+    level: LayerLevel,
     on_open: Option<ClickHandler>,
     open_label: SharedString,
     copy_label: Option<SharedString>,
@@ -60,12 +67,28 @@ impl CopyField {
             value: value.into(),
             mono: true,
             masked: false,
+            dashed: false,
+            level: LayerLevel::One,
             on_open: None,
             // The reference's `aria-label`s; override per locale.
             open_label: "Open".into(),
             copy_label: None,
             copied_label: "Copied".into(),
         }
+    }
+
+    /// The layer the field sits on (`LayerLevel::One` paints `field-01`,
+    /// `LayerLevel::Two` `field-02`).
+    pub fn level(mut self, level: LayerLevel) -> Self {
+        self.level = level;
+        self
+    }
+
+    /// Draw a 1px dashed `border-strong` border around the field (for inactive
+    /// or offline endpoints) instead of the solid bottom rule.
+    pub fn dashed(mut self, dashed: bool) -> Self {
+        self.dashed = dashed;
+        self
     }
 
     /// The label above the field.
@@ -169,18 +192,21 @@ impl RenderOnce for CopyField {
             )
             .on_click(move |e, w, cx| f(e, w, cx))
         });
+        let (fill, border) = box_look(self.level);
         let body = div()
             .relative()
             .flex()
             .items_center()
             .min_h(rem(field_h))
             .pl(rem(12.))
-            // `background: var(--layer-02, var(--field-01))`.
-            .bg(color(ColorRole::Layer02))
+            .bg(fill)
+            .when(self.dashed, |d| {
+                d.border_1().border_dashed().border_color(border)
+            })
             .child(value)
             .children(open)
             .child(copy)
-            .child(form::bottom_rule(color(ColorRole::BorderStrong01)));
+            .when(!self.dashed, |d| d.child(form::bottom_rule(border)));
         parts::field()
             .when_some(self.label.clone(), |f, l| f.child(parts::label(l)))
             .child(body)
@@ -190,10 +216,25 @@ impl RenderOnce for CopyField {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{CarbonTheme, theme::color_in};
 
     #[test]
     fn masking_keeps_four_each_side() {
         assert_eq!(masked("sk-live-123456"), "sk-l…3456");
         assert_eq!(masked("abc"), "abc…abc");
+    }
+
+    #[test]
+    fn layer_levels_select_contextual_tokens() {
+        crate::theme::tests_set(CarbonTheme::White);
+        let c = |r| color_in(CarbonTheme::White, r);
+        assert_eq!(
+            box_look(LayerLevel::One),
+            (c(ColorRole::Field01), c(ColorRole::BorderStrong01))
+        );
+        assert_eq!(
+            box_look(LayerLevel::Two),
+            (c(ColorRole::Field02), c(ColorRole::BorderStrong02))
+        );
     }
 }

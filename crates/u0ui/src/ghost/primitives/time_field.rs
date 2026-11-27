@@ -16,7 +16,7 @@ use crate::{
     components::form,
     density,
     icons::{CarbonIcon, Icon, IconSize},
-    theme::color,
+    theme::{LayerLevel, color},
     tokens::{ColorRole, TypeStyle},
     typography::TypeStyled as _,
 };
@@ -81,15 +81,20 @@ pub enum Segment {
     Minutes,
 }
 
-/// `.g-time` box colors: (fill, rule, outline).
+/// `.g-time` box colors on [`LayerLevel::One`]: (fill, rule, outline).
 pub fn box_look(focus_within: bool, disabled: bool) -> (Hsla, Hsla, Hsla) {
+    box_look_on(LayerLevel::One, focus_within, disabled)
+}
+
+/// `.g-time` box colors on `level`: (fill, rule, outline).
+pub fn box_look_on(level: LayerLevel, focus_within: bool, disabled: bool) -> (Hsla, Hsla, Hsla) {
     let clear = Hsla::transparent_black();
     (
-        color(ColorRole::Field01),
+        color(level.field()),
         if disabled {
             clear
         } else {
-            color(ColorRole::BorderStrong01)
+            color(level.border_strong())
         },
         if focus_within && !disabled {
             color(ColorRole::Focus)
@@ -112,6 +117,7 @@ pub struct TimeField {
     hour12: bool,
     disabled: bool,
     step: u32,
+    level: LayerLevel,
     labels: (SharedString, SharedString, SharedString, SharedString),
     on_value_change: Option<Handler>,
 }
@@ -127,10 +133,18 @@ impl TimeField {
             hour12: false,
             disabled: false,
             step: 5,
+            level: LayerLevel::One,
             // The reference's segment names and meridiem labels; override per locale.
             labels: ("Hours".into(), "Minutes".into(), "AM".into(), "PM".into()),
             on_value_change: None,
         }
+    }
+
+    /// The layer the field sits on (`LayerLevel::One` paints `field-01`,
+    /// `LayerLevel::Two` `field-02`).
+    pub fn level(mut self, level: LayerLevel) -> Self {
+        self.level = level;
+        self
     }
 
     /// The group label.
@@ -223,7 +237,8 @@ impl RenderOnce for TimeField {
         let af = parts::keyed_focus((id.clone(), "ampm-focus"), window, cx);
         let focus_within = !self.disabled
             && (hf.is_focused(window) || mf.is_focused(window) || af.is_focused(window));
-        let (fill, rule, outline) = box_look(focus_within, self.disabled);
+        let level = self.level;
+        let (fill, rule, outline) = box_look_on(level, focus_within, self.disabled);
         let (hours_label, minutes_label, am, pm) = self.labels.clone();
 
         let segment = |segment: Segment, focus: &FocusHandle, label: SharedString| {
@@ -292,11 +307,11 @@ impl RenderOnce for TimeField {
                 .flex()
                 .items_center()
                 // `.g-time-ampm { margin-left: spacing-02; padding: 0 spacing-03;
-                // height: 1.5rem; background: layer-accent-01; font-size: 0.75rem }`.
+                // height: 1.5rem; background: layer-accent; font-size: 0.75rem }`.
                 .ml(rem(4.))
                 .px(rem(8.))
                 .h(rem(24.))
-                .bg(color(ColorRole::LayerAccent01))
+                .bg(color(level.layer_accent()))
                 .text_size(rem(12.))
                 .text_color(color(ColorRole::TextPrimary))
                 .cursor(if self.disabled {
@@ -389,5 +404,16 @@ mod tests {
         assert_eq!(toggle_meridiem(9), 21);
         assert_eq!(parse_hm("07:15"), (7, 15));
         assert_eq!(format_hm(7, 5), "07:05");
+    }
+
+    #[test]
+    fn layer_levels_select_contextual_field_tokens() {
+        crate::theme::tests_set(crate::CarbonTheme::G100);
+        let (fill1, rule1, _) = box_look_on(LayerLevel::One, false, false);
+        assert_eq!(fill1, color(ColorRole::Field01));
+        assert_eq!(rule1, color(ColorRole::BorderStrong01));
+        let (fill2, rule2, _) = box_look_on(LayerLevel::Two, false, false);
+        assert_eq!(fill2, color(ColorRole::Field02));
+        assert_eq!(rule2, color(ColorRole::BorderStrong02));
     }
 }

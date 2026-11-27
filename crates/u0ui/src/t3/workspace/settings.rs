@@ -106,6 +106,54 @@ impl RenderOnce for RichText {
 
 // ── SettingsNav ─────────────────────────────────────────────────────────
 
+/// Severity tone for a [`SettingsNavItem`] badge.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum SettingsBadgeTone {
+    /// Informational blue tag (`tag-background-blue` / `tag-color-blue`), the default.
+    #[default]
+    Info,
+    /// Neutral count tag (`tag-background-gray` / `tag-color-gray`).
+    Neutral,
+    /// High-contrast warning pill (`support-warning` with `#161616` dark ink).
+    Warning,
+    /// High-contrast error pill (`support-error` with `text-on-color`).
+    Error,
+}
+
+impl SettingsBadgeTone {
+    /// Every badge tone.
+    pub const ALL: [Self; 4] = [Self::Info, Self::Neutral, Self::Warning, Self::Error];
+
+    /// The tone name.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Info => "info",
+            Self::Neutral => "neutral",
+            Self::Warning => "warning",
+            Self::Error => "error",
+        }
+    }
+
+    /// `(background, text)` colors per Carbon contrast rules.
+    pub fn colors(self) -> (Hsla, Hsla) {
+        match self {
+            Self::Info => (
+                color(ColorRole::TagBackgroundBlue),
+                color(ColorRole::TagColorBlue),
+            ),
+            Self::Neutral => (
+                color(ColorRole::TagBackgroundGray),
+                color(ColorRole::TagColorGray),
+            ),
+            Self::Warning => (color(ColorRole::SupportWarning), crate::t3::base::ink()),
+            Self::Error => (
+                color(ColorRole::SupportError),
+                color(ColorRole::TextOnColor),
+            ),
+        }
+    }
+}
+
 /// One settings page link (`{ id, label, icon, badge }`).
 #[derive(Clone)]
 pub struct SettingsNavItem {
@@ -115,8 +163,10 @@ pub struct SettingsNavItem {
     pub label: SharedString,
     /// `icon` (default `Settings`).
     pub icon: Icon,
-    /// `badge`: a small blue tag.
+    /// `badge`: a small status or count pill.
     pub badge: Option<SharedString>,
+    /// `badge_tone`: severity tone of `badge` (default [`SettingsBadgeTone::Info`]).
+    pub badge_tone: SettingsBadgeTone,
 }
 
 impl SettingsNavItem {
@@ -127,6 +177,7 @@ impl SettingsNavItem {
             label: label.into(),
             icon: Icon::carbon(CarbonIcon::Settings),
             badge: None,
+            badge_tone: SettingsBadgeTone::Info,
         }
     }
 
@@ -139,6 +190,26 @@ impl SettingsNavItem {
     /// A badge (`badge`).
     pub fn badge(mut self, badge: impl Into<SharedString>) -> Self {
         self.badge = Some(badge.into());
+        self
+    }
+
+    /// Set the severity tone of [`Self::badge`].
+    pub fn badge_tone(mut self, tone: SettingsBadgeTone) -> Self {
+        self.badge_tone = tone;
+        self
+    }
+
+    /// Convenience: set a [`SettingsBadgeTone::Warning`] badge.
+    pub fn warn_badge(mut self, badge: impl Into<SharedString>) -> Self {
+        self.badge = Some(badge.into());
+        self.badge_tone = SettingsBadgeTone::Warning;
+        self
+    }
+
+    /// Convenience: set a [`SettingsBadgeTone::Error`] badge.
+    pub fn error_badge(mut self, badge: impl Into<SharedString>) -> Self {
+        self.badge = Some(badge.into());
+        self.badge_tone = SettingsBadgeTone::Error;
         self
     }
 }
@@ -305,11 +376,19 @@ impl RenderOnce for SettingsNav {
                         )
                         .child(div().flex_1().text_left().child(item.label.clone()))
                         .when_some(item.badge.clone(), |this, badge| {
-                            this.child(
-                                Badge::new(badge)
+                            let tag = match item.badge_tone {
+                                SettingsBadgeTone::Info => Badge::new(badge)
                                     .variant(BadgeVariant::Blue)
                                     .size(BadgeSize::Sm),
-                            )
+                                SettingsBadgeTone::Neutral => Badge::new(badge)
+                                    .variant(BadgeVariant::Gray)
+                                    .size(BadgeSize::Sm),
+                                tone => {
+                                    let (bg, fg) = tone.colors();
+                                    Badge::new(badge).size(BadgeSize::Sm).colors(bg, fg)
+                                }
+                            };
+                            this.child(tag)
                         })
                         // `box-shadow: inset 3px 0 0 border-interactive`.
                         .when(on, |this| {
@@ -1196,5 +1275,35 @@ mod tests {
     fn keybinding_columns_follow_the_grid() {
         // `grid-template-columns: 1fr 9rem 12rem 1.5rem 2rem`.
         assert_eq!(KEYBINDING_COLUMNS, [144., 192., 24., 32.]);
+    }
+
+    #[test]
+    fn nav_badge_tones_follow_carbon_contrast_rules() {
+        for theme in crate::CarbonTheme::ALL {
+            crate::theme::tests_set(theme);
+            assert_eq!(
+                SettingsBadgeTone::Warning.colors(),
+                (color(ColorRole::SupportWarning), crate::t3::base::ink()),
+            );
+            assert_eq!(
+                SettingsBadgeTone::Error.colors(),
+                (
+                    color(ColorRole::SupportError),
+                    color(ColorRole::TextOnColor)
+                ),
+            );
+            assert_eq!(
+                SettingsBadgeTone::Neutral.colors(),
+                (
+                    color(ColorRole::TagBackgroundGray),
+                    color(ColorRole::TagColorGray),
+                ),
+            );
+        }
+        let warn = SettingsNavItem::new("agents", "Agents").warn_badge("2");
+        assert_eq!(warn.badge.as_deref(), Some("2"));
+        assert_eq!(warn.badge_tone, SettingsBadgeTone::Warning);
+        let err = SettingsNavItem::new("diag", "Diagnostics").error_badge("!");
+        assert_eq!(err.badge_tone, SettingsBadgeTone::Error);
     }
 }

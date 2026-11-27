@@ -33,6 +33,7 @@ impl DataTablePage {
             actions: true,
             batch: false,
             expandable: false,
+            footer: false,
             last_action: None,
         }
     }
@@ -49,6 +50,7 @@ struct DataTablePage {
     actions: bool,
     batch: bool,
     expandable: bool,
+    footer: bool,
     last_action: Option<SharedString>,
 }
 
@@ -127,6 +129,18 @@ impl Render for DataTablePage {
         .zebra(self.zebra)
         .columns(columns())
         .rows(rows());
+        if self.footer {
+            let mut cols = columns();
+            if let Some(last) = cols.last_mut() {
+                *last = last.clone().align_end();
+            }
+            live = live.columns(cols).footer_row(
+                DataTableRow::new("total")
+                    .cell("name", "Total")
+                    .cell("zone", "3 zones")
+                    .cell("cpu", "45.5% avg"),
+            );
+        }
         if self.title {
             live = live
                 .title("Virtual servers")
@@ -241,6 +255,12 @@ impl Render for DataTablePage {
                 "expandable rows",
                 self.expandable,
                 |t, on| t.expandable = on,
+            ))
+            .child(toggle(
+                "dt-footer",
+                "footerRow + numeric align",
+                self.footer,
+                |t, on| t.footer = on,
             ))
             .child(
                 div()

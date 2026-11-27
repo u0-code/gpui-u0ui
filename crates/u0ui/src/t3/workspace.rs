@@ -34,12 +34,12 @@ pub use preview::{
     PreviewChrome, PreviewChromeTexts, PreviewEmptyState, PreviewEmptyTexts,
 };
 pub use settings::{
-    KeybindingPill, KeybindingRow, KeybindingTexts, RichText, SettingsNav, SettingsNavItem,
-    SettingsNavSection, SettingsRow, SettingsRowTexts, SettingsSection, ThemeCard,
+    KeybindingPill, KeybindingRow, KeybindingTexts, RichText, SettingsBadgeTone, SettingsNav,
+    SettingsNavItem, SettingsNavSection, SettingsRow, SettingsRowTexts, SettingsSection, ThemeCard,
 };
 pub use terminal::{TerminalDrawer, TerminalTab, TerminalTexts};
 pub use usage::{Pace, ShareSegment, UsageShareBar, UsageTexts, UsageWindowBar};
 pub use workflows::{
     RunState, StepStatus, WorkflowFeedTexts, WorkflowRunFeed, WorkflowRunRow, WorkflowStateWord,
-    WorkflowStep,
+    WorkflowStep, run_row_look,
 };

@@ -440,6 +440,19 @@ impl RenderOnce for WorkflowRunFeed {
 
 // ── WorkflowRunRow ──────────────────────────────────────────────────────
 
+/// Surface and selection bar colors of a [`WorkflowRunRow`]: `(background, left_bar)`.
+pub fn run_row_look(selected: bool, hovered: bool) -> (Option<Hsla>, Option<Hsla>) {
+    let bg = if selected {
+        Some(color(ColorRole::LayerSelected01))
+    } else if hovered {
+        Some(color(ColorRole::LayerHover01))
+    } else {
+        None
+    };
+    let bar = selected.then(|| color(ColorRole::BorderInteractive));
+    (bg, bar)
+}
+
 /// A run in the list (`WorkflowRunRow`, `.t3-wfrow`): a flow glyph, name
 /// and `project · trigger · started`, the state tag and the elapsed time.
 /// A 48px button row over a bottom hairline.
@@ -452,6 +465,8 @@ pub struct WorkflowRunRow {
     started: SharedString,
     elapsed: u64,
     project: SharedString,
+    selected: bool,
+    show_icon: bool,
     on_click: Option<Handler>,
 }
 
@@ -466,8 +481,22 @@ impl WorkflowRunRow {
             started: SharedString::default(),
             elapsed: 0,
             project: SharedString::default(),
+            selected: false,
+            show_icon: true,
             on_click: None,
         }
+    }
+
+    /// Highlight as the selected run (`layer-selected-01` + 3px `border-interactive` start bar).
+    pub fn selected(mut self, selected: bool) -> Self {
+        self.selected = selected;
+        self
+    }
+
+    /// Show the leading `Flow` icon (default `true`).
+    pub fn show_icon(mut self, show: bool) -> Self {
+        self.show_icon = show;
+        self
     }
 
     /// What started it (`trigger`).
@@ -510,6 +539,7 @@ impl RenderOnce for WorkflowRunRow {
             "{} \u{b7} {} \u{b7} {}",
             self.project, self.trigger, self.started
         );
+        let (bg, bar) = run_row_look(self.selected, hovered);
         let on_click = self.on_click.clone();
         // `.t3-wfrow { display: flex; width: 100%; align-items: center; gap: spacing-04;
         // min-height: size-lg; padding: 0 spacing-05; border-bottom: 1px solid border-subtle-01;
@@ -528,12 +558,16 @@ impl RenderOnce for WorkflowRunRow {
             .px(rem(16.))
             .border_b_1()
             .border_color(color(ColorRole::BorderSubtle01))
-            .when(hovered, |this| this.bg(color(ColorRole::LayerHover01)))
+            .when_some(bg, |this, bg| this.bg(bg))
             .text_color(color(ColorRole::TextPrimary))
             .cursor(CursorStyle::PointingHand)
             .on_hover(press::track_hover(hover))
             .when_some(on_click, |this, f| this.on_click(move |_, w, cx| f(w, cx)))
-            .child(press::icon(CarbonIcon::Flow, 16., color(ColorRole::IconSecondary)).flex_none())
+            .when(self.show_icon, |this| {
+                this.child(
+                    press::icon(CarbonIcon::Flow, 16., color(ColorRole::IconSecondary)).flex_none(),
+                )
+            })
             .child(
                 // `.t3-wfrow-main { display: flex; flex: 1; flex-direction: column;
                 // font-size: 0.875rem }`, `b { font-weight: 600 }`.
@@ -548,6 +582,17 @@ impl RenderOnce for WorkflowRunRow {
             )
             .child(WorkflowStateWord::new(self.state))
             .child(card_sub(fmt_elapsed(self.elapsed)))
+            .when_some(bar, |this, bar| {
+                this.child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .left_0()
+                        .w(px(3.))
+                        .bg(bar),
+                )
+            })
             .when(ring, |this| this.child(press::ring()))
     }
 }
@@ -581,5 +626,27 @@ mod tests {
     fn branch_elbow_reaches_back_to_the_rail() {
         // `left: calc(-1 * spacing-07 + 7.5px)` lands on the parent rail.
         assert_eq!(-BRANCH_INDENT + RAIL_LEFT + BRANCH_INDENT, RAIL_LEFT);
+    }
+
+    #[test]
+    fn run_row_selection_and_icon_options() {
+        crate::theme::tests_set(crate::CarbonTheme::G100);
+        assert_eq!(run_row_look(false, false), (None, None));
+        assert_eq!(
+            run_row_look(false, true),
+            (Some(color(ColorRole::LayerHover01)), None)
+        );
+        assert_eq!(
+            run_row_look(true, false),
+            (
+                Some(color(ColorRole::LayerSelected01)),
+                Some(color(ColorRole::BorderInteractive)),
+            )
+        );
+        let row = WorkflowRunRow::new("r", "Deploy", RunState::Running)
+            .selected(true)
+            .show_icon(false);
+        assert!(row.selected);
+        assert!(!row.show_icon);
     }
 }
