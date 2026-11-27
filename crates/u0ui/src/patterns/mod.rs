@@ -14,6 +14,8 @@
 //! - [`frame`]: [`PatternFrame`], the static modal anatomy (`Frame`,
 //!   `.cu-pframe`) the dialog and form examples compare side by side.
 //! - [`grid`]: [`PatternGrid`] (`.cu-pgrid`), the examples' grid.
+//! - [`indicator`]: icon, shape and difference status indicators
+//!   (`.cds--icon-indicator`, `.cds--shape-indicator`, `.cu-pdiff`).
 //! - [`menu`]: [`PatternMenu`] (`.cu-pmenu`), a menu drawn open in place.
 //! - [`pictogram`]: [`Pictogram`] (`Pic`, `.cu-ppic`), an icon drawn large
 //!   on an accent square, the empty-state illustration.
@@ -32,6 +34,7 @@ pub mod combo_button;
 pub mod empty_state;
 pub mod frame;
 pub mod grid;
+pub mod indicator;
 pub mod menu;
 pub mod pictogram;
 pub mod popover_panel;
@@ -48,6 +51,9 @@ pub use combo_button::{ComboButton, ComboButtonSize};
 pub use empty_state::{EmptyStateGeometry, EmptyStateSize, PatternEmptyState};
 pub use frame::{FrameButton, FrameGeometry, PatternFrame};
 pub use grid::PatternGrid;
+pub use indicator::{
+    DiffIndicator, IconIndicator, IconIndicatorKind, ShapeIndicator, ShapeIndicatorKind,
+};
 pub use menu::{PatternMenu, PatternMenuItem};
 pub use pictogram::Pictogram;
 pub use popover_panel::{PatternLink, PatternPopover, PatternRule};
