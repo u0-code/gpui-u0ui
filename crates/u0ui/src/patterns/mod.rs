@@ -11,6 +11,8 @@
 //!   action with a menu of related actions.
 //! - [`empty_state`]: [`PatternEmptyState`] (`.cu-pempty`), the empty
 //!   state in its small- and large-space layouts.
+//! - [`fluid`]: [`FluidTextInput`] (text or password) and [`FluidDropdown`],
+//!   the label-inside 4rem fields of `FluidForm`.
 //! - [`frame`]: [`PatternFrame`], the static modal anatomy (`Frame`,
 //!   `.cu-pframe`) the dialog and form examples compare side by side.
 //! - [`grid`]: [`PatternGrid`] (`.cu-pgrid`), the examples' grid.
@@ -32,6 +34,7 @@ pub mod badge;
 pub mod caption;
 pub mod combo_button;
 pub mod empty_state;
+pub mod fluid;
 pub mod frame;
 pub mod grid;
 pub mod indicator;
@@ -49,6 +52,7 @@ pub use badge::{BadgeIndicator, Badged};
 pub use caption::Caption;
 pub use combo_button::{ComboButton, ComboButtonSize};
 pub use empty_state::{EmptyStateGeometry, EmptyStateSize, PatternEmptyState};
+pub use fluid::{FluidDropdown, FluidGeometry, FluidLook, FluidTextInput};
 pub use frame::{FrameButton, FrameGeometry, PatternFrame};
 pub use grid::PatternGrid;
 pub use indicator::{
