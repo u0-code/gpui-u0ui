@@ -14,6 +14,7 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
     cx.new(|_| ColorPickerPage {
         value: "#8a3ffc".into(),
         swatches: true,
+        full_width: false,
     })
     .into()
 }
@@ -21,6 +22,7 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
 struct ColorPickerPage {
     value: SharedString,
     swatches: bool,
+    full_width: bool,
 }
 
 /// `components/ColorPicker/preview.html`.
@@ -41,16 +43,20 @@ impl Render for ColorPickerPage {
         let mut picker = ColorPicker::new("color-live")
             .label("Accent colour")
             .value(self.value.clone())
+            .full_width(self.full_width)
             .on_value_change(controls::setter(&entity, |this: &mut Self, v| {
                 this.value = v
             }));
         if !self.swatches {
             picker = picker.swatches(Vec::<SharedString>::new());
         }
+        // A 22rem column, so `full_width` shows against the 15rem default.
         let live = div()
             .flex()
             .flex_col()
             .gap(tokens::SPACING_05)
+            .w(gpui_kit::rems(22.))
+            .max_w_full()
             .child(picker)
             .child(
                 div()
@@ -58,12 +64,22 @@ impl Render for ColorPickerPage {
                     .text_color(color(ColorRole::TextSecondary))
                     .child(format!("value: \"{}\"", self.value)),
             );
-        let config = controls::toggle(
-            "color-swatches",
-            "swatches",
-            self.swatches,
-            controls::setter(&entity, |this: &mut Self, on| this.swatches = on),
-        );
+        let config = div()
+            .flex()
+            .flex_col()
+            .gap(tokens::SPACING_06)
+            .child(controls::toggle(
+                "color-swatches",
+                "swatches",
+                self.swatches,
+                controls::setter(&entity, |this: &mut Self, on| this.swatches = on),
+            ))
+            .child(controls::toggle(
+                "color-full-width",
+                "full_width",
+                self.full_width,
+                controls::setter(&entity, |this: &mut Self, on| this.full_width = on),
+            ));
         Body::new()
             .playground(live)
             .hint(
