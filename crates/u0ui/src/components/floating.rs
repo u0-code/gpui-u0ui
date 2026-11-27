@@ -7,6 +7,9 @@
 //! (`autoAlign`: the preferred side, else the opposite one, never over the
 //! trigger; [`Side::choose`]) and Carbon's offset along the trigger edge
 //! (`*-start`/`*-end`) is applied like the CSS `transform` ([`Placed`]).
+//! The surface is `max-content` wide (`.cds--popover-content { inline-size:
+//! max-content; max-inline-size: 23rem }`), not limited to the trigger's
+//! width: a popover around a narrow button is as wide as its content.
 //!
 //! Motion: none. Carbon's popover CSS shows and hides at once
 //! (`.cds--popover-content { display: none }` → `block` with
@@ -14,9 +17,10 @@
 //! the frame their open state flips.
 use super::overlay::{DropSide, cross_origin};
 use gpui_kit::{
-    Anchor, AnyElement, App, Bounds, DispatchPhase, Element, Entity, GlobalElementId, Hsla,
-    InspectorElementId, IntoElement, LayoutId, MouseExitEvent, MouseMoveEvent, PathBuilder, Pixels,
-    Point, Styled, Task, Window, canvas, point, px,
+    Anchor, AnyElement, App, AvailableSpace, Bounds, DispatchPhase, Element, Entity,
+    GlobalElementId, Hsla, InspectorElementId, IntoElement, LayoutId, MouseExitEvent,
+    MouseMoveEvent, ParentElement as _, PathBuilder, Pixels, Point, Styled, Task, Window, canvas,
+    point, px,
 };
 use std::{cell::Cell, rc::Rc, time::Duration};
 
@@ -318,6 +322,12 @@ pub(crate) fn anchored(
     if surface.is_none() {
         chosen.set(preferred);
     }
+    let measured = window
+        .use_keyed_state((id.clone(), "measured"), cx, |_, _| {
+            Rc::new(Cell::new(gpui_kit::Size::<Pixels>::default()))
+        })
+        .read(cx)
+        .clone();
     let trigger_bounds = Rc::new(Cell::new(None));
     let popup = gpui_kit::base::Popup::new(id, trigger)
         // Base mirrors left/right anchors in RTL; hand it the logical one.
@@ -330,14 +340,29 @@ pub(crate) fn anchored(
     let Some(surface) = surface else {
         return popup.into_any_element();
     };
+    let surface_layout = Rc::new(Cell::new(None));
+    let viewport = window.viewport_size();
     popup
         .content(Placed {
-            child: surface.into_any_element(),
+            // The surface hangs absolutely in a viewport-sized box, so its
+            // auto width is fit-content against the viewport: its
+            // `max-content` width (up to its `max_w`), as in CSS.
+            child: gpui_kit::div()
+                .relative()
+                .w(viewport.width)
+                .h(viewport.height)
+                .child(gpui_kit::div().absolute().top_0().left_0().child(Measure {
+                    child: surface.into_any_element(),
+                    layout: surface_layout.clone(),
+                }))
+                .into_any_element(),
+            surface_layout,
             preferred,
             placement,
             caret_color,
             trigger: trigger_bounds,
             chosen,
+            measured,
         })
         .into_any_element()
 }
@@ -357,6 +382,69 @@ struct Placed {
     trigger: Rc<Cell<Option<Bounds<Pixels>>>>,
     /// The side chosen last, for the host's anchor next frame.
     chosen: Rc<Cell<Side>>,
+    /// The surface's `max-content` size, measured while prepainting; the
+    /// host lays out (and hit-tests) that size, caught up a frame later when
+    /// it changes.
+    measured: Rc<Cell<gpui_kit::Size<Pixels>>>,
+    /// The surface's layout node inside `child`.
+    surface_layout: Rc<Cell<Option<LayoutId>>>,
+}
+
+/// An element that records its child's layout node, so its laid-out size
+/// can be read before it is prepainted.
+struct Measure {
+    child: AnyElement,
+    layout: Rc<Cell<Option<LayoutId>>>,
+}
+
+impl Element for Measure {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<gpui_kit::ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, ()) {
+        let id = self.child.request_layout(window, cx);
+        self.layout.set(Some(id));
+        (id, ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        self.child.prepaint(window, cx);
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        self.child.paint(window, cx);
+    }
 }
 
 impl Element for Placed {
@@ -379,7 +467,13 @@ impl Element for Placed {
         window: &mut Window,
         cx: &mut App,
     ) -> (LayoutId, ()) {
-        (self.child.request_layout(window, cx), ())
+        // The host sees the last measured size; the surface itself is laid
+        // out as its own root at `max-content` in `prepaint`.
+        let size = self.measured.get();
+        let mut style = gpui_kit::Style::default();
+        style.size.width = size.width.into();
+        style.size.height = size.height.into();
+        (window.request_layout(style, [], cx), ())
     }
 
     fn prepaint(
@@ -391,15 +485,34 @@ impl Element for Placed {
         window: &mut Window,
         cx: &mut App,
     ) -> Self::PrepaintState {
+        let viewport = window.viewport_size();
+        self.child.layout_as_root(
+            gpui_kit::Size {
+                width: AvailableSpace::Definite(viewport.width),
+                height: AvailableSpace::Definite(viewport.height),
+            },
+            window,
+            cx,
+        );
+        let size = self
+            .surface_layout
+            .get()
+            .map_or(gpui_kit::Size::default(), |id| {
+                window.layout_bounds(id).size
+            });
+        if size != self.measured.get() {
+            self.measured.set(size);
+            window.request_animation_frame();
+        }
         let Some(trigger) = self.trigger.get() else {
-            self.child.prepaint(window, cx);
+            self.child.prepaint_at(bounds.origin, window, cx);
             return None;
         };
         let placed = place(
             self.preferred,
             self.placement,
             trigger,
-            bounds.size,
+            size,
             window.viewport_size(),
         );
         let side = placed.0;
@@ -409,9 +522,7 @@ impl Element for Placed {
             // frame already paints on `side`.
             window.request_animation_frame();
         }
-        window.with_element_offset(placed.1.origin - bounds.origin, |window| {
-            self.child.prepaint(window, cx)
-        });
+        self.child.prepaint_at(placed.1.origin, window, cx);
         Some(placed)
     }
 

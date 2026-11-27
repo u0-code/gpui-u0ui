@@ -42,6 +42,14 @@ pub use gpui_kit::component::input::InputState;
 /// (`.cds--text-input`, `.cds--text-area`).
 pub const FIELD_MOTION: Motion = Motion::new(Curve::ProductiveStandard, Speed::Fast01);
 
+/// The intrinsic text width of an `<input>` (px): what a browser gives
+/// `<input size="20">` (the default) in 14px IBM Plex Sans. It sizes a field
+/// whose container shrinks to fit (a popover): the reference's popover input
+/// is 181px = 149 + 2 × 1rem padding, so `.cu-popover-content` is 213px, not
+/// its 12rem minimum. In a container of definite width the field fills it
+/// as before (the editor grows and shrinks from this basis).
+pub const INTRINSIC_TEXT_WIDTH: f32 = 149.;
+
 /// The interaction state a field look is computed for.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FieldState {
@@ -324,6 +332,7 @@ impl RenderOnce for Input {
             .p_0()
             .h_full()
             .flex_1()
+            .flex_basis(rem(INTRINSIC_TEXT_WIDTH))
             .min_w_0()
             .text_size(rem(14.))
             .line_height(rem(18.))
