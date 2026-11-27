@@ -1093,6 +1093,7 @@ pub struct IconMenu {
     size: ButtonSize,
     disabled: bool,
     icon_color: Option<Hsla>,
+    fill: Option<Hsla>,
     items: Vec<MenuItem>,
 }
 
@@ -1108,6 +1109,7 @@ impl IconMenu {
             size: ButtonSize::Md,
             disabled: false,
             icon_color: None,
+            fill: None,
             items: Vec::new(),
         }
     }
@@ -1116,6 +1118,13 @@ impl IconMenu {
     /// (see [`Button::icon_color`]).
     pub fn icon_color(mut self, ink: Hsla) -> Self {
         self.icon_color = Some(ink);
+        self
+    }
+
+    /// Paint the trigger's background `fill` in every enabled state, for a
+    /// context rule (see [`Button::fill`]).
+    pub fn fill(mut self, fill: Hsla) -> Self {
+        self.fill = Some(fill);
         self
     }
 
@@ -1179,6 +1188,9 @@ impl RenderOnce for IconMenu {
             .tooltip(!open);
         if let Some(ink) = self.icon_color {
             button = button.icon_color(ink);
+        }
+        if let Some(fill) = self.fill {
+            button = button.fill(fill);
         }
         let button = button.into_any_element();
         let disabled = self.disabled;

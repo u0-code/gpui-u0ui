@@ -543,6 +543,7 @@ pub struct Button {
     density: Option<Density>,
     icon: Option<Icon>,
     icon_color: Option<Hsla>,
+    fill: Option<Hsla>,
     icon_only: bool,
     disabled: bool,
     loading: bool,
@@ -572,6 +573,7 @@ impl Button {
             density: None,
             icon: None,
             icon_color: None,
+            fill: None,
             icon_only: false,
             disabled: false,
             loading: false,
@@ -629,6 +631,16 @@ impl Button {
     /// var(--icon-secondary) }`. A disabled button keeps its disabled ink.
     pub fn icon_color(mut self, ink: Hsla) -> Self {
         self.icon_color = Some(ink);
+        self
+    }
+
+    /// Paint the background `fill` at rest, hover and press alike while the
+    /// button is enabled, for a context rule that outranks the kind's state
+    /// fills, such as `body:has(.t3-approval--pending) .t3-gitctl
+    /// .cds--btn.cds--btn--secondary { background: transparent }`. The focus
+    /// ring is kept; a disabled button keeps its disabled fill.
+    pub fn fill(mut self, fill: Hsla) -> Self {
+        self.fill = Some(fill);
         self
     }
 
@@ -816,6 +828,9 @@ impl RenderOnce for Button {
         }
         if let Some(ink) = self.icon_color.filter(|_| !self.disabled) {
             look.icon = ink;
+        }
+        if let Some(fill) = self.fill.filter(|_| !self.disabled) {
+            look.background = fill;
         }
         let animate = |channel: &'static str, target: Hsla, window: &mut Window, cx: &mut App| {
             motion::animate_color((id.clone(), channel), target, Motion::HOVER, window, cx)

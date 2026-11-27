@@ -1110,9 +1110,10 @@ impl RenderOnce for GitActionsControl {
             }
             items.push(item);
         }
-        // The quiet secondary trigger is drawn as a ghost one (transparent,
-        // `icon-secondary` glyph); unlike the reference it keeps the ghost
-        // hover fill, as u0ui's Button has no hover-less kind.
+        // The quiet secondary trigger is drawn as a ghost one with an
+        // `icon-secondary` glyph, and stays transparent on hover and press
+        // like the main button: the pending rule outranks
+        // `.cds--btn--secondary:hover` (bundle.css). It keeps its focus ring.
         let variant = if off || quiet.is_some() {
             ButtonVariant::Ghost
         } else {
@@ -1129,7 +1130,9 @@ impl RenderOnce for GitActionsControl {
                     .variant(variant)
                     .size(ButtonSize::Sm)
                     .disabled(off)
-                    .when_some(quiet, |m, q| m.icon_color(q.icon))
+                    .when_some(quiet, |m, q| {
+                        m.icon_color(q.icon).fill(Hsla::transparent_black())
+                    })
                     .items(items),
             )
             .when_some(self.note.clone(), |d, n| d.child(warn(n)))
