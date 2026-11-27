@@ -13,7 +13,7 @@
 //! | [`icons`] | Material Symbols Sharp [`Icon`], [`CarbonIcon`], asset source, Kit icon mapping |
 //! | [`density`] | [`Density`] (compact desktop default / comfortable) |
 //! | [`components`] | Carbon components ([`components::button`] is the reference) |
-//! | [`t3`] | The T3 Code pattern library |
+//! | [`t3`] | The T3 Code pattern library, composed from the components |
 //! | [`ghost`] | The Ghost pattern library (`Ghost · …` cards: foundations, primitives, …) |
 //!
 //! ```no_run

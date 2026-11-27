@@ -1090,6 +1090,19 @@ pub(crate) fn anchored_menu(
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
+    anchored_menu_aligned(id, trigger, spec, false, window, cx)
+}
+
+/// [`anchored_menu`], hanging from the trigger's end edge when `end`
+/// (`menuAlignment="bottom-end"`).
+pub(crate) fn anchored_menu_aligned(
+    id: &ElementId,
+    trigger: AnyElement,
+    spec: MenuSpec,
+    end: bool,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
     // Below the trigger, or above it when the menu only fits there (Carbon
     // menus `autoAlign`), never over it ([`super::overlay::DropSide`]).
     let anchor = super::overlay::drop_anchor((id.clone(), "drop"), window, cx);
@@ -1098,7 +1111,11 @@ pub(crate) fn anchored_menu(
         .child(trigger)
         .child(anchor.measure_trigger());
     let side = anchor.place_measured(window);
-    let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), trigger).anchor(side.anchor());
+    let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), trigger).anchor(if end {
+        side.anchor_end()
+    } else {
+        side.anchor()
+    });
     match menu_surface(id, spec, window, cx) {
         // Not painted until measured on the side it fits (no first-open
         // frame below the trigger before the flip).

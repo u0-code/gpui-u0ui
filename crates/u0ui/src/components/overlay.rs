@@ -303,6 +303,15 @@ impl DropSide {
             Self::Above => Anchor::BottomLeft,
         }
     }
+
+    /// The Base anchor for a surface aligned with the trigger's end edge
+    /// (Carbon `menuAlignment="bottom-end"`).
+    pub fn anchor_end(self) -> Anchor {
+        match self {
+            Self::Below => Anchor::TopRight,
+            Self::Above => Anchor::BottomRight,
+        }
+    }
 }
 
 /// Per-instance dropdown placement state: the trigger's window bounds and

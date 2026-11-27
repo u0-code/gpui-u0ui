@@ -302,6 +302,12 @@ impl<F: AssetSource> AssetSource for Assets<F> {
         {
             return Ok(glyph_svg(name).map(|svg| Cow::Owned(svg.into_bytes())));
         }
+        if let Some(name) = path
+            .strip_prefix(crate::t3::shell::ASSET_PREFIX)
+            .and_then(|p| p.strip_suffix(".svg"))
+        {
+            return Ok(crate::t3::shell::asset_svg(name).map(|svg| Cow::Owned(svg.into_bytes())));
+        }
         self.inner.load(path)
     }
     fn list(&self, prefix: &str) -> gpui_kit::Result<Vec<SharedString>> {
