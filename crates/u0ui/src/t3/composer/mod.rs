@@ -10,6 +10,7 @@
 //! | ComposerPrimaryActions | [`ComposerPrimaryActions`] |
 //! | ContextChip | [`ContextChip`] |
 //! | EffortGlyph | [`EffortGlyph`], [`ComposerControl`] |
+//! | ModelPicker | [`ModelPicker`] |
 //! | QueuedRunsControl | [`QueuedRunsControl`] |
 //! | ReadOnlyComposerBar | [`ReadOnlyComposerBar`] |
 //! | VoiceInputPill | [`VoiceInputPill`] |
@@ -19,6 +20,7 @@ mod banners;
 mod chip;
 mod controls;
 mod menu;
+mod picker;
 mod queue;
 mod surface;
 mod voice;
@@ -37,6 +39,10 @@ pub use controls::{
     effort_bar_color, effort_bar_height,
 };
 pub use menu::{COMMAND_MENU_SIZE, CommandMenuItem, CommandMenuSection, ComposerCommandMenu};
+pub use picker::{
+    MODEL_PICKER_GEOMETRY, ModelPicker, ModelPickerTexts, PickerModel, PickerProvider,
+    filter_models,
+};
 pub use queue::{QueuedRun, QueuedRunsControl, QueuedRunsTexts};
 pub use surface::{Composer, ComposerMenu, ComposerTexts, enter_action};
 pub use voice::{VoiceInputPill, VoiceState, VoiceTexts, WAVE_PERIOD, wave_delay, wave_scale};

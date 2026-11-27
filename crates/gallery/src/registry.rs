@@ -298,6 +298,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("composer-primary-actions", "ComposerPrimaryActions", "T3 · Composer", Component::ComposerPrimaryActions.summary(), pages::t3_composer::composer_primary_actions::build).thumbnail(pages::t3_composer::composer_primary_actions::thumbnail),
     PageDef::new("context-chip", "ContextChip", "T3 · Composer", Component::ContextChip.summary(), pages::t3_composer::context_chip::build).thumbnail(pages::t3_composer::context_chip::thumbnail),
     PageDef::new("effort-glyph", "EffortGlyph", "T3 · Composer", Component::EffortGlyph.summary(), pages::t3_composer::effort_glyph::build).thumbnail(pages::t3_composer::effort_glyph::thumbnail),
+    PageDef::new("model-picker", "ModelPicker", "T3 · Composer", Component::ModelPicker.summary(), pages::t3_composer::model_picker::build).thumbnail(pages::t3_composer::model_picker::thumbnail),
     PageDef::new("queued-runs-control", "QueuedRunsControl", "T3 · Composer", Component::QueuedRunsControl.summary(), pages::t3_composer::queued_runs_control::build).thumbnail(pages::t3_composer::queued_runs_control::thumbnail),
     PageDef::new("read-only-composer-bar", "ReadOnlyComposerBar", "T3 · Composer", Component::ReadOnlyComposerBar.summary(), pages::t3_composer::read_only_composer_bar::build).thumbnail(pages::t3_composer::read_only_composer_bar::thumbnail),
     PageDef::new("voice-input-pill", "VoiceInputPill", "T3 · Composer", Component::VoiceInputPill.summary(), pages::t3_composer::voice_input_pill::build).thumbnail(pages::t3_composer::voice_input_pill::thumbnail),

@@ -6,6 +6,7 @@ pub mod composer_command_menu;
 pub mod composer_primary_actions;
 pub mod context_chip;
 pub mod effort_glyph;
+pub mod model_picker;
 pub mod queued_runs_control;
 pub mod read_only_composer_bar;
 pub mod voice_input_pill;
