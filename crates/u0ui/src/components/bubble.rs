@@ -3,11 +3,13 @@
 //! and colors; this is a plain styled box, so nothing of Kit's is wrapped.
 //!
 //! - **Box**: `.cu-bubble { max-width: min(36rem, 85%); padding: spacing-04
-//!   spacing-05; border-radius: border-radius-08; font-size: 0.875rem;
-//!   line-height: 1.42857 }` (`body-01`). The corner on the sender's side is
-//!   square: `.cu-bubble--end { border-bottom-right-radius: 0 }`,
-//!   `.cu-bubble--start { border-bottom-left-radius: 0 }`; `align-self` follows
-//!   `align`. Inside a [`super::message::MessageContent`] the cap is 100%
+//!   spacing-05; font-size: 0.875rem; line-height: 1.42857 }` (`body-01`),
+//!   square: the `t3.css` global craft pass ("One geometry: Carbon is square.
+//!   Chat bubbles and attachment chips lose their consumer-IM radius",
+//!   `.t3-umsg-bubble, .t3-cchip, .t3-ctx, .t3-mention, .t3-attach,
+//!   .t3-composer-box { border-radius: 0 !important }`) overrides
+//!   `.cu-bubble { border-radius: border-radius-08 }` and its square
+//!   sender-side corner. `align-self` follows `align`. Inside a [`super::message::MessageContent`] the cap is 100%
 //!   (`.cu-msg-content .cu-bubble { max-width: 100% }`): call
 //!   [`Bubble::fill_message`].
 //! - **Variants** ([`BubbleLook::of`]): default (user) `chat-bubble-user` /
@@ -28,8 +30,7 @@ use super::form::rem;
 use crate::{
     theme::color,
     tokens::{
-        BORDER_RADIUS_08, BORDER_RADIUS_16, ColorRole, SPACING_02, SPACING_03, SPACING_04,
-        SPACING_05, TypeStyle,
+        BORDER_RADIUS_16, ColorRole, SPACING_02, SPACING_03, SPACING_04, SPACING_05, TypeStyle,
     },
     typography::TypeStyled as _,
 };
@@ -232,20 +233,10 @@ impl ParentElement for Bubble {
     }
 }
 
-/// Rounds every corner by 8px but the sender-side bottom one.
-fn corners<E: Styled>(this: E, align: BubbleAlign) -> E {
-    let r = BORDER_RADIUS_08;
-    let this = this.rounded_tl(r).rounded_tr(r);
-    match align {
-        BubbleAlign::End => this.rounded_bl(r),
-        BubbleAlign::Start => this.rounded_br(r),
-    }
-}
-
 impl RenderOnce for Bubble {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let look = BubbleLook::of(self.variant);
-        let mut bubble = corners(div(), self.align)
+        let mut bubble = div()
             .relative()
             .flex()
             .flex_col()
@@ -259,7 +250,7 @@ impl RenderOnce for Bubble {
             .children(self.children)
             .when_some(look.outline, |this, line| {
                 this.child(
-                    corners(div(), self.align)
+                    div()
                         .absolute()
                         .top_0()
                         .left_0()
@@ -466,7 +457,6 @@ mod tests {
 
     #[test]
     fn geometry_follows_custom_css() {
-        assert_eq!(BORDER_RADIUS_08.px_value(), 8.);
         assert_eq!((MAX_WIDTH, MAX_FRACTION), (576., 0.85));
         assert_eq!((SPACING_04.px_value(), SPACING_05.px_value()), (12., 16.));
         assert_eq!(REACTIONS_OVERHANG, 12.);
