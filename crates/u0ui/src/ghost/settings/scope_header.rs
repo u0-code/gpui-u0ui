@@ -162,11 +162,14 @@ impl RenderOnce for ScopeHeader {
                         .gap(tokens::SPACING_02)
                         .text_color(color(ColorRole::TextSecondary))
                         .child(
-                            Icon::carbon(CarbonIcon::InformationFilled)
-                                .size_length(rem(14.))
-                                .color(color(ColorRole::SupportInfo)),
+                            div().flex_none().child(
+                                Icon::carbon(CarbonIcon::InformationFilled)
+                                    .size_length(rem(14.))
+                                    .color(color(ColorRole::SupportInfo)),
+                            ),
                         )
-                        .child((self.texts.note)(&scope)),
+                        // The note wraps at word breaks in a narrow column.
+                        .child(div().flex_1().min_w_0().child((self.texts.note)(&scope))),
                 )
             })
     }
