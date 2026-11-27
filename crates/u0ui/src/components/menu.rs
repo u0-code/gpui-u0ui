@@ -1100,14 +1100,9 @@ pub(crate) fn anchored_menu(
     let side = anchor.place_measured(window);
     let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), trigger).anchor(side.anchor());
     match menu_surface(id, spec, window, cx) {
-        Some(surface) => popup
-            .content(
-                div()
-                    .relative()
-                    .child(surface)
-                    .child(anchor.measure_surface()),
-            )
-            .into_any_element(),
+        // Not painted until measured on the side it fits (no first-open
+        // frame below the trigger before the flip).
+        Some(surface) => popup.content(anchor.surface(surface)).into_any_element(),
         None => popup.into_any_element(),
     }
 }

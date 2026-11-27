@@ -315,6 +315,9 @@ pub(crate) struct DropAnchor {
     side: Rc<Cell<DropSide>>,
     /// See [`Self::set_top_inset`].
     top_inset: Rc<Cell<f32>>,
+    /// The surface measured this frame fits the side it was placed on (see
+    /// [`Self::surface`]).
+    settled: Rc<Cell<bool>>,
 }
 
 /// The [`DropAnchor`] keyed by `id`.
@@ -386,11 +389,12 @@ impl DropAnchor {
     /// the surface's size and asks for another frame when the side chosen
     /// for it no longer fits (its first open, or its size changed).
     pub fn measure_surface(&self) -> impl IntoElement + use<> {
-        let (trigger, surface, side, inset) = (
+        let (trigger, surface, side, inset, settled) = (
             self.trigger.clone(),
             self.surface.clone(),
             self.side.clone(),
             self.top_inset.clone(),
+            self.settled.clone(),
         );
         canvas(
             move |bounds, window, _| {
@@ -402,6 +406,7 @@ impl DropAnchor {
                     f32::from(bounds.size.height),
                     f32::from(window.viewport_size().height),
                 );
+                settled.set(want == side.get());
                 if want != side.get() {
                     window.request_animation_frame();
                 }
@@ -412,6 +417,84 @@ impl DropAnchor {
         .top_0()
         .left_0()
         .size_full()
+    }
+}
+
+impl DropAnchor {
+    /// `content` with [`Self::measure_surface`], painted only once it sits
+    /// on the side its measured size calls for. On first open the surface
+    /// has not been measured (height 0, so "below"); near the window bottom
+    /// it would paint below, clamped over its trigger, for one frame before
+    /// flipping above. The measurement happens while prepainting, before
+    /// anything paints, so that frame is skipped instead.
+    pub fn surface(&self, content: impl IntoElement) -> AnyElement {
+        self.settled.set(true);
+        PaintGate {
+            child: div()
+                .relative()
+                .child(content)
+                .child(self.measure_surface())
+                .into_any_element(),
+            settled: self.settled.clone(),
+        }
+        .into_any_element()
+    }
+}
+
+/// Lays out and prepaints its child, but paints it only when `settled`
+/// (set during the child's prepaint) holds.
+struct PaintGate {
+    child: AnyElement,
+    settled: Rc<Cell<bool>>,
+}
+
+impl Element for PaintGate {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, ()) {
+        (self.child.request_layout(window, cx), ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        self.child.prepaint(window, cx);
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        if self.settled.get() {
+            self.child.paint(window, cx);
+        }
     }
 }
 
@@ -539,6 +622,71 @@ mod tests {
         assert_eq!(cross_origin(720., 336., 0., 0., 1440.), 552.);
         // `*-start`: starts 20px before the center.
         assert_eq!(cross_origin(400., 200., 0.5, -20., 1440.), 380.);
+    }
+
+    /// 60px above the window bottom.
+    fn trigger_top(window: &Window) -> Pixels {
+        window.viewport_size().height - px(60.)
+    }
+
+    /// A surface hanging from a trigger: records where its content painted.
+    struct DropHarness {
+        painted: Rc<std::cell::RefCell<Vec<Bounds<Pixels>>>>,
+    }
+
+    impl gpui_kit::Render for DropHarness {
+        fn render(
+            &mut self,
+            window: &mut Window,
+            cx: &mut gpui_kit::Context<Self>,
+        ) -> impl IntoElement {
+            let anchor = drop_anchor("drop", window, cx);
+            let trigger = div()
+                .relative()
+                .size(px(100.))
+                .h(px(32.))
+                .child(anchor.measure_trigger());
+            let side = anchor.place_measured(window);
+            let painted = self.painted.clone();
+            let content = div().w(px(100.)).h(px(120.)).child(
+                canvas(|_, _, _| {}, move |b, _, _, _| painted.borrow_mut().push(b)).size_full(),
+            );
+            div().size_full().relative().child(
+                div()
+                    .absolute()
+                    .top(trigger_top(window))
+                    .left(px(20.))
+                    .child(
+                        gpui_kit::base::Popup::new("popup", trigger)
+                            .anchor(side.anchor())
+                            .content(anchor.surface(content)),
+                    ),
+            )
+        }
+    }
+
+    #[gpui_kit::test]
+    fn a_drop_surface_never_paints_on_the_side_it_does_not_fit(cx: &mut gpui_kit::TestAppContext) {
+        let painted = Rc::new(std::cell::RefCell::new(Vec::new()));
+        let (_, window) = cx.add_window_view({
+            let painted = painted.clone();
+            |_, _| DropHarness { painted }
+        });
+        // The trigger 60px above the window bottom: 120px fit above,
+        // not below. The first frames measure the trigger, then the surface
+        // (still unmeasured, so placed below and clamped over the trigger).
+        for _ in 0..4 {
+            window.update(|window, cx| window.draw(cx).clear(cx));
+        }
+        let top = window.update(|window, _| trigger_top(window));
+        let painted = painted.borrow();
+        assert!(!painted.is_empty(), "the surface never painted");
+        for bounds in painted.iter() {
+            assert!(
+                bounds.bottom() <= top,
+                "painted over the trigger: {bounds:?}"
+            );
+        }
     }
 
     #[test]
