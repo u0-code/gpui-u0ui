@@ -5,6 +5,12 @@
 //! two equal full-bleed buttons, "Share nothing" and "Continue" (refusing is
 //! never harder than agreeing).
 //!
+//! The [`ConsentActions::Dialog`] variant is the sheet as u0's Dialogs board
+//! draws it in a modal: the slider starts at the first level that shares
+//! (level 0 is the refusing button alone), and the two buttons are 32px,
+//! at the right of a dialog footer, the proceeding one naming the level
+//! (`Continue with Basic`).
+//!
 //! ```ignore
 //! ConsentSheet::new("consent").app_name("u0").on_continue(|level, _, _| {})
 //! ```
@@ -18,6 +24,7 @@ use crate::{
 };
 use gpui_kit::{
     App, ElementId, IntoElement, ParentElement, RenderOnce, SharedString, Styled, Window, div,
+    prelude::FluentBuilder as _,
 };
 use std::rc::Rc;
 
@@ -36,8 +43,22 @@ pub struct ConsentTexts {
     pub describe: [SharedString; 4],
     /// `"Share nothing"`.
     pub share_nothing: SharedString,
-    /// `"Continue"`.
-    pub proceed: SharedString,
+    /// The proceeding button, given the chosen level's name: `"Continue"`.
+    pub proceed: Rc<dyn Fn(&str) -> SharedString>,
+}
+
+/// Where the sheet's two buttons stand, and how the slider begins.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ConsentActions {
+    /// `.g-consent-actions`: two equal full-bleed 64px halves under a
+    /// slider over every level.
+    #[default]
+    FullBleed,
+    /// `.dlg-consent .g-consent-actions.dlg-foot` (u0's Dialogs board):
+    /// 32px buttons at the right (`justify-content: flex-end; gap: 8px;
+    /// padding: 0 16px 16px`), and a slider over the levels above 0, which
+    /// the refusing button alone chooses.
+    Dialog,
 }
 
 impl Default for ConsentTexts {
@@ -64,7 +85,7 @@ impl Default for ConsentTexts {
                 "Usage, plus crash reports and performance traces to help fix slow screens.".into(),
             ],
             share_nothing: "Share nothing".into(),
-            proceed: "Continue".into(),
+            proceed: Rc::new(|_| "Continue".into()),
         }
     }
 }
@@ -118,6 +139,7 @@ pub struct ConsentSheet {
     default_level: usize,
     payload: PayloadFn,
     texts: ConsentTexts,
+    actions: ConsentActions,
     on_continue: Option<ContinueHandler>,
 }
 
@@ -130,8 +152,15 @@ impl ConsentSheet {
             default_level: 2,
             payload: Rc::new(sample_payload),
             texts: ConsentTexts::default(),
+            actions: ConsentActions::default(),
             on_continue: None,
         }
+    }
+
+    /// Where the buttons stand (default [`ConsentActions::FullBleed`]).
+    pub fn actions(mut self, actions: ConsentActions) -> Self {
+        self.actions = actions;
+        self
     }
 
     /// The app's name (`appName`).
@@ -168,12 +197,17 @@ impl ConsentSheet {
 impl RenderOnce for ConsentSheet {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
-        let start = self.default_level;
+        let dialog = self.actions == ConsentActions::Dialog;
+        // The first level the slider offers: with the dialog's footer, level
+        // 0 is the refusing button's alone.
+        let first = usize::from(dialog);
+        let start = self.default_level.max(first);
         let level = window.use_keyed_state((id.clone(), "level"), cx, |_, _| start);
         let lvl = *level.read(cx);
         let describe = self.texts.describe.clone();
+        let steps = self.texts.levels[first..].to_vec();
+        let proceed_label = (self.texts.proceed)(&self.texts.levels[lvl]);
         let set_level = level.clone();
-        let (nothing, proceed) = (self.on_continue.clone(), self.on_continue.clone());
         // `.g-consent { display: flex; flex-direction: column; gap:
         // var(--spacing-05); max-width: 32rem; padding: var(--spacing-07)
         // var(--spacing-06) 0; background: var(--layer-01); box-shadow: 0 2px
@@ -184,10 +218,20 @@ impl RenderOnce for ConsentSheet {
             .gap(tokens::SPACING_05)
             .w_full()
             .max_w(rem(512.))
-            .pt(tokens::SPACING_07)
-            .px(tokens::SPACING_06)
+            // `.dlg-consent .g-consent { padding: 24px 16px 0 }`, its
+            // shadow the dialog's (`box-shadow: none`).
+            .pt(if dialog {
+                tokens::SPACING_06
+            } else {
+                tokens::SPACING_07
+            })
+            .px(if dialog {
+                tokens::SPACING_05
+            } else {
+                tokens::SPACING_06
+            })
             .bg(color(ColorRole::Layer01))
-            .shadow(floating_shadow())
+            .when(!dialog, |d| d.shadow(floating_shadow()))
             .text_color(color(ColorRole::TextPrimary))
             .child(
                 // `.g-consent h2 { margin: 0; font-size: 1.5rem; font-weight: 400 }`.
@@ -204,13 +248,13 @@ impl RenderOnce for ConsentSheet {
                     .child((self.texts.intro)(&self.app_name)),
             )
             .child(
-                SteppedSlider::new((id.clone(), "slider"), self.texts.levels.clone())
+                SteppedSlider::new((id.clone(), "slider"), steps)
                     .label(self.texts.slider.clone())
-                    .value(lvl)
-                    .describe(move |i| describe.get(i).cloned().unwrap_or_default())
+                    .value(lvl - first)
+                    .describe(move |i| describe.get(i + first).cloned().unwrap_or_default())
                     .on_value_change(move |v, _, cx| {
                         set_level.update(cx, |l, cx| {
-                            *l = v;
+                            *l = v + first;
                             cx.notify();
                         })
                     }),
@@ -220,41 +264,75 @@ impl RenderOnce for ConsentSheet {
                 lvl as u32,
                 (self.payload)(lvl),
             ))
-            .child(
-                // `.g-consent-actions { display: grid; grid-template-columns: 1fr
-                // 1fr; margin: var(--spacing-03) calc(-1 * var(--spacing-06)) 0 }`.
-                div()
-                    .flex()
-                    .mt(tokens::SPACING_03)
-                    .mx(rem(-24.))
-                    .child(
-                        div().flex_1().min_w_0().child(
-                            Button::new((id.clone(), "nothing"), self.texts.share_nothing.clone())
-                                .variant(ButtonVariant::Secondary)
-                                .size(ButtonSize::Xl)
-                                .full_width(true)
-                                .on_click(move |_, w, cx| {
-                                    if let Some(f) = &nothing {
-                                        f(0, w, cx);
-                                    }
-                                }),
-                        ),
-                    )
-                    .child(
-                        div().flex_1().min_w_0().child(
-                            Button::new((id.clone(), "continue"), self.texts.proceed.clone())
-                                .variant(ButtonVariant::Primary)
-                                .size(ButtonSize::Xl)
-                                .full_width(true)
-                                .on_click(move |_, w, cx| {
-                                    if let Some(f) = &proceed {
-                                        f(lvl, w, cx);
-                                    }
-                                }),
-                        ),
-                    ),
-            )
+            .child(actions(
+                &id,
+                self.actions,
+                self.texts.share_nothing.clone(),
+                proceed_label,
+                lvl,
+                self.on_continue.clone(),
+            ))
     }
+}
+
+/// The two buttons, as `variant` sets them: "Share nothing" passes 0,
+/// the proceeding one `lvl`.
+fn actions(
+    id: &ElementId,
+    variant: ConsentActions,
+    nothing: SharedString,
+    proceed: SharedString,
+    lvl: usize,
+    on_continue: Option<ContinueHandler>,
+) -> gpui_kit::Div {
+    let (on_nothing, on_proceed) = (on_continue.clone(), on_continue);
+    let dialog = variant == ConsentActions::Dialog;
+    let size = if dialog {
+        ButtonSize::Sm
+    } else {
+        ButtonSize::Xl
+    };
+    let nothing = Button::new((id.clone(), "nothing"), nothing)
+        .variant(ButtonVariant::Secondary)
+        .size(size)
+        .full_width(!dialog)
+        .on_click(move |_, w, cx| {
+            if let Some(f) = &on_nothing {
+                f(0, w, cx);
+            }
+        });
+    let proceed = Button::new((id.clone(), "continue"), proceed)
+        .variant(ButtonVariant::Primary)
+        .size(size)
+        .full_width(!dialog)
+        .on_click(move |_, w, cx| {
+            if let Some(f) = &on_proceed {
+                f(lvl, w, cx);
+            }
+        });
+    if dialog {
+        // `.dlg-foot { display: flex; justify-content: flex-end; gap: 8px;
+        // padding: 0 16px 16px }`, in `.dlg-consent .g-consent-actions {
+        // margin: 8px -16px 0 }` under the sheet's 16px sides.
+        return div()
+            .flex()
+            .justify_end()
+            .gap(tokens::SPACING_03)
+            .mt(tokens::SPACING_03)
+            .mx(rem(-16.))
+            .px(tokens::SPACING_05)
+            .pb(tokens::SPACING_05)
+            .child(nothing)
+            .child(proceed);
+    }
+    // `.g-consent-actions { display: grid; grid-template-columns: 1fr
+    // 1fr; margin: var(--spacing-03) calc(-1 * var(--spacing-06)) 0 }`.
+    div()
+        .flex()
+        .mt(tokens::SPACING_03)
+        .mx(rem(-24.))
+        .child(div().flex_1().min_w_0().child(nothing))
+        .child(div().flex_1().min_w_0().child(proceed))
 }
 
 #[cfg(test)]
@@ -284,5 +362,6 @@ mod tests {
         let t = ConsentTexts::default();
         assert_eq!((t.title)("u0"), SharedString::from("Welcome to u0"));
         assert_eq!(t.levels.len(), 4);
+        assert_eq!((t.proceed)("Basic"), SharedString::from("Continue"));
     }
 }
