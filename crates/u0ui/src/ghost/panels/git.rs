@@ -19,6 +19,7 @@
 //!   session, each with its state glyph, checks and Unlink; an empty line
 //!   when there are none.
 use super::head::{Handler, ghost_icon, ghost_text};
+use crate::ghost::shell::{option_focus, toggles_checkbox};
 use crate::{
     components::{Button, ButtonSize, ButtonVariant},
     density,
@@ -37,8 +38,8 @@ use crate::{
 };
 use gpui_kit::{
     AnyElement, App, AppContext as _, CursorStyle, Div, ElementId, Entity, Focusable as _, Hsla,
-    InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton, ParentElement, RenderOnce,
-    SharedString, StatefulInteractiveElement as _, Styled, Window,
+    InteractiveElement as _, IntoElement, MouseButton, ParentElement, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled, Window,
     component::{
         Sizable as _, Size,
         input::{Textarea as KitTextarea, TextareaState},
@@ -855,8 +856,9 @@ impl RenderOnce for CommitComposer {
             // hover `layer-hover-01`.
             sans(div(), 14., 400)
                 .id(rid)
-                .track_focus(&focus)
-                .tab_stop(true)
+                // A tab stop toggled by Space (once: GPUI already clicks a
+                // focused element on Space), like the reference's checkbox.
+                .track_focus(&option_focus(focus))
                 .flex()
                 .items_center()
                 .gap(tokens::SPACING_03)
@@ -865,14 +867,9 @@ impl RenderOnce for CommitComposer {
                 .when(over, |d| d.bg(color(ColorRole::LayerHover01)))
                 .cursor(CursorStyle::PointingHand)
                 .on_hover(on_hover)
-                .on_click({
-                    let toggle = toggle.clone();
-                    move |_, w, cx| toggle(w, cx)
-                })
-                .on_key_down(move |e: &KeyDownEvent, w, cx| {
-                    if e.keystroke.key == "space" {
-                        toggle(w, cx);
-                        cx.stop_propagation();
+                .on_click(move |e, w, cx| {
+                    if toggles_checkbox(e) {
+                        toggle(w, cx)
                     }
                 })
                 .child(check_box(on, ring))
