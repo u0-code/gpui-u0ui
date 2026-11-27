@@ -968,6 +968,10 @@ fn longest_word_width(text: &str, window: &Window) -> gpui_kit::Pixels {
     let size = rem(14.).to_pixels(window.rem_size());
     text.split_whitespace()
         .map(|word| {
+            // With the space after it: GPUI's line wrapper keeps the space
+            // on the word's line, and one that does not fit becomes a line
+            // of its own.
+            let word = format!("{word} ");
             let run = gpui_kit::TextRun {
                 len: word.len(),
                 font: crate::typography::font(crate::tokens::FontFamilyKey::Sans, 400),
@@ -978,7 +982,7 @@ fn longest_word_width(text: &str, window: &Window) -> gpui_kit::Pixels {
             };
             window
                 .text_system()
-                .shape_line(SharedString::from(word.to_string()), size, &[run], None)
+                .shape_line(SharedString::from(word), size, &[run], None)
                 .width
         })
         .fold(px(0.), |a, b| a.max(b))
