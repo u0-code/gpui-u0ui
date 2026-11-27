@@ -119,6 +119,9 @@ fn horizontal(
     let mut project = Combobox::new(id(p, "project"), input)
         .label("Project")
         .placeholder("Project")
+        // `K.MultiSelect label="Project"`: the field text is a label in
+        // `text-primary`, not placeholder gray.
+        .placeholder_primary(true)
         .items(PROJECTS)
         .multiple(true)
         .size(size)
@@ -262,14 +265,18 @@ fn vertical(p: &str, page: &Page, data: AnyElement, live: Option<&Entity<Page>>)
         // The checkbox brings `.cds--checkbox-wrapper`'s 6px bottom margin.
         b
     });
+    // `style: {flex: 1}`: 94px each in the 188px panel, so "Apply filters"
+    // wraps and both buttons grow to two lines (50px).
     let mut reset = Button::new(id(p, "reset"), "Reset")
         .variant(ButtonVariant::Secondary)
         .size(ButtonSize::Sm)
-        .full_width(true);
+        .full_width(true)
+        .wrap_label(true);
     let mut apply = Button::new(id(p, "apply"), "Apply filters")
         .variant(ButtonVariant::Primary)
         .size(ButtonSize::Sm)
         .full_width(true)
+        .wrap_label(true)
         .disabled(live.is_some() && page.draft == page.applied);
     if let Some(e) = live {
         let (r, a) = (e.clone(), e.clone());
@@ -328,8 +335,10 @@ fn vertical(p: &str, page: &Page, data: AnyElement, live: Option<&Entity<Page>>)
                 .child(
                     div()
                         .flex()
-                        .child(div().flex_1().child(reset))
-                        .child(div().flex_1().child(apply)),
+                        // `flex: 1` is a zero basis: equal halves whatever
+                        // the labels; the row stretches both to the taller.
+                        .child(div().flex().flex_1().min_w_0().child(reset))
+                        .child(div().flex().flex_1().min_w_0().child(apply)),
                 ),
         )
         .child(div().flex_1().min_w_0().overflow_hidden().child(data))

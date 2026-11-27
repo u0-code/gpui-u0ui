@@ -172,6 +172,7 @@ pub struct Combobox {
     value: Option<Vec<SharedString>>,
     default_value: Vec<SharedString>,
     placeholder: Option<SharedString>,
+    placeholder_primary: bool,
     helper_text: Option<SharedString>,
     invalid: bool,
     invalid_text: Option<SharedString>,
@@ -197,6 +198,7 @@ impl Combobox {
             value: None,
             default_value: Vec::new(),
             placeholder: None,
+            placeholder_primary: false,
             helper_text: None,
             invalid: false,
             invalid_text: None,
@@ -247,6 +249,15 @@ impl Combobox {
     /// `placeholder` (drawn in `text-placeholder`).
     pub fn placeholder(mut self, text: impl Into<SharedString>) -> Self {
         self.placeholder = Some(text.into());
+        self
+    }
+
+    /// Draw the [`Self::placeholder`] in `text-primary`, as Carbon
+    /// `MultiSelect` draws its `label` prop (`.cds--list-box__label {
+    /// color: var(--text-primary) }`) instead of a filterable field's
+    /// `text-placeholder`. Off by default.
+    pub fn placeholder_primary(mut self, primary: bool) -> Self {
+        self.placeholder_primary = primary;
         self
     }
 
@@ -562,6 +573,8 @@ impl RenderOnce for Combobox {
                     .whitespace_nowrap()
                     .text_color(color(if self.disabled {
                         ColorRole::TextDisabled
+                    } else if self.placeholder_primary {
+                        ColorRole::TextPrimary
                     } else {
                         ColorRole::TextPlaceholder
                     }))
