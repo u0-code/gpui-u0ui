@@ -179,6 +179,19 @@ impl AccordionItem {
         self.disabled = disabled;
         self
     }
+
+    /// Append a paragraph (a `<p>` child): `.cds--accordion__content > p`
+    /// sets body-01, 14px on 20px. Text added with `child` is bare and keeps
+    /// the item's body-compact-01, 14px on 18px.
+    pub fn paragraph(mut self, text: impl Into<SharedString>) -> Self {
+        self.children.push(
+            div()
+                .type_style(TypeStyle::Body01)
+                .child(text.into())
+                .into_any_element(),
+        );
+        self
+    }
 }
 
 impl ParentElement for AccordionItem {
@@ -379,7 +392,10 @@ impl RenderOnce for Accordion {
                     .pb(rem(24.))
                     .pl(rem(if start { 48. } else { 16. }))
                     .pr(relative(0.25))
-                    .type_style(TypeStyle::Body01)
+                    // Bare text inherits the item's body-compact-01 (14/18);
+                    // only `> p` children are body-01 (see
+                    // [`AccordionItem::paragraph`]).
+                    .type_style(TypeStyle::BodyCompact01)
                     .text_color(color(ColorRole::TextPrimary))
                     .opacity(progress)
                     .children(item.children);
