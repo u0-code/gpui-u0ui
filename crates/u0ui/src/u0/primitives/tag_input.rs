@@ -9,7 +9,8 @@
 //!   Backspace in an empty field removes the last tag. A press on an option
 //!   adds it. Duplicates (case-insensitive) and tags past `max` are ignored.
 //! - **Appearance** (`.g-tags`): a wrapping `field-01` field with a
-//!   `border-strong-01` rule and a `focus` outline while focused; gray pill
+//!   `border-strong-01` rule and a `focus` outline while focus is anywhere
+//!   inside (the input or a chip's remove button); gray pill
 //!   tags (`tag-background-gray` / `tag-color-gray`, 20px, a 16px round
 //!   remove button with `tag-hover-gray` hover); the list a floating
 //!   `layer-01` surface (`0 2px 6px shadow`) under the field, `density-row-md`
@@ -64,6 +65,12 @@ pub fn options(tags: &[SharedString], suggestions: &[SharedString], query: &str)
         out.push(TagOption::Create(t.to_string()));
     }
     out
+}
+
+/// Whether the field shows its focus outline (`.g-tags:focus-within`): the
+/// input is focused or any of the chips' remove buttons is.
+pub fn focus_within(input: bool, removes: impl IntoIterator<Item = bool>) -> bool {
+    input || removes.into_iter().any(|f| f)
 }
 
 /// `add(t)`: `None` when empty, a case-insensitive duplicate, or at `max`.
@@ -263,13 +270,22 @@ impl RenderOnce for TagInput {
         let pick_active = Rc::new(pick_active);
         let count = all.len();
 
+        let remove_focuses: Vec<_> = (0..tags.len())
+            .map(|i| {
+                parts::keyed_focus(
+                    (id.clone(), SharedString::from(format!("rm-focus-{i}"))),
+                    window,
+                    cx,
+                )
+            })
+            .collect();
+        // `.g-tags:focus-within { outline-color: var(--focus) }`: the input or
+        // any chip's remove button.
+        let focus_within =
+            focus_within(focused, remove_focuses.iter().map(|f| f.is_focused(window)));
         let tag_pills = tags.iter().enumerate().map(|(i, t)| {
             let model = model.clone();
-            let remove_focus = parts::keyed_focus(
-                (id.clone(), SharedString::from(format!("rm-focus-{i}"))),
-                window,
-                cx,
-            );
+            let remove_focus = remove_focuses[i].clone();
             let ring = parts::focus_visible(&remove_focus, window);
             let hover = window.use_keyed_state(
                 (id.clone(), SharedString::from(format!("rm-hover-{i}"))),
@@ -451,7 +467,7 @@ impl RenderOnce for TagInput {
             .children(tag_pills)
             .child(editor)
             .child(form::bottom_rule(color(ColorRole::BorderStrong01)))
-            .when(focused, |d| d.child(parts::focus_ring()));
+            .when(focus_within, |d| d.child(parts::focus_ring()));
 
         let popup = (open && focused && !all.is_empty()).then(|| {
             let rows = all.iter().enumerate().map(|(i, o)| {
@@ -586,5 +602,14 @@ mod tests {
         assert_eq!(add(&tags, "", None), None);
         assert_eq!(add(&tags, "api", Some(1)), None);
         assert_eq!(add(&tags, "api", None), Some(s(&["frontend", "api"])));
+    }
+
+    #[test]
+    fn outline_follows_focus_within() {
+        assert!(!focus_within(false, [false, false]));
+        assert!(focus_within(true, [false, false]));
+        // Tab onto the first chip's remove button (FG1B, `TagInput … tab1`).
+        assert!(focus_within(false, [true, false]));
+        assert!(focus_within(false, [false, true]));
     }
 }
