@@ -403,6 +403,9 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("theme-card", "ThemeCard", "T3 · Settings", Component::ThemeCard.summary(), pages::t3_workspace::settings::build_theme_card).thumbnail(pages::t3_workspace::settings::theme_card_thumbnail),
     PageDef::new("wizard", "Wizard", "T3 · Settings", Component::Wizard.summary(), pages::t3_workspace::settings::build_wizard).thumbnail(pages::t3_workspace::settings::wizard_thumbnail),
     PageDef::new("rich-text", "RichText", "T3 · Settings", RICH_TEXT, pages::t3_workspace::settings::build_rich_text).thumbnail(pages::t3_workspace::settings::rich_text_thumbnail),
+    PageDef::new("usage-window-bar", "UsageWindowBar", "T3 · Usage & workflows", Component::UsageWindowBar.summary(), pages::t3_workspace::usage::build_usage_window_bar).thumbnail(pages::t3_workspace::usage::usage_window_bar_thumbnail),
+    PageDef::new("workflow-run-feed", "WorkflowRunFeed", "T3 · Usage & workflows", Component::WorkflowRunFeed.summary(), pages::t3_workspace::usage::build_workflow_run_feed).thumbnail(pages::t3_workspace::usage::workflow_run_feed_thumbnail),
+    PageDef::new("workflow-run-row", "WorkflowRunRow", "T3 · Usage & workflows", Component::WorkflowRunRow.summary(), pages::t3_workspace::usage::build_workflow_run_row).thumbnail(pages::t3_workspace::usage::workflow_run_row_thumbnail),
 ];
 
 /// Look a page up by id.

@@ -2,6 +2,7 @@
 //! Onboarding & feedback pages (`src/t3/workspace.jsx`).
 pub mod files;
 pub mod settings;
+pub mod usage;
 
 use gpui_kit::{ParentElement, SharedString, Styled, div, px};
 use u0ui::prelude::*;

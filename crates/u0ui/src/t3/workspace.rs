@@ -12,6 +12,8 @@ mod parts;
 pub mod preview;
 pub mod settings;
 pub mod terminal;
+pub mod usage;
+pub mod workflows;
 
 pub use cards::{
     EnvironmentRow, EnvironmentRowTexts, ProviderCardTexts, ProviderInstanceCard, ProviderStatus,
@@ -30,3 +32,8 @@ pub use settings::{
     SettingsNavSection, SettingsRow, SettingsRowTexts, SettingsSection, ThemeCard,
 };
 pub use terminal::{TerminalDrawer, TerminalTab, TerminalTexts};
+pub use usage::{Pace, ShareSegment, UsageShareBar, UsageTexts, UsageWindowBar};
+pub use workflows::{
+    RunState, StepStatus, WorkflowFeedTexts, WorkflowRunFeed, WorkflowRunRow, WorkflowStateWord,
+    WorkflowStep,
+};
