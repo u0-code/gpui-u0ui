@@ -40,6 +40,7 @@ fn reference() -> impl IntoElement {
         )
         .child(
             SettingsRow::new("sro-1", "Max parallel agents")
+                .after_row(true)
                 .overridden(true)
                 .inherited_value("3")
                 .on_reset(|_, _| {})
@@ -52,6 +53,7 @@ fn reference() -> impl IntoElement {
         )
         .child(
             SettingsRow::new("sro-2", "Auto-accept edits")
+                .after_row(true)
                 .overridden(true)
                 .inherited_value("Off")
                 .on_reset(|_, _| {})
