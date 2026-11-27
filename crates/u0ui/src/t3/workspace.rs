@@ -8,6 +8,7 @@
 //! - [`onboarding`]: T3 · Onboarding & feedback.
 pub mod cards;
 pub mod files;
+pub mod onboarding;
 mod parts;
 pub mod preview;
 pub mod settings;
@@ -22,6 +23,11 @@ pub use cards::{
 pub use files::{
     FileBreadcrumbs, FileBrowserPanel, FileBrowserTexts, FileIcon, FileNode, FileSurfaceKind,
     FileSurfaceState,
+};
+pub use onboarding::{
+    ComputerSetupSteps, ExpandableToast, ExpandableToastTexts, MiddleTruncate, NoProjectsHero,
+    NoProjectsTexts, Permission, PermissionChecklist, PermissionTexts, RelativeTime, SetupState,
+    SetupTexts, ToastKind,
 };
 pub use preview::{
     DeviceAction, DeviceControlsRail, LocalServer, MiniPlayer, MiniPlayerKind, MiniPlayerTexts,

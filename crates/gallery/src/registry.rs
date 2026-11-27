@@ -406,6 +406,11 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("usage-window-bar", "UsageWindowBar", "T3 · Usage & workflows", Component::UsageWindowBar.summary(), pages::t3_workspace::usage::build_usage_window_bar).thumbnail(pages::t3_workspace::usage::usage_window_bar_thumbnail),
     PageDef::new("workflow-run-feed", "WorkflowRunFeed", "T3 · Usage & workflows", Component::WorkflowRunFeed.summary(), pages::t3_workspace::usage::build_workflow_run_feed).thumbnail(pages::t3_workspace::usage::workflow_run_feed_thumbnail),
     PageDef::new("workflow-run-row", "WorkflowRunRow", "T3 · Usage & workflows", Component::WorkflowRunRow.summary(), pages::t3_workspace::usage::build_workflow_run_row).thumbnail(pages::t3_workspace::usage::workflow_run_row_thumbnail),
+    PageDef::new("computer-setup-steps", "ComputerSetupSteps", "T3 · Onboarding & feedback", Component::ComputerSetupSteps.summary(), pages::t3_workspace::onboarding::build_computer_setup_steps).thumbnail(pages::t3_workspace::onboarding::computer_setup_steps_thumbnail),
+    PageDef::new("expandable-toast", "ExpandableToast", "T3 · Onboarding & feedback", Component::ExpandableToast.summary(), pages::t3_workspace::onboarding::build_expandable_toast).thumbnail(pages::t3_workspace::onboarding::expandable_toast_thumbnail),
+    PageDef::new("no-projects-hero", "NoProjectsHero", "T3 · Onboarding & feedback", Component::NoProjectsHero.summary(), pages::t3_workspace::onboarding::build_no_projects_hero).thumbnail(pages::t3_workspace::onboarding::no_projects_hero_thumbnail),
+    PageDef::new("permission-checklist", "PermissionChecklist", "T3 · Onboarding & feedback", Component::PermissionChecklist.summary(), pages::t3_workspace::onboarding::build_permission_checklist).thumbnail(pages::t3_workspace::onboarding::permission_checklist_thumbnail),
+    PageDef::new("truncated-text", "TruncatedText", "T3 · Onboarding & feedback", Component::TruncatedText.summary(), pages::t3_workspace::onboarding::build_truncated_text).thumbnail(pages::t3_workspace::onboarding::truncated_text_thumbnail),
 ];
 
 /// Look a page up by id.
