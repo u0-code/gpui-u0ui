@@ -8,6 +8,7 @@ use gpui_kit::{
 };
 use u0ui::components::{SideNavItem, Sidebar, SidebarProvider};
 use u0ui::prelude::*;
+use u0ui::typography::paragraph;
 
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
@@ -81,7 +82,8 @@ impl Render for SidebarPage {
                                 .item(SideNavItem::divider())
                                 .item(SideNavItem::link("Settings").icon(CarbonIcon::Settings)),
                         )
-                        .child(div().mt(rems(0.5)).child("Page content")),
+                        // A bare `<p style="margin-top: 8px">`: 16px/24px.
+                        .child(paragraph().mt(rems(0.5)).child("Page content")),
                 ),
             );
 
