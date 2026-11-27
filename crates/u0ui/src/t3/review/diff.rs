@@ -327,8 +327,10 @@ impl Default for DiffFileHeaderTexts {
 /// start-truncated path, copy button, `+/−` with bar, "Viewed" checkbox.
 ///
 /// The row is 40px on `layer-01` with a `border-subtle-01` bottom rule. The
-/// reference makes it `position: sticky; top: 0`; GPUI has no sticky
-/// positioning, so a scrolling diff list pins it itself.
+/// reference makes it `position: sticky; top: 0; z-index: 1`; GPUI has no
+/// sticky positioning, so a scrolling list of files pins it with
+/// [`crate::components::sticky::StickyScroll`] (one section per file: this
+/// header over its [`DiffView`]).
 #[derive(IntoElement)]
 pub struct DiffFileHeader {
     id: ElementId,

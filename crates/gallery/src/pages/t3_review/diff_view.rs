@@ -1,14 +1,19 @@
 //! T3 · Diff & review › DiffView: the reference hunk with its review
 //! thread under the first added line, and a live diff where the gutter "+"
-//! opens a draft thread under that line.
+//! opens a draft thread under that line. A list of files scrolls under
+//! sticky `DiffFileHeader`s (`.t3-dfh { position: sticky; top: 0 }`).
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
     AnyElement, AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled,
     Window, div, rems,
 };
+use u0ui::components::sticky::StickyScroll;
 use u0ui::prelude::*;
-use u0ui::t3::review::{DiffHunk, DiffLine, DiffView, ReviewComment, ReviewThreadCard, Segment};
+use u0ui::t3::review::{
+    DiffFileHeader, DiffHunk, DiffLine, DiffView, FileStatus, ReviewComment, ReviewThreadCard,
+    Segment,
+};
 
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
@@ -64,6 +69,31 @@ fn frame(content: impl IntoElement) -> gpui_kit::Div {
         .border_1()
         .border_color(color(ColorRole::BorderSubtle01))
         .child(content)
+}
+
+/// Three files, each a sticky `DiffFileHeader` over its `DiffView`, in a
+/// 20rem scroller.
+fn files() -> impl IntoElement {
+    let files = [
+        (
+            "packages/ui/src/components/date-picker/DatePicker.tsx",
+            FileStatus::Modified,
+        ),
+        ("src/tokens/g90.json", FileStatus::Added),
+        ("src/legacy/theme.css", FileStatus::Modified),
+    ];
+    let mut list = StickyScroll::new("dv-files")
+        .header_height(40.)
+        .h(rems(20.));
+    for (i, (path, status)) in files.into_iter().enumerate() {
+        list = list.section(
+            DiffFileHeader::new(("dv-files-head", i), path)
+                .status(status)
+                .stat(3, 1),
+            DiffView::new(("dv-files-diff", i)).hunks([hunk(i == 1), hunk(false)]),
+        );
+    }
+    frame(list)
 }
 
 /// The overview tile.
@@ -144,5 +174,6 @@ impl Render for Page {
             .hint("Hover a line and press + to open a draft thread under it")
             .config(config)
             .example(controls::block("Reference preview", reference))
+            .example(controls::block("Files with sticky headers", files()))
     }
 }
