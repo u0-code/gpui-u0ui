@@ -277,6 +277,8 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("diff-view", "DiffView", "T3 · Diff & review", Component::DiffView.summary(), pages::t3_review::diff_view::build).thumbnail(pages::t3_review::diff_view::thumbnail),
     PageDef::new("review-thread-card", "ReviewThreadCard", "T3 · Diff & review", Component::ReviewThreadCard.summary(), pages::t3_review::review_thread_card::build).thumbnail(pages::t3_review::review_thread_card::thumbnail),
     PageDef::new("highlighted-text", "HighlightedText", GHOST_PRIMITIVES, Component::HighlightedText.summary(), pages::highlighted_text::build).thumbnail(pages::highlighted_text::thumbnail),
+    // T3 · Composer (src/t3/composer.jsx)
+    PageDef::new("context-chip", "ContextChip", "T3 · Composer", Component::ContextChip.summary(), pages::t3_composer::context_chip::build).thumbnail(pages::t3_composer::context_chip::thumbnail),
 ];
 
 /// Look a page up by id.
