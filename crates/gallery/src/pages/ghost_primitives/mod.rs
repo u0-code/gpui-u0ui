@@ -1,6 +1,7 @@
 //! Ghost · Primitives pages (`src/ghost/primitives.jsx` in the design reference).
 pub mod color_picker;
 pub mod copy_field;
+pub mod dropzone;
 pub mod editable_text;
 pub mod highlighted_text;
 pub mod key_recorder;

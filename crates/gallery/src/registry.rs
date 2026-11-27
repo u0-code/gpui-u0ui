@@ -319,6 +319,7 @@ pub static PAGES: &[PageDef] = &[
     // Ghost · Primitives (src/ghost/primitives.jsx)
     PageDef::new("color-picker", "ColorPicker", GHOST_PRIMITIVES, Component::ColorPicker.summary(), pages::ghost_primitives::color_picker::build).thumbnail(pages::ghost_primitives::color_picker::thumbnail),
     PageDef::new("copy-field", "CopyField", GHOST_PRIMITIVES, Component::CopyField.summary(), pages::ghost_primitives::copy_field::build).thumbnail(pages::ghost_primitives::copy_field::thumbnail),
+    PageDef::new("dropzone", "Dropzone", GHOST_PRIMITIVES, Component::Dropzone.summary(), pages::ghost_primitives::dropzone::build).thumbnail(pages::ghost_primitives::dropzone::thumbnail),
     PageDef::new("editable-text", "EditableText", GHOST_PRIMITIVES, Component::EditableText.summary(), pages::ghost_primitives::editable_text::build).thumbnail(pages::ghost_primitives::editable_text::thumbnail),
     PageDef::new("highlighted-text", "HighlightedText", GHOST_PRIMITIVES, Component::HighlightedText.summary(), pages::ghost_primitives::highlighted_text::build).thumbnail(pages::ghost_primitives::highlighted_text::thumbnail),
     PageDef::new("key-recorder", "KeyRecorder", GHOST_PRIMITIVES, Component::KeyRecorder.summary(), pages::ghost_primitives::key_recorder::build).thumbnail(pages::ghost_primitives::key_recorder::thumbnail),
