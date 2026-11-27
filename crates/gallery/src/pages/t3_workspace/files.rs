@@ -8,12 +8,13 @@ use gpui_kit::{
     AnyElement, AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render,
     SharedString, Styled, Window, div, prelude::FluentBuilder as _, px,
 };
+use u0ui::components::MenuItem;
 use u0ui::prelude::*;
 use u0ui::t3::review::FileStatus;
 use u0ui::t3::workspace::{
     DeviceAction, DeviceControlsRail, FileBreadcrumbs, FileBrowserPanel, FileNode, FileSurfaceKind,
     FileSurfaceState, LocalServer, MiniPlayer, MiniPlayerKind, PreviewChrome, PreviewEmptyState,
-    TerminalDrawer, TerminalTab, preview::VIEWPORTS,
+    PreviewStrip, TerminalDrawer, TerminalTab, preview::VIEWPORTS,
 };
 
 fn status(s: impl Into<SharedString>) -> gpui_kit::Div {
@@ -472,6 +473,7 @@ impl Render for MiniPage {
 struct ChromePage {
     loading: bool,
     secure: bool,
+    narrow: bool,
     zoom: usize,
     viewport: usize,
     log: Option<SharedString>,
@@ -484,6 +486,7 @@ pub fn build_preview_chrome(_: &mut Window, cx: &mut App) -> AnyView {
     cx.new(|_| ChromePage {
         loading: false,
         secure: false,
+        narrow: false,
         zoom: 0,
         viewport: 0,
         log: None,
@@ -523,6 +526,7 @@ impl Render for ChromePage {
                 )
                 .loading(self.loading)
                 .secure(self.secure)
+                .narrow(self.narrow)
                 .zoom(ZOOMS[self.zoom].parse().unwrap_or(100))
                 .viewport(VIEWPORTS[self.viewport])
                 .on_back(say("Back"))
@@ -581,6 +585,12 @@ impl Render for ChromePage {
                 self.secure,
                 controls::setter(&entity, |this: &mut ChromePage, v| this.secure = v),
             ))
+            .child(controls::toggle(
+                "chrome-narrow",
+                "narrow",
+                self.narrow,
+                controls::setter(&entity, |this: &mut ChromePage, v| this.narrow = v),
+            ))
             .child(controls::field(
                 "zoom",
                 controls::choices(
@@ -611,6 +621,35 @@ impl Render for ChromePage {
                     .secure(true)
                     .zoom(125)
                     .viewport("iPhone 16"),
+            )
+            // A 400px right column (the TerminalBrowser board): no viewport
+            // menu, More a menu of its own, and the strip under the bar.
+            .child(
+                div()
+                    .w(px(400.))
+                    .child(
+                        PreviewChrome::new("chrome-ref-2", "http://localhost:5173/cover")
+                            .narrow(true)
+                            .more_menu([
+                                MenuItem::item("Reload"),
+                                MenuItem::item("Copy address"),
+                                MenuItem::divider(),
+                                MenuItem::item("Viewport")
+                                    .submenu(VIEWPORTS.iter().map(|v| MenuItem::item(*v))),
+                            ]),
+                    )
+                    .child(
+                        PreviewStrip::new("strip-ref", "dev", Some(5173))
+                            .servers(
+                                "Dev servers",
+                                [
+                                    MenuItem::item("dev · pnpm dev · :5173 · This Mac"),
+                                    MenuItem::item("storybook · :6006 · build-box"),
+                                ],
+                            )
+                            .machine("This Mac")
+                            .action("Open in your browser", |_, _| {}),
+                    ),
             );
         Body::new()
             .playground(div().w_full().child(live))
