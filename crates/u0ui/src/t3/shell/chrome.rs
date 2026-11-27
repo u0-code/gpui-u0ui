@@ -252,6 +252,8 @@ pub enum SurfaceKind {
     Device,
     /// `chat`.
     Chat,
+    /// `details`: Information.
+    Details,
     /// Anything else: Document.
     #[default]
     Other,
@@ -269,12 +271,13 @@ impl SurfaceKind {
             Self::Linked => CarbonIcon::Link,
             Self::Device => CarbonIcon::Mobile,
             Self::Chat => CarbonIcon::Chat,
+            Self::Details => CarbonIcon::Information,
             Self::Other => CarbonIcon::Document,
         }
     }
 }
 
-/// One right-panel tab (`{ id, label, kind, closable, disabledReason }`).
+/// One right-panel tab (`{ id, label, kind, icon, closable, disabledReason }`).
 #[derive(Clone)]
 pub struct SurfaceTab {
     /// Stable id.
@@ -283,6 +286,8 @@ pub struct SurfaceTab {
     pub label: SharedString,
     /// Kind (glyph).
     pub kind: SurfaceKind,
+    /// Optional explicit Carbon icon override.
+    pub icon: Option<CarbonIcon>,
     /// Shows a close button.
     pub closable: bool,
     /// Why it cannot be opened (disables it; shown as a tooltip).
@@ -300,8 +305,23 @@ impl SurfaceTab {
             id: id.into(),
             label: label.into(),
             kind,
+            icon: None,
             closable: false,
             disabled_reason: None,
+        }
+    }
+
+    /// Override the Carbon icon for this tab.
+    pub fn icon(mut self, icon: CarbonIcon) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    /// Resolved glyph for this tab.
+    pub const fn resolved_icon(&self) -> CarbonIcon {
+        match self.icon {
+            Some(i) => i,
+            None => self.kind.icon(),
         }
     }
 
@@ -363,6 +383,8 @@ pub struct RightPanelTabs {
     add_label: SharedString,
     close_label: SharedString,
     more_label: SharedString,
+    add_menu: Vec<MenuItem>,
+    trailing: Vec<AnyElement>,
 }
 
 impl RightPanelTabs {
@@ -379,7 +401,21 @@ impl RightPanelTabs {
             add_label: "Open surface".into(),
             close_label: "Close {}".into(),
             more_label: "{} more surfaces".into(),
+            add_menu: Vec::new(),
+            trailing: Vec::new(),
         }
+    }
+
+    /// Items for an `IconMenu` on the `+` button (instead of bare `on_add`).
+    pub fn add_menu(mut self, items: impl IntoIterator<Item = MenuItem>) -> Self {
+        self.add_menu = items.into_iter().collect();
+        self
+    }
+
+    /// Append a trailing control at the far right of the strip.
+    pub fn trailing(mut self, element: impl IntoElement) -> Self {
+        self.trailing.push(element.into_any_element());
+        self
     }
 
     /// The active tab id (controlled `value`).
@@ -509,7 +545,7 @@ impl RenderOnce for RightPanelTabs {
                 .on_hover(track_hover(store))
                 .on_click(select)
                 .child(
-                    Icon::carbon(tab.kind.icon())
+                    Icon::carbon(tab.resolved_icon())
                         .size_length(rem(16.))
                         .color(fg),
                 )
@@ -589,22 +625,35 @@ impl RenderOnce for RightPanelTabs {
                     let tab = self.tabs[i].clone();
                     let set = set.clone();
                     MenuItem::item(tab.label.clone())
-                        .icon(tab.kind.icon())
+                        .icon(tab.resolved_icon())
                         .on_select(move |w, cx| set(tab.id.clone(), w, cx))
                 }))
         });
-        let add = self.on_add.map(|f| {
-            Button::new((id.clone(), "add"), self.add_label.clone())
-                .variant(ButtonVariant::Ghost)
-                .size(ButtonSize::Md)
-                .icon(CarbonIcon::Add)
-                .icon_only(true)
-                .on_click(move |_, w, cx| f(w, cx))
-        });
+        let add: Option<AnyElement> = if !self.add_menu.is_empty() {
+            Some(
+                IconMenu::new((id.clone(), "add-menu"), self.add_label.clone())
+                    .icon(CarbonIcon::Add)
+                    .variant(ButtonVariant::Ghost)
+                    .items(self.add_menu)
+                    .into_any_element(),
+            )
+        } else {
+            self.on_add.map(|f| {
+                Button::new((id.clone(), "add"), self.add_label.clone())
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Md)
+                    .icon(CarbonIcon::Add)
+                    .icon_only(true)
+                    .on_click(move |_, w, cx| f(w, cx))
+                    .into_any_element()
+            })
+        };
+        let has_trailing = !self.trailing.is_empty();
         // `.t3-rptabs { height: var(--size-md); background: var(--layer-01);
         // border-bottom: 1px solid var(--border-subtle-01) }`.
         div()
             .flex()
+            .w_full()
             .items_stretch()
             .h(SIZE_MD.rems())
             .bg(color(ColorRole::Layer01))
@@ -621,6 +670,15 @@ impl RenderOnce for RightPanelTabs {
             )
             .children(overflow.map(|m| div().flex().items_center().child(m)))
             .children(add.map(|b| div().flex().items_center().child(b)))
+            .when(has_trailing, |d| {
+                d.child(div().flex_1()).child(
+                    div()
+                        .flex()
+                        .flex_none()
+                        .items_center()
+                        .children(self.trailing),
+                )
+            })
     }
 }
 
@@ -786,6 +844,13 @@ mod tests {
         let (bg, fg) = tab_colors(false, true, true);
         assert_eq!((bg.a, fg), (0., color(ColorRole::TextDisabled)));
         assert_eq!(SurfaceKind::Device.icon(), CarbonIcon::Mobile);
+        assert_eq!(SurfaceKind::Details.icon(), CarbonIcon::Information);
+        assert_eq!(
+            SurfaceTab::new("x", "X", SurfaceKind::Other)
+                .icon(CarbonIcon::Code)
+                .resolved_icon(),
+            CarbonIcon::Code
+        );
         assert_eq!(SurfaceKind::Other.icon(), CarbonIcon::Document);
     }
 }
