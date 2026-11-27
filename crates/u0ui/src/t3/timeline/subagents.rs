@@ -7,7 +7,7 @@
 //! Stop after it; other rows reserve the Stop slot so the columns line up.
 use crate::components::button::{Button, ButtonKind, ButtonSize, ButtonVariant};
 use crate::t3::action::{ActionButton, ActionKind, Part};
-use crate::t3::base::{EASE, Spin, fmt_elapsed, pulse};
+use crate::t3::base::{EASE, Spin, fmt_elapsed_opt, pulse};
 use crate::t3::press::{Handler, rem};
 use crate::t3::shell::{IdentitySize, ProviderIcon};
 use crate::{icons::CarbonIcon, theme::color, tokens::ColorRole};
@@ -161,7 +161,7 @@ pub struct SubagentRow {
     name: SharedString,
     task: SharedString,
     status: SubagentStatus,
-    elapsed: u64,
+    elapsed: Option<u64>,
     provider: Option<SharedString>,
     texts: SubagentTexts,
     on_open: Option<Handler>,
@@ -180,7 +180,7 @@ impl SubagentRow {
             name: name.into(),
             task: task.into(),
             status: SubagentStatus::Running,
-            elapsed: 0,
+            elapsed: None,
             provider: None,
             texts: SubagentTexts::default(),
             on_open: None,
@@ -194,9 +194,11 @@ impl SubagentRow {
         self
     }
 
-    /// `elapsed` seconds.
+    /// `elapsed` seconds. Unset, the time column stays empty
+    /// (`fmtElapsed(null)`): a subagent whose time nobody knows shows none,
+    /// not "0s".
     pub fn elapsed(mut self, seconds: u64) -> Self {
-        self.elapsed = seconds;
+        self.elapsed = Some(seconds);
         self
     }
 
@@ -329,7 +331,7 @@ impl RenderOnce for SubagentRow {
                     .w(rem(SUBAGENT_COLUMNS.1))
                     .text_size(rem(12.))
                     .text_color(color(ColorRole::TextHelper))
-                    .child(SharedString::from(fmt_elapsed(self.elapsed))),
+                    .child(SharedString::from(fmt_elapsed_opt(self.elapsed))),
             )
             .child(
                 div()
@@ -471,6 +473,16 @@ impl RenderOnce for SubagentBar {
 mod tests {
     use super::*;
     use crate::tokens::CarbonTheme;
+
+    #[test]
+    fn a_row_whose_time_is_not_known_shows_none() {
+        assert_eq!(SubagentRow::new("r", "n", "t").elapsed, None);
+        assert_eq!(
+            SubagentRow::new("r", "n", "t").elapsed(48).elapsed,
+            Some(48)
+        );
+        assert_eq!(fmt_elapsed_opt(None), "");
+    }
 
     #[test]
     fn dots_follow_the_status_vocabulary() {
