@@ -153,15 +153,18 @@ impl RenderOnce for SidebarBrandHeader {
             .text_color(color(ColorRole::TextInverse))
             .child(initial);
         // `.t3-sbhead-brand { flex: 1; gap: var(--spacing-03); font-weight: 600; font-size: 0.875rem }`.
+        // `flex: 1` keeps `min-width: auto`, so the brand never shrinks
+        // below its name: in a narrow sidebar the name stays whole and the
+        // actions run on into the 8px end padding (the reference's 255px
+        // sidebar does this with "Workbench").
         let brand = sans(div(), 14., 600)
             .flex()
             .flex_1()
-            .min_w_0()
             .items_center()
             .gap(rem(8.))
             .text_color(color(ColorRole::TextPrimary))
             .child(mark)
-            .child(div().min_w_0().truncate().child(self.brand));
+            .child(div().flex_none().whitespace_nowrap().child(self.brand));
         div()
             .flex()
             .items_center()
