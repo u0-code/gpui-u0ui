@@ -27,3 +27,9 @@ pub mod pr_detail;
 pub use pr_detail::{
     DetailHeaderTexts, MergeControls, MergeMethod, MergeTexts, PullRequestDetailHeader,
 };
+pub mod thread;
+pub use thread::{
+    BranchToolbar, BranchToolbarTexts, ChatHeader, ContextMeter, GitAction, GitActionsControl,
+    GitState, HeaderEnvironment, HeaderLayout, MeterTone, ThreadDetailsSection, ThreadHoverCard,
+    WorkspaceMode,
+};

@@ -1,9 +1,12 @@
 //! T3 · Thread, T3 · Diff & review and T3 · Pull requests & issues pages
 //! (`src/t3/review.jsx` in the design reference).
+pub mod branch_toolbar;
+pub mod chat_header;
 pub mod checks_list;
 pub mod diff_file_header;
 pub mod diff_file_tree;
 pub mod diff_view;
+pub mod git_actions_control;
 pub mod guide_rail;
 pub mod issue_row;
 pub mod merge_controls;
@@ -14,3 +17,5 @@ pub mod pull_request_status;
 pub mod pull_request_timeline;
 pub mod review_form;
 pub mod review_thread_card;
+pub mod thread_details_panel;
+pub mod thread_hover_card;
