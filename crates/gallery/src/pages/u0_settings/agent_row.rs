@@ -106,6 +106,7 @@ impl Render for Page {
                         .on_install(fired("onInstall"))
                         .on_update(fired("onUpdate"))
                         .on_sign_in(fired("Sign in"))
+                        .on_cancel(fired("onCancel"))
                         .on_toggle(move |on, _, cx| {
                             toggled.update(cx, |p, cx| {
                                 p.last = format!("switch → {on}").into();
