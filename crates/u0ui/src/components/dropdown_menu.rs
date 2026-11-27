@@ -216,6 +216,7 @@ impl RenderOnce for DropdownMenu {
         let open = openness.open;
         let set_open = openness.setter();
         let labeled = self.label.is_some();
+        let kind = self.kind;
         let size = self.size.unwrap_or_default();
         let trigger_bounds = window.use_keyed_state((id.clone(), "trigger-bounds"), cx, |_, _| {
             Bounds::<Pixels>::default()
@@ -258,7 +259,9 @@ impl RenderOnce for DropdownMenu {
             (id.clone(), "trigger"),
             div()
                 .relative()
-                .when(labeled, |this| this.min_w(overlay::rem(TRIGGER_MIN_WIDTH)))
+                .when(labeled && kind != DropdownMenuKind::Ghost, |this| {
+                    this.min_w(overlay::rem(TRIGGER_MIN_WIDTH))
+                })
                 .when(!labeled && open, |this| {
                     // `.cu-overflow-trigger--open { background: var(--layer-01);
                     // box-shadow: 0 2px 6px var(--shadow) }`.
