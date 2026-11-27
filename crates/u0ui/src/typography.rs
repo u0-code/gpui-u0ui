@@ -19,6 +19,10 @@
 //! body-compact-01, `0.32px` on label-01) is not applied: GPUI's text system has
 //! no tracking control. The value is kept in [`crate::tokens::TypeSpec`] for when
 //! it does; at these sizes the difference is under half a pixel per glyph.
+//!
+//! **Inline code.** GPUI text runs cannot change size, so the 13px inline
+//! code of 14px prose uses a derived face, [`INLINE_CODE_FAMILY`] (see
+//! [`inline_code_font`] and `inline_face.rs`).
 use crate::tokens::{FontFamilyKey, TypeStyle};
 use gpui_kit::{App, Font, FontFallbacks, FontFeatures, FontStyle, FontWeight, Styled};
 use std::borrow::Cow;
@@ -59,12 +63,48 @@ pub const FONT_FILES: &[(&str, &[u8])] = &[
     ),
 ];
 
+mod inline_face;
+
+/// The family of the inline-code face: IBM Plex Mono Regular whose glyphs
+/// draw at 13/14 of the run's size, so a run of it in a 14px paragraph is
+/// 13px code (`.g-prose code, .t3-amsg-body code { font-size: 0.8125rem }`).
+pub const INLINE_CODE_FAMILY: &str = "u0 Inline Mono";
+
+/// The prose size the inline-code face is scaled for (`.g-prose,
+/// .t3-amsg-body { font-size: 0.875rem }`) and the code size it draws at.
+pub const INLINE_CODE_SIZES: (f32, f32) = (14., 13.);
+
+/// The face's em in font units: Plex Mono's 1000 × 14 / 13.
+const INLINE_CODE_EM: u16 = 1077;
+
+/// The face's U+202F advance in font units: the code's 4px inline padding
+/// (`padding: 1px 4px`) at 14px.
+const INLINE_CODE_PAD: u16 = 308;
+
+/// The inline-code face's bytes, derived from the bundled Plex Mono.
+pub fn inline_code_face() -> Option<Vec<u8>> {
+    let (_, mono) = FONT_FILES
+        .iter()
+        .find(|(name, _)| *name == "IBMPlexMono-Regular.ttf")?;
+    inline_face::derive(mono, INLINE_CODE_EM, INLINE_CODE_FAMILY, INLINE_CODE_PAD)
+}
+
+/// The inline-code face with the mono CJK fallbacks. In a paragraph at
+/// `INLINE_CODE_SIZES.0` it draws `INLINE_CODE_SIZES.1`; elsewhere it scales
+/// with the paragraph (GPUI has no per-run size).
+pub fn inline_code_font() -> Font {
+    let mut f = font(FontFamilyKey::Mono, 400);
+    f.family = INLINE_CODE_FAMILY.into();
+    f
+}
+
 /// Register the bundled fonts with GPUI's text system (called by [`crate::init`]).
 pub fn register_fonts(cx: &mut App) {
-    let fonts = FONT_FILES
+    let mut fonts: Vec<Cow<'static, [u8]>> = FONT_FILES
         .iter()
         .map(|(_, bytes)| Cow::Borrowed(*bytes))
         .collect();
+    fonts.extend(inline_code_face().map(Cow::Owned));
     if let Err(error) = cx.text_system().add_fonts(fonts) {
         eprintln!("u0ui: failed to register IBM Plex fonts: {error}");
     }
@@ -120,5 +160,17 @@ mod tests {
                 .iter()
                 .any(|(n, _)| *n == "IBMPlexSerif-Light.ttf")
         );
+    }
+
+    #[test]
+    fn inline_code_face_draws_13px_in_14px_prose() {
+        let (body, code) = INLINE_CODE_SIZES;
+        assert!((1000. * body / code - INLINE_CODE_EM as f32).abs() < 0.5);
+        // 4px of padding at the 14px run size.
+        assert!((INLINE_CODE_PAD as f32 / INLINE_CODE_EM as f32 * body - 4.).abs() < 0.01);
+        assert!(inline_code_face().is_some_and(|f| f.len() > 100_000));
+        let f = inline_code_font();
+        assert_eq!(f.family.as_ref(), INLINE_CODE_FAMILY);
+        assert_eq!(f.weight, FontWeight(400.));
     }
 }

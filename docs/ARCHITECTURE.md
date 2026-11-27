@@ -19,7 +19,8 @@ u0ui::theme        active theme (thread-local + ActiveTheme global), color(role)
                    color_in(theme, role), is_dark(), set_theme(cx, theme),
                    LayerLevel (contextual layer/field/border tokens), Kit bridge
 u0ui::typography   bundled IBM Plex (Sans 300/400/400i/600, Mono 400/600, Serif 300/400),
-                   font(family, weight) with CJK fallbacks, TypeStyled::type_style
+                   font(family, weight) with CJK fallbacks, TypeStyled::type_style,
+                   inline_code_font (derived Plex Mono drawing 13px in 14px runs)
 u0ui::motion       Curve (6 Carbon beziers), Speed (6 durations), Motion policy,
                    animate / animate_color / chevron_rotation / open_progress / spin,
                    ReducedMotion + set_reduced_motion

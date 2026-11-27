@@ -21,7 +21,7 @@ pub use markers::{
 };
 pub use prose::{
     Block, Inline, ListItem, MarkdownProse, MathBlock, MermaidBlock, ProseCodeBlock, ProseTexts,
-    block_gaps, inline_code_look, parse_inlines, parse_markdown,
+    block_gaps, parse_inlines, parse_markdown,
 };
 pub use thinking_block::{ThinkingBlock, ThinkingBlockTexts, shimmer_mix};
 pub use tool_call_fold::{ToolCallFold, ToolCallFoldTexts, ToolCallLook, ToolKind, ToolStatus};

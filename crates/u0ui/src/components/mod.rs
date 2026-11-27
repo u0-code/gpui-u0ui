@@ -32,6 +32,7 @@ pub mod field;
 pub mod floating;
 pub mod form;
 pub mod hover_card;
+pub mod inline_code;
 pub mod input;
 pub mod input_group;
 pub mod input_otp;

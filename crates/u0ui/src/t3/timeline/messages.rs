@@ -8,10 +8,13 @@
 //!   focus, overlapping what follows instead of reserving a row (d-fix).
 //! - **Assistant**: provenance first (provider, model · duration · time) with
 //!   24px Copy / Reply / Fork icon buttons at its end (gemini-A), then the
-//!   14/22 prose body; inline code is a quiet `layer-accent-01` tint (r2-desk).
+//!   14/22 prose body; inline code is 13px mono on a quiet `layer-accent-01`
+//!   tint (r2-desk), drawn by the helper shared with the Ghost
+//!   MarkdownProse ([`crate::components::inline_code`]).
 use super::super::action::{ActionButton, ActionKind, Part};
 use crate::components::button::{Button, ButtonKind, ButtonSize, ButtonVariant};
 use crate::components::floating::Align;
+use crate::components::inline_code::{push_inline_code, with_code_boxes};
 use crate::t3::base::fmt_elapsed;
 use crate::t3::composer::{AttachmentImage, ComposerAttachmentStrip, ContextChip};
 use crate::t3::press::{self, Handler, rem};
@@ -24,10 +27,10 @@ use crate::{
     typography::font,
 };
 use gpui_kit::{
-    AnyElement, App, ElementId, FocusHandle, FontWeight, Hsla, InteractiveElement as _,
-    IntoElement, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
-    StyledText, TextRun, Window, div, linear_color_stop, linear_gradient,
-    prelude::FluentBuilder as _, px, relative,
+    AnyElement, App, ElementId, FocusHandle, FontWeight, InteractiveElement as _, IntoElement,
+    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, StyledText,
+    TextRun, Window, div, linear_color_stop, linear_gradient, prelude::FluentBuilder as _, px,
+    relative,
 };
 use std::rc::Rc;
 
@@ -41,7 +44,7 @@ pub enum ProseSpan {
 }
 
 /// A paragraph of agent prose (`.t3-amsg-body p`): 14/22 body text with
-/// inline code in IBM Plex Mono on a `layer-accent-01` 60% tint.
+/// 13px inline code in IBM Plex Mono on a `layer-accent-01` 60% tint.
 #[derive(IntoElement, Clone)]
 pub struct Prose {
     spans: Vec<ProseSpan>,
@@ -72,52 +75,46 @@ impl Prose {
     }
 }
 
-/// `.t3-amsg-body code` background: `color-mix(in srgb, layer-accent-01 60%, transparent)`.
-pub fn inline_code_fill() -> Hsla {
-    let c = color(ColorRole::LayerAccent01);
-    c.opacity(0.6)
-}
+pub use crate::components::inline_code::inline_code_fill;
+
+/// `.t3-amsg-body { font-size: 0.875rem; line-height: 1.375rem }`.
+const BODY: (f32, f32) = (14., 22.);
 
 impl RenderOnce for Prose {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let mut text = String::new();
         let mut runs = Vec::new();
+        let mut code = Vec::new();
         let ink = color(ColorRole::TextPrimary);
         for span in &self.spans {
-            let (s, code) = match span {
-                ProseSpan::Text(s) => (s, false),
-                ProseSpan::Code(s) => (s, true),
-            };
-            // GPUI runs cannot pad, so the 4px inline padding is two thin spaces.
-            let s = if code {
-                format!("\u{2009}{s}\u{2009}")
-            } else {
-                s.to_string()
-            };
-            runs.push(TextRun {
-                len: s.len(),
-                font: font(
-                    if code {
-                        FontFamilyKey::Mono
-                    } else {
-                        FontFamilyKey::Sans
-                    },
-                    400,
-                ),
-                color: ink,
-                background_color: code.then(inline_code_fill),
-                underline: None,
-                strikethrough: None,
-            });
-            text.push_str(&s);
+            match span {
+                ProseSpan::Text(s) => {
+                    text.push_str(s);
+                    runs.push(TextRun {
+                        len: s.len(),
+                        font: font(FontFamilyKey::Sans, 400),
+                        color: ink,
+                        background_color: None,
+                        underline: None,
+                        strikethrough: None,
+                    });
+                }
+                ProseSpan::Code(s) => {
+                    code.push(push_inline_code(&mut text, &mut runs, s, ink, BODY.0));
+                }
+            }
         }
         // `.t3-amsg-body p { margin: 0 0 spacing-04 }`.
         div()
             .mb(rem(12.))
-            .text_size(rem(14.))
-            .line_height(rem(22.))
+            .text_size(rem(BODY.0))
+            .line_height(rem(BODY.1))
             .text_color(ink)
-            .child(StyledText::new(text).with_runs(runs))
+            .child(with_code_boxes(
+                StyledText::new(text).with_runs(runs),
+                code,
+                BODY.0,
+            ))
     }
 }
 

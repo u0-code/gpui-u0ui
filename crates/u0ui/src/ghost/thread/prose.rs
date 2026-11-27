@@ -11,9 +11,10 @@
 //! markers; links `link-primary` underlined; quotes behind a 3px
 //! `border-strong-01` rule in `text-secondary`; 13px tables with
 //! `layer-accent-01` semibold heads and hairline rows; rules; footnotes in
-//! 12px `text-secondary` under a hairline. Inline code is the gemini-A
-//! token: a light `layer-01` box with a 1px `border-subtle-00` outline,
-//! drawn behind the text run (GPUI text runs can neither pad nor outline).
+//! 12px `text-secondary` under a hairline. Inline code follows the last
+//! rule in cascade order (r2-desk): 13px mono on a borderless
+//! `layer-accent-01` 60% tint, through the helper shared with the T3
+//! AssistantMessage ([`crate::components::inline_code`]).
 //!
 //! **Input.** Build [`Block`]s directly, or hand [`MarkdownProse::markdown`]
 //! a Markdown string: the built-in reader covers what the reference
@@ -28,11 +29,15 @@
 //! under the "Mermaid" caption with a copy button and [`MathBlock`] shows the
 //! TeX in mono, exactly the reference's fallback.
 //!
-//! Known limits of GPUI text: inline code keeps the paragraph's 14px (runs
-//! cannot change size), and footnote references use Unicode superscript
-//! digits (runs cannot shift their baseline).
+//! Known limits of GPUI text: inline code scales with its paragraph outside
+//! 14px body text and 13px tables (runs cannot change size; see
+//! [`crate::components::inline_code`]), and footnote references use Unicode
+//! superscript digits (runs cannot shift their baseline).
 use crate::{
-    components::CopyButton,
+    components::{
+        CopyButton,
+        inline_code::{push_inline_code, with_code_boxes},
+    },
     ghost::{
         panels::{
             code_viewer::highlight,
@@ -50,10 +55,10 @@ use crate::{
     typography::font,
 };
 use gpui_kit::{
-    AnyElement, App, BorderStyle, Bounds, ClipboardItem, Div, ElementId, FontStyle, FontWeight,
-    Hsla, InteractiveElement as _, IntoElement, ParentElement, Pixels, RenderOnce, SharedString,
-    StatefulInteractiveElement as _, Styled, StyledText, TextRun, UnderlineStyle, Window, canvas,
-    div, point, prelude::FluentBuilder as _, px, quad, size,
+    AnyElement, App, ClipboardItem, Div, ElementId, FontStyle, FontWeight, Hsla,
+    InteractiveElement as _, IntoElement, ParentElement, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled, StyledText, TextRun, UnderlineStyle, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use std::ops::Range;
 
@@ -454,9 +459,9 @@ pub fn superscript(s: &str) -> String {
 
 // ── Inline text ─────────────────────────────────────────────────────────
 
-/// The runs of `inlines` in `ink` at the body family, plus the byte ranges
-/// of inline code (padded with thin spaces for `padding: 1px 4px`).
-fn runs(inlines: &[Inline], ink: Hsla) -> (String, Vec<TextRun>, Vec<Range<usize>>) {
+/// The runs of `inlines` in `ink` at the body family in a paragraph of
+/// `body` px, plus the byte ranges of inline code (with its padding).
+fn runs(inlines: &[Inline], ink: Hsla, body: f32) -> (String, Vec<TextRun>, Vec<Range<usize>>) {
     let mut text = String::new();
     let mut runs = Vec::new();
     let mut code = Vec::new();
@@ -468,7 +473,10 @@ fn runs(inlines: &[Inline], ink: Hsla) -> (String, Vec<TextRun>, Vec<Range<usize
         f
     };
     for inline in inlines {
-        let start = text.len();
+        if let Inline::Code(s) = inline {
+            code.push(push_inline_code(&mut text, &mut runs, s, ink, body));
+            continue;
+        }
         let (s, f, c, underline) = match inline {
             Inline::Text(s) => (s.to_string(), sans(400, false), ink, false),
             Inline::Strong(s) => (s.to_string(), sans(600, false), ink, false),
@@ -485,18 +493,10 @@ fn runs(inlines: &[Inline], ink: Hsla) -> (String, Vec<TextRun>, Vec<Range<usize
                 color(ColorRole::LinkPrimary),
                 false,
             ),
-            Inline::Code(s) => (
-                format!("\u{2009}{s}\u{2009}"),
-                font(FontFamilyKey::Mono, 400),
-                ink,
-                false,
-            ),
+            Inline::Code(_) => continue,
             Inline::Math(s) => (s.to_string(), font(FontFamilyKey::Mono, 400), ink, false),
         };
         text.push_str(&s);
-        if matches!(inline, Inline::Code(_)) {
-            code.push(start..text.len());
-        }
         runs.push(TextRun {
             len: s.len(),
             font: f,
@@ -513,71 +513,11 @@ fn runs(inlines: &[Inline], ink: Hsla) -> (String, Vec<TextRun>, Vec<Range<usize
     (text, runs, code)
 }
 
-/// `.g-prose code { padding: 1px 4px; background: var(--layer-01);
-/// box-shadow: inset 0 0 0 1px var(--border-subtle-00) }` (gemini-A): the
-/// token's (fill, outline).
-pub fn inline_code_look() -> (Hsla, Hsla) {
-    (color(ColorRole::Layer01), color(ColorRole::BorderSubtle00))
-}
-
-/// Inline prose: a `StyledText` with the inline-code boxes painted behind it.
-fn inline_text(inlines: &[Inline], ink: Hsla) -> Div {
-    let (text, runs, code) = runs(inlines, ink);
-    let styled = StyledText::new(text).with_runs(runs);
-    let layout = styled.layout().clone();
-    let (fill, edge) = inline_code_look();
-    div()
-        .relative()
-        .min_w_0()
-        .child(
-            canvas(
-                |_, _, _| (),
-                move |bounds: Bounds<Pixels>, _, window, _| {
-                    if code.is_empty() {
-                        return;
-                    }
-                    let lh = layout.line_height();
-                    // The token box: the 13px code line (≈17px) plus 1px top and
-                    // bottom padding, centred on the 22px line.
-                    let h = px(19.);
-                    let inset = (lh - h) / 2.;
-                    for r in &code {
-                        let (Some(a), Some(b)) = (
-                            layout.position_for_index(r.start),
-                            layout.position_for_index(r.end),
-                        ) else {
-                            continue;
-                        };
-                        let mut boxes = Vec::new();
-                        if a.y == b.y {
-                            boxes.push((a.x, b.x, a.y));
-                        } else {
-                            boxes.push((a.x, bounds.right(), a.y));
-                            boxes.push((bounds.left(), b.x, b.y));
-                        }
-                        for (x0, x1, y) in boxes {
-                            if x1 <= x0 {
-                                continue;
-                            }
-                            let rect = Bounds::new(point(x0, y + inset), size(x1 - x0, h));
-                            window.paint_quad(quad(
-                                rect,
-                                px(0.),
-                                fill,
-                                px(1.),
-                                edge,
-                                BorderStyle::Solid,
-                            ));
-                        }
-                    }
-                },
-            )
-            .absolute()
-            .top_0()
-            .left_0()
-            .size_full(),
-        )
-        .child(styled)
+/// Inline prose in a paragraph of `body` px: a `StyledText` with the
+/// inline-code tint painted behind it.
+fn inline_text(inlines: &[Inline], ink: Hsla, body: f32) -> Div {
+    let (text, runs, code) = runs(inlines, ink, body);
+    with_code_boxes(StyledText::new(text).with_runs(runs), code, body)
 }
 
 // ── Blocks ──────────────────────────────────────────────────────────────
@@ -850,7 +790,7 @@ impl MarkdownProse {
 
 /// A list's rows: a 1.5em marker column (`text-secondary` disc or number,
 /// right-aligned), then the item and its nested lists.
-fn list(ordered: bool, start: usize, items: &[ListItem], id: &ElementId) -> Div {
+fn list(ordered: bool, start: usize, items: &[ListItem], id: &ElementId, body: f32) -> Div {
     let ink = color(ColorRole::TextPrimary);
     div()
         .flex()
@@ -883,7 +823,7 @@ fn list(ordered: bool, start: usize, items: &[ListItem], id: &ElementId) -> Div 
                         .flex_col()
                         .flex_1()
                         .min_w_0()
-                        .child(inline_text(&it.content, ink))
+                        .child(inline_text(&it.content, ink, body))
                         .children(it.children.iter().map(|b| {
                             match b {
                                 Block::List {
@@ -892,7 +832,7 @@ fn list(ordered: bool, start: usize, items: &[ListItem], id: &ElementId) -> Div 
                                     items,
                                 } => div()
                                     .mt(px(2.8))
-                                    .child(list(*ordered, *start, items, id))
+                                    .child(list(*ordered, *start, items, id, body))
                                     .into_any_element(),
                                 other => render_block(other, id, 0, &ProseTexts::default()),
                             }
@@ -937,15 +877,15 @@ fn render_block(block: &Block, id: &ElementId, i: usize, texts: &ProseTexts) -> 
                 .text_size(rem(s))
                 .line_height(gpui_kit::relative(1.3))
                 .font_weight(FontWeight(w as f32))
-                .child(inline_text(inlines, ink))
+                .child(inline_text(inlines, ink, s))
                 .into_any_element()
         }
-        Block::Paragraph(inlines) => inline_text(inlines, ink).into_any_element(),
+        Block::Paragraph(inlines) => inline_text(inlines, ink, BODY.0).into_any_element(),
         Block::List {
             ordered,
             start,
             items,
-        } => list(*ordered, *start, items, id).into_any_element(),
+        } => list(*ordered, *start, items, id, BODY.0).into_any_element(),
         // `.g-prose ul.contains-task-list { list-style: none; padding-left:
         // 0.25em } .task-list-item { display: flex; gap: var(--spacing-03) }`.
         Block::TaskList(items) => div()
@@ -959,7 +899,7 @@ fn render_block(block: &Block, id: &ElementId, i: usize, texts: &ProseTexts) -> 
                     .gap(tokens::SPACING_03)
                     .when(k > 0, |d| d.mt(px(2.8)))
                     .child(task_box(*done))
-                    .child(inline_text(inlines, ink))
+                    .child(inline_text(inlines, ink, BODY.0))
             }))
             .into_any_element(),
         // `.g-prose blockquote { padding: 0 var(--spacing-05); border-left: 3px
@@ -968,7 +908,7 @@ fn render_block(block: &Block, id: &ElementId, i: usize, texts: &ProseTexts) -> 
             .px(tokens::SPACING_05)
             .border_l(px(3.))
             .border_color(color(ColorRole::BorderStrong01))
-            .child(inline_text(inlines, secondary))
+            .child(inline_text(inlines, secondary, BODY.0))
             .into_any_element(),
         Block::Table(head, rows) => {
             // `.g-prose table { font-size: 0.8125rem; display: block; overflow-x:
@@ -986,7 +926,7 @@ fn render_block(block: &Block, id: &ElementId, i: usize, texts: &ProseTexts) -> 
                     .border_color(color(ColorRole::BorderSubtle01))
                     .when(th, |d| d.bg(color(ColorRole::LayerAccent01)))
                     .whitespace_nowrap()
-                    .child(inline_text(inlines.map_or(&[][..], |v| v), ink))
+                    .child(inline_text(inlines.map_or(&[][..], |v| v), ink, 13.))
             };
             div()
                 .id(sub("table"))
@@ -1036,6 +976,7 @@ fn render_block(block: &Block, id: &ElementId, i: usize, texts: &ProseTexts) -> 
                     })
                     .collect::<Vec<_>>(),
                 id,
+                12.,
             ))
             .into_any_element(),
     }
@@ -1165,16 +1106,13 @@ mod tests {
     }
 
     #[test]
-    fn inline_code_is_the_outlined_token() {
-        crate::theme::tests_set(crate::CarbonTheme::White);
-        assert_eq!(
-            inline_code_look(),
-            (color(ColorRole::Layer01), color(ColorRole::BorderSubtle00))
-        );
-        let (text, _, code) = runs(
+    fn inline_code_is_the_shared_tint() {
+        let (text, runs, code) = runs(
             &[t("a "), Inline::Code("x".into())],
             color(ColorRole::TextPrimary),
+            BODY.0,
         );
-        assert_eq!(&text[code[0].clone()], "\u{2009}x\u{2009}");
+        assert_eq!(&text[code[0].clone()], "\u{202F}x\u{202F}");
+        assert!(runs.iter().all(|r| r.background_color.is_none()));
     }
 }
