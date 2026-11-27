@@ -87,6 +87,7 @@ pub fn init(cx: &mut gpui_kit::App) {
     icons::init(cx);
     components::tooltip::init(cx);
     components::menu::init(cx);
+    components::navigation_menu::init(cx);
     components::date_picker::init(cx);
     components::overlay::init(cx);
     u0::shell::filter_menu::init(cx);

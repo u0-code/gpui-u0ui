@@ -6,7 +6,13 @@
 //! - **Behavior**: links and menu titles are Base `Button`s (focus,
 //!   Enter/Space, pointer). A `HeaderMenu` opens under its title on press or
 //!   ↓; inside it ↑/↓ move between items, Enter runs one, Escape (or a press
-//!   outside) closes and returns focus to the title. Placement is Base's
+//!   outside) closes and returns focus to the title. Tab and Shift+Tab follow
+//!   the reference's document order (title, items, then what follows the
+//!   menu): Tab on an open title enters the first item, Tab on an item moves
+//!   to the next, and Tab past the last item closes the menu and moves on to
+//!   the next element after it; Shift+Tab on the first item closes the menu
+//!   and returns to the title. They need [`init`]'s bindings, which beat
+//!   Base's window-level Tab. Placement is Base's
 //!   `Popup`; open state and focus moves come from [`super::overlay`].
 //! - **Appearance**: a 3rem bar on `background` with a 1px `border-subtle`
 //!   bottom line; the name in body-compact-01 600 with a 400 prefix, padded
@@ -35,7 +41,31 @@ use gpui_kit::{
     StatefulInteractiveElement as _, Styled, TestSupportExt as _, Window, div, hsla,
     prelude::FluentBuilder as _, px,
 };
+use gpui_kit::{KeyBinding, actions};
 use std::rc::Rc;
+
+actions!(
+    u0ui_navigation_menu,
+    [
+        /// Tab inside a header menu (its title or items).
+        TabNext,
+        /// Shift+Tab inside a header menu (its title or items).
+        TabPrev
+    ]
+);
+
+/// The key context of a header menu (its title and its open item list).
+const KEY_CONTEXT: &str = "U0NavigationMenu";
+
+/// Bind Tab and Shift+Tab inside header menus. The menu's items paint in a
+/// deferred layer, so in GPUI's tab order they come after everything else;
+/// these bindings put them back between their title and what follows it.
+pub(crate) fn init(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("tab", TabNext, Some(KEY_CONTEXT)),
+        KeyBinding::new("shift-tab", TabPrev, Some(KEY_CONTEXT)),
+    ]);
+}
 
 /// `a.cds--header__menu-item { transition: background-color 110ms, border-color 110ms, color 110ms }`
 /// (CSS `ease`, the closest Carbon curve being productive standard).
@@ -409,7 +439,7 @@ impl RenderOnce for NavigationMenu {
                 item.active || item.items.iter().any(|i| i.active),
                 false,
                 Some(open),
-                title_focus,
+                title_focus.clone(),
                 {
                     let set_open = set_open.clone();
                     Rc::new(move |window, cx| set_open(!open, None, window, cx))
@@ -433,9 +463,59 @@ impl RenderOnce for NavigationMenu {
                 window,
                 cx,
             );
+            let on_tab = {
+                let set_open = set_open.clone();
+                let title = title_focus.clone();
+                let items = item_focus.clone();
+                move |forward: bool, window: &mut Window, cx: &mut App| {
+                    let at = if title.is_focused(window) {
+                        None
+                    } else if let Some(i) = items.iter().position(|h| h.is_focused(window)) {
+                        Some(i)
+                    } else {
+                        cx.propagate();
+                        return;
+                    };
+                    match (at, forward) {
+                        // A closed menu's title is an ordinary tab stop.
+                        (None, _) if !open => {
+                            cx.propagate();
+                            return;
+                        }
+                        (None, true) => set_open(true, Some(0), window, cx),
+                        (None, false) => {
+                            set_open(false, None, window, cx);
+                            window.focus_prev(cx);
+                        }
+                        (Some(i), true) if i + 1 < count => set_open(true, Some(i + 1), window, cx),
+                        (Some(_), true) => {
+                            // Past the last item: close, and move on from
+                            // the title to what follows the menu (the items
+                            // are still in the last frame's tab order).
+                            set_open(false, None, window, cx);
+                            for _ in 0..=count {
+                                window.focus_next(cx);
+                                if !items.iter().any(|h| h.is_focused(window)) {
+                                    break;
+                                }
+                            }
+                        }
+                        (Some(0), false) => set_open(false, None, window, cx),
+                        (Some(i), false) => set_open(true, Some(i - 1), window, cx),
+                    }
+                    cx.stop_propagation();
+                }
+            };
+            let on_tab = Rc::new(on_tab);
             let popup = gpui_kit::base::Popup::new((item_id.clone(), "popup"), title)
                 .anchor(Anchor::TopLeft)
-                .h_full();
+                .h_full()
+                .key_context(KEY_CONTEXT)
+                .on_action({
+                    let on_tab = on_tab.clone();
+                    move |_: &TabNext, window, cx| on_tab(true, window, cx)
+                })
+                .on_action(move |_: &TabPrev, window, cx| on_tab(false, window, cx));
             if !open {
                 nav = nav.child(popup);
                 continue;
@@ -480,7 +560,7 @@ impl RenderOnce for NavigationMenu {
                             match event.keystroke.key.as_str() {
                                 "down" => set_key(true, Some((i + 1) % count), window, cx),
                                 "up" => set_key(true, Some((i + count - 1) % count), window, cx),
-                                "escape" | "tab" => set_key(false, None, window, cx),
+                                "escape" => set_key(false, None, window, cx),
                                 _ => return,
                             }
                             cx.stop_propagation();
