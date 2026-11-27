@@ -7,6 +7,7 @@
 //! - [`frame`]: [`PatternFrame`], the static modal anatomy (`Frame`,
 //!   `.cu-pframe`) the dialog and form examples compare side by side.
 //! - [`grid`]: [`PatternGrid`] (`.cu-pgrid`), the examples' grid.
+//! - [`menu`]: [`PatternMenu`] (`.cu-pmenu`), a menu drawn open in place.
 //! - [`pictogram`]: [`Pictogram`] (`Pic`, `.cu-ppic`), an icon drawn large
 //!   on an accent square, the empty-state illustration.
 //! - [`progress_indicator`]: [`ProgressIndicator`] (`.cds--progress`), the
@@ -17,6 +18,7 @@
 pub mod caption;
 pub mod frame;
 pub mod grid;
+pub mod menu;
 pub mod pictogram;
 pub mod progress_indicator;
 pub mod row;
@@ -26,6 +28,7 @@ pub mod text_toolbar;
 pub use caption::Caption;
 pub use frame::{FrameButton, FrameGeometry, PatternFrame};
 pub use grid::PatternGrid;
+pub use menu::{PatternMenu, PatternMenuItem};
 pub use pictogram::Pictogram;
 pub use progress_indicator::{ProgressIndicator, ProgressStep, StepStatus};
 pub use row::PatternRow;
