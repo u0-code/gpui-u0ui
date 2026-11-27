@@ -1,16 +1,15 @@
 //! Ghost · Foundations › Scrim: the dialog and palette veils over a mock
 //! page, live (press the scrim to dismiss it).
 //!
-//! The palette inside is the u0ui `Command` (the Ghost · Palette cards'
-//! `PalettePage` is drawn by that group).
+//! The palette inside is the Ghost · Palette `PalettePage`.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
     AnyElement, AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled,
     Window, div, rems,
 };
-use u0ui::components::{Command, CommandGroup, CommandItem};
 use u0ui::ghost::foundations::{Scrim, ScrimAlign, ScrimVariant};
+use u0ui::ghost::palette::{PaletteItem, PalettePage};
 use u0ui::prelude::*;
 
 /// Build the page.
@@ -39,22 +38,26 @@ fn backdrop() -> impl IntoElement {
         .children((0..4).map(|_| div().h(rems(1.5)).bg(color(ColorRole::Layer01))))
 }
 
+/// `h(C.PalettePage, null, h(C.PaletteItem, {icon: Add, title: 'New thread',
+/// shortcut: '⌘ N', active: true}), h(C.PaletteItem, {icon: Settings, title:
+/// 'Open settings', shortcut: '⌘ ,'}))` in a 360px box.
 fn palette(id: &'static str) -> impl IntoElement {
-    div().w(rems(22.5)).child(
-        Command::new(id).group(
-            CommandGroup::new("")
-                .item(
-                    CommandItem::new("New thread")
-                        .icon(CarbonIcon::Add)
-                        .shortcut("⌘ N"),
-                )
-                .item(
-                    CommandItem::new("Open settings")
-                        .icon(CarbonIcon::Settings)
-                        .shortcut("⌘ ,"),
-                ),
-        ),
-    )
+    div()
+        .w(rems(22.5))
+        .max_w_full()
+        .child(PalettePage::new(id).content(move |_, _, _| {
+            vec![
+                PaletteItem::new((id, 0usize), "New thread")
+                    .icon(CarbonIcon::Add)
+                    .shortcut("⌘ N")
+                    .active(true)
+                    .into_any_element(),
+                PaletteItem::new((id, 1usize), "Open settings")
+                    .icon(CarbonIcon::Settings)
+                    .shortcut("⌘ ,")
+                    .into_any_element(),
+            ]
+        }))
 }
 
 /// `components/Scrim/preview.html`: a 270px page under a palette scrim.

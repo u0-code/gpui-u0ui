@@ -1,8 +1,6 @@
 //! Ghost · Foundations › Truncation: paths and IDs truncate in the middle,
-//! titles at the end; live over a resizable width.
-//!
-//! The ⌘P row stands in for the Ghost · Palette `FileResultRow`: the file
-//! name (fuzzy-highlighted) whole, its directory truncated.
+//! titles at the end; live over a resizable width. The ⌘P row is the
+//! Ghost · Palette `FileResultRow`.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
@@ -10,7 +8,7 @@ use gpui_kit::{
     Window, div, rems,
 };
 use u0ui::ghost::foundations::{Truncate, TruncateMode};
-use u0ui::ghost::primitives::{HighlightedText, fuzzy_match};
+use u0ui::ghost::palette::FileResultRow;
 use u0ui::prelude::*;
 
 const PATH: &str = "packages/web/src/components/sidebar/SidebarThreadRow.tsx";
@@ -37,50 +35,9 @@ fn cell(content: impl IntoElement) -> impl IntoElement {
         .child(content)
 }
 
-/// The ⌘P file row: icon, highlighted name, truncated directory.
-fn file_row(query: &str) -> impl IntoElement {
-    let (dir, file) = PATH.rsplit_once('/').unwrap_or(("", PATH));
-    let hits = fuzzy_match(PATH, query).unwrap_or_default();
-    let offset = dir.chars().count() + 1;
-    let file_hits: Vec<usize> = hits
-        .iter()
-        .filter(|&&i| i >= offset)
-        .map(|i| i - offset)
-        .collect();
-    let dir_hits: Vec<usize> = hits.iter().copied().filter(|&i| i < offset - 1).collect();
-    div()
-        .flex()
-        .items_center()
-        .gap(tokens::SPACING_03)
-        .h(u0ui::density::current().row())
-        .px(tokens::SPACING_04)
-        .child(
-            Icon::carbon(CarbonIcon::Document)
-                .size(IconSize::S16)
-                .color(color(ColorRole::IconSecondary)),
-        )
-        .child(
-            div()
-                .flex_none()
-                .whitespace_nowrap()
-                .child(HighlightedText::new(file).indices(file_hits)),
-        )
-        .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .overflow_hidden()
-                .whitespace_nowrap()
-                .text_ellipsis()
-                .text_size(rems(0.75))
-                .text_color(color(ColorRole::TextSecondary))
-                .child(HighlightedText::new(dir).indices(dir_hits)),
-        )
-}
-
 /// `components/Truncation/preview.html`: 110px labels beside 260px cells.
 pub fn reference(prefix: &'static str) -> impl IntoElement {
-    let row = |label: &'static str, content: AnyElement| {
+    let row = |label: &'static str, content: AnyElement, padded: bool| {
         div()
             .flex()
             .items_center()
@@ -92,7 +49,17 @@ pub fn reference(prefix: &'static str) -> impl IntoElement {
                     .text_color(color(ColorRole::TextSecondary))
                     .child(label),
             )
-            .child(div().w(rems(260. / 16.)).flex().child(cell(content)))
+            .child(div().w(rems(260. / 16.)).flex().child(if padded {
+                cell(content).into_any_element()
+            } else {
+                // `h('span', {style: {background: 'var(--layer-01)'}}, FileResultRow)`.
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .bg(color(ColorRole::Layer01))
+                    .child(content)
+                    .into_any_element()
+            }))
     };
     div()
         .flex()
@@ -105,18 +72,25 @@ pub fn reference(prefix: &'static str) -> impl IntoElement {
             Truncate::new((prefix, 0usize), PATH)
                 .mode(TruncateMode::Path)
                 .into_any_element(),
+            true,
         ))
         .child(row(
             "Branch · middle",
             Truncate::new((prefix, 1usize), BRANCH)
                 .mode(TruncateMode::Middle)
                 .into_any_element(),
+            true,
         ))
         .child(row(
             "Title · end",
             Truncate::new((prefix, 2usize), TITLE).into_any_element(),
+            true,
         ))
-        .child(row("Palette ⌘P", file_row("sbtr").into_any_element()))
+        .child(row(
+            "Palette ⌘P",
+            FileResultRow::new((prefix, 3usize), PATH, "sbtr").into_any_element(),
+            false,
+        ))
 }
 
 /// The overview tile.

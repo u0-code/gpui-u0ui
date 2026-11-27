@@ -1,8 +1,6 @@
 //! Ghost · Foundations › WindowChrome: the macOS frame with title bar,
-//! traffic-light inset and sidebar material, focused or not.
-//!
-//! The sidebar rows are the T3 `ThreadRow` (the Ghost · Shell thread row
-//! is drawn by that group).
+//! traffic-light inset and sidebar material, focused or not. The sidebar
+//! rows are the Ghost · Shell `GhostThreadRow`.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
@@ -11,9 +9,8 @@ use gpui_kit::{
 };
 use u0ui::components::{Button, ButtonSize, ButtonVariant};
 use u0ui::ghost::foundations::WindowChrome;
+use u0ui::ghost::shell::{GhostThreadRow, ThreadStatus};
 use u0ui::prelude::*;
-use u0ui::t3::Status;
-use u0ui::t3::shell::sidebar::ThreadRow;
 
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
@@ -36,17 +33,17 @@ fn sidebar(prefix: &'static str) -> impl IntoElement {
         .flex()
         .flex_col()
         .child(
-            ThreadRow::new((prefix, 0usize), "Add dark theme tokens")
-                .status(Status::Working)
+            GhostThreadRow::new((prefix, 0usize), "Add dark theme tokens")
+                .status(ThreadStatus::Working)
                 .elapsed(74)
-                .active(true),
+                .current(true),
         )
         .child(
-            ThreadRow::new((prefix, 1usize), "Fix flaky date picker test")
-                .status(Status::NeedsYou)
+            GhostThreadRow::new((prefix, 1usize), "Fix flaky date picker test")
+                .status(ThreadStatus::NeedsYou)
                 .time("3m"),
         )
-        .child(ThreadRow::new((prefix, 2usize), "Write migration guide").time("1h"))
+        .child(GhostThreadRow::new((prefix, 2usize), "Write migration guide").time("1h"))
 }
 
 fn window(prefix: &'static str, focused: bool, with_sidebar: bool, lights: bool) -> WindowChrome {

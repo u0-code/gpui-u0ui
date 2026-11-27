@@ -7,6 +7,7 @@ use gpui_kit::{
     Window, div, px, rems,
 };
 use u0ui::ghost::foundations::{AGENT_ACCENTS, TokenSwatches, agent_accent};
+use u0ui::ghost::thread::ContinueRow;
 use u0ui::prelude::*;
 use u0ui::t3::ProviderIcon;
 
@@ -45,8 +46,8 @@ fn providers() -> impl IntoElement {
         }))
 }
 
-/// `components/AgentColors/preview.html` (the ContinueRow belongs to the
-/// Ghost · Thread cards and joins this specimen when they land).
+/// `components/AgentColors/preview.html`: the slots, the provider marks, and
+/// a 420px ContinueRow carrying slot 1.
 pub fn reference(id: &'static str) -> impl IntoElement {
     div()
         .flex()
@@ -58,6 +59,15 @@ pub fn reference(id: &'static str) -> impl IntoElement {
                 .columns(8),
         )
         .child(providers())
+        .child(
+            div().w(px(420.)).max_w_full().child(
+                ContinueRow::new(format!("{id}-continue"), "Add dark theme tokens")
+                    .project("carbon-ui")
+                    .agent("Claude")
+                    .accent(1)
+                    .time("2m ago"),
+            ),
+        )
 }
 
 /// The overview tile.
