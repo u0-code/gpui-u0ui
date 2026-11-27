@@ -294,6 +294,11 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("pull-request-stack", "PullRequestStack", "T3 · Pull requests & issues", Component::PullRequestStack.summary(), pages::t3_review::pull_request_stack::build).thumbnail(pages::t3_review::pull_request_stack::thumbnail),
     PageDef::new("pull-request-timeline", "PullRequestTimeline", "T3 · Pull requests & issues", Component::PullRequestTimeline.summary(), pages::t3_review::pull_request_timeline::build).thumbnail(pages::t3_review::pull_request_timeline::thumbnail),
     PageDef::new("review-form", "ReviewForm", "T3 · Pull requests & issues", Component::ReviewForm.summary(), pages::t3_review::review_form::build).thumbnail(pages::t3_review::review_form::thumbnail),
+    PageDef::new("sidebar-brand-header", "SidebarBrandHeader", "T3 · Shell", Component::SidebarBrandHeader.summary(), pages::t3_shell::sidebar::build_brand_header).thumbnail(pages::t3_shell::sidebar::brand_thumbnail),
+    PageDef::new("project-folder-header", "ProjectFolderHeader", "T3 · Shell", Component::ProjectFolderHeader.summary(), pages::t3_shell::sidebar::build_folder_header).thumbnail(pages::t3_shell::sidebar::folder_thumbnail),
+    PageDef::new("sidebar-shelf-header", "SidebarShelfHeader", "T3 · Shell", Component::SidebarShelfHeader.summary(), pages::t3_shell::sidebar::build_shelf_header).thumbnail(pages::t3_shell::sidebar::shelf_thumbnail),
+    PageDef::new("thread-row", "ThreadRow", "T3 · Shell", Component::ThreadRow.summary(), pages::t3_shell::sidebar::build_thread_row).thumbnail(pages::t3_shell::sidebar::thread_thumbnail),
+    PageDef::new("update-pill", "UpdatePill", "T3 · Shell", Component::UpdatePill.summary(), pages::t3_shell::sidebar::build_update_pill).thumbnail(pages::t3_shell::sidebar::update_thumbnail),
 ];
 
 /// Look a page up by id.

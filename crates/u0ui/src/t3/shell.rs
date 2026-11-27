@@ -5,6 +5,8 @@
 //! [`EnvironmentMachineIcon`], [`ConnectionStatusDot`], [`EnvironmentBadge`],
 //! [`StatusPill`] and the split-button chevron [`IconMenu`].
 //!
+//! The cards: the sidebar ([`sidebar`]).
+//!
 //! Values come from `src/t3.css` (`/* Identity */`), with the later craft
 //! passes applied: provider marks are glyphs, never two-letter tiles
 //! (`r2-desk`, `r3-gal`), and project monograms are neutral (`r2-desk`).
@@ -29,6 +31,13 @@ use gpui_kit::{
 };
 use std::rc::Rc;
 use std::time::Duration;
+
+pub mod sidebar;
+
+pub use sidebar::{
+    FolderCounts, PrState, ProjectFolderHeader, PullRequestMiniBadge, SidebarBrandHeader,
+    SidebarShelfHeader, ThreadRow, UpdatePill, UpdateState,
+};
 
 /// A plain hover tooltip standing in for the HTML `title` attribute (a
 /// native browser tooltip, not a Carbon `Tooltip`): Kit's window tooltip.
