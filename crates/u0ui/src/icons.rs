@@ -413,6 +413,27 @@ mod tests {
     }
 
     #[test]
+    fn overflow_dots_draw_the_reference_paths() {
+        // The bundle's `more_horiz` is three 96-unit dots 272 apart (from
+        // x 160), lighter than the font's 160-unit dots: the reference
+        // path, not the font glyph.
+        for icon in [
+            CarbonIcon::OverflowMenuHorizontal,
+            CarbonIcon::OverflowMenuVertical,
+        ] {
+            let d = icon.custom_glyph().expect("reference path");
+            assert_eq!(d.matches('Z').count(), 3);
+            assert!(
+                Icon::carbon(icon)
+                    .asset_path()
+                    .starts_with("u0ui/glyphs/more_")
+            );
+        }
+        let d = CarbonIcon::OverflowMenuHorizontal.custom_glyph().unwrap();
+        assert!(d.starts_with("M207.86-432"));
+    }
+
+    #[test]
     fn kit_defaults_map_to_sharp() {
         let mapped: Vec<&str> = kit_mapping::mappings().map(|(path, _)| path).collect();
         for (path, icon) in kit_mapping::mappings() {

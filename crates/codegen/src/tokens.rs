@@ -71,9 +71,12 @@ pub fn carbon_icons(js: &str) -> String {
     out
 }
 
-/// Reference glyphs that are not in the Material catalog: the bundle draws
-/// them from its own path data (`P[key][0]` in `material.js`).
-const CUSTOM_GLYPHS: [&str; 2] = ["dash", "pull_request"];
+/// Reference glyphs drawn from the bundle's own path data (`P[key][0]` in
+/// `material.js`) instead of the Material Symbols font: `dash` and
+/// `pull_request` are not in the Material catalog, and the bundle's overflow
+/// dots (`more_horiz`, `more_vert`) are an older design than the font's
+/// (1.6px dots 4.5px apart at 16px, against the font's 2.7px dots 4px apart).
+const CUSTOM_GLYPHS: [&str; 4] = ["dash", "pull_request", "more_horiz", "more_vert"];
 
 /// [`CUSTOM_GLYPHS`] with their path data from the bundle's `P` table.
 fn custom_glyphs(js: &str, out: &mut String) {
