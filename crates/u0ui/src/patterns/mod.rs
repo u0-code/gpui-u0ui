@@ -19,6 +19,8 @@
 //! - [`indicator`]: icon, shape and difference status indicators
 //!   (`.cds--icon-indicator`, `.cds--shape-indicator`, `.cu-pdiff`).
 //! - [`menu`]: [`PatternMenu`] (`.cu-pmenu`), a menu drawn open in place.
+//! - [`number_input`]: [`NumberInput`] (`.cds--number`), the full-width
+//!   number field with its − / + buttons at the end.
 //! - [`pictogram`]: [`Pictogram`] (`Pic`, `.cu-ppic`), an icon drawn large
 //!   on an accent square, the empty-state illustration.
 //! - [`popover_panel`]: [`PatternPopover`] (`.cu-ppop`) with its
@@ -39,6 +41,7 @@ pub mod frame;
 pub mod grid;
 pub mod indicator;
 pub mod menu;
+pub mod number_input;
 pub mod pictogram;
 pub mod popover_panel;
 pub mod progress_indicator;
@@ -59,6 +62,7 @@ pub use indicator::{
     DiffIndicator, IconIndicator, IconIndicatorKind, ShapeIndicator, ShapeIndicatorKind,
 };
 pub use menu::{PatternMenu, PatternMenuItem};
+pub use number_input::NumberInput;
 pub use pictogram::Pictogram;
 pub use popover_panel::{PatternLink, PatternPopover, PatternRule};
 pub use progress_indicator::{ProgressIndicator, ProgressStep, StepStatus};

@@ -270,6 +270,7 @@ pub struct Slider {
     disabled: bool,
     readonly: bool,
     hide_input: bool,
+    natural_width: bool,
     density: Option<Density>,
     level: LayerLevel,
 }
@@ -285,6 +286,7 @@ impl Slider {
             disabled: false,
             readonly: false,
             hide_input: false,
+            natural_width: false,
             density: None,
             level: LayerLevel::One,
         }
@@ -316,6 +318,16 @@ impl Slider {
     /// Hide the value input (Carbon `hideTextInput`).
     pub fn hide_input(mut self, hide: bool) -> Self {
         self.hide_input = hide;
+        self
+    }
+
+    /// Keep the slider at its `min-inline-size` (12.5rem) instead of filling
+    /// the row. Carbon's slider sits in a `.cds--form-item` (`align-items:
+    /// flex-start`), so its container shrinks to fit and the `inline-size:
+    /// 100%` slider falls back to the minimum. Off by default: the slider
+    /// fills the row up to 40rem.
+    pub fn natural_width(mut self, natural: bool) -> Self {
+        self.natural_width = natural;
         self
     }
 
@@ -658,9 +670,13 @@ impl RenderOnce for Slider {
             .when_some(self.label.clone(), |this, label| {
                 this.accessibility_label(label)
             })
-            .flex_1()
-            .min_w(rem(200.))
-            .max_w(rem(640.))
+            .map(|this| {
+                if self.natural_width {
+                    this.flex_none().w(rem(200.))
+                } else {
+                    this.flex_1().min_w(rem(200.)).max_w(rem(640.))
+                }
+            })
             .when(range, |this| this.mx(rem(4.)))
             .flex()
             .child(track);

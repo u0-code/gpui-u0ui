@@ -10,10 +10,9 @@ use gpui_kit::{
 };
 use u0ui::components::slider::{Slider, SliderState};
 use u0ui::components::{
-    Checkbox, FieldSize, Input, RadioGroup, RadioGroupItem, Select, Switch, SwitchSize,
+    Checkbox, FieldSize, Input, RadioGroup, RadioGroupItem, Select, Switch, SwitchSize, form,
 };
-use u0ui::ghost::primitives::Stepper;
-use u0ui::patterns::{Caption, PatternGrid};
+use u0ui::patterns::{Caption, NumberInput, PatternGrid};
 use u0ui::prelude::*;
 
 /// The page's field states, one set per preview.
@@ -91,27 +90,30 @@ fn read_only_column(prefix: &'static str, f: &Fields, readonly: bool, empty: boo
         )
         .child(agent)
         .child(
-            Stepper::new(id("parallel"))
+            // `K.NumberInput`: full width, − / + at the end.
+            NumberInput::new(id("parallel"))
                 .label("Max parallel agents")
                 .default_value(3.)
                 .min(1.)
                 .max(8.)
+                .button_labels("Decrement number", "Increment number")
                 .readonly(readonly),
         )
         .child(
-            // `display: flex; gap: 24`.
+            // `display: flex; gap: 24` (items stretch, so both start at the
+            // top). The checkbox is a `.cds--form-item` (`flex: 1 1 auto`):
+            // it takes the free space and the toggle ends the row.
             div()
                 .flex()
                 .flex_row()
-                .flex_wrap()
-                .items_center()
+                .items_start()
                 .gap(tokens::SPACING_06)
-                .child(
+                .child(form::flex_form_item(
                     Checkbox::new(id("accept"))
                         .label("Auto-accept edits")
                         .default_checked(true)
                         .readonly(readonly),
-                )
+                ))
                 .child(
                     Switch::new(id("telemetry"))
                         .label("Telemetry")
@@ -152,6 +154,8 @@ fn compare_column(prefix: &'static str, f: &Fields) -> AnyElement {
         .child(
             Slider::new(id("level"), &f.level)
                 .label("Telemetry level (read-only)")
+                // `.cds--slider` in its shrink-to-fit form item: 12.5rem.
+                .natural_width(true)
                 .hide_input(true)
                 .readonly(true),
         )
