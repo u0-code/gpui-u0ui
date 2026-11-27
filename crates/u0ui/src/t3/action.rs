@@ -7,6 +7,7 @@
 //!
 //! [`Button`]: crate::components::Button
 use crate::components::button::{ButtonKind, ButtonState, Look};
+use crate::components::floating::Align;
 use crate::t3::press::{Handler, inset_frame, rem};
 use crate::{
     components::Tooltip,
@@ -103,6 +104,8 @@ pub(crate) struct ActionButton {
     tooltip: Option<SharedString>,
     on_click: Option<Handler>,
     square: bool,
+    ink: Option<Hsla>,
+    tooltip_align: Align,
 }
 
 impl ActionButton {
@@ -124,6 +127,8 @@ impl ActionButton {
             tooltip: None,
             on_click: None,
             square: false,
+            ink: None,
+            tooltip_align: Align::Top,
         }
     }
 
@@ -165,6 +170,18 @@ impl ActionButton {
     }
 
     /// An icon-only square (`inline-size: block-size`), content centred.
+    /// The text and icon color instead of the kind's (e.g. `icon-secondary`).
+    pub(crate) fn ink(mut self, ink: Hsla) -> Self {
+        self.ink = Some(ink);
+        self
+    }
+
+    /// Where the tooltip opens (default above).
+    pub(crate) fn tooltip_align(mut self, align: Align) -> Self {
+        self.tooltip_align = align;
+        self
+    }
+
     pub(crate) fn square(mut self, square: bool) -> Self {
         self.square = square;
         self
@@ -196,6 +213,11 @@ impl RenderOnce for ActionButton {
             }
         };
         let (bg, ink, frame, ring, inset) = action_look(self.kind, state);
+        let ink = if self.disabled {
+            ink
+        } else {
+            self.ink.unwrap_or(ink)
+        };
         // `.cds--btn { transition: background 70ms … }`.
         let bg = motion::animate_color((id.clone(), "bg"), bg, Motion::HOVER, window, cx);
         let parts: Vec<AnyElement> = self
@@ -319,6 +341,7 @@ impl RenderOnce for ActionButton {
         match self.tooltip {
             Some(text) => Tooltip::new((id, "tooltip"), button)
                 .content(text)
+                .align(self.tooltip_align)
                 .into_any_element(),
             None => button.into_any_element(),
         }
