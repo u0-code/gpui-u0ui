@@ -6,6 +6,7 @@
 //! - [`shell`]: shell, navigation and identity (`shell.jsx`).
 //! - [`composer`]: the composer (`composer.jsx`).
 //! - [`review`]: diffs and review threads (`review.jsx`).
+//! - [`timeline`]: the thread timeline (`timeline.jsx`).
 mod action;
 pub mod base;
 pub mod composer;
@@ -14,6 +15,7 @@ pub mod mobile;
 mod press;
 pub mod review;
 pub mod shell;
+pub mod timeline;
 
 pub use base::{Spin, Status, Tone, fmt_elapsed};
 pub use shell::{
