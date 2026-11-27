@@ -5,7 +5,7 @@
 //!
 //! Values come from `src/ghost.css`; the identity glyphs, status dots and the
 //! spinner are the T3 ones ([`crate::t3::shell`], [`crate::t3::base`]).
-mod filter_menu;
+pub(crate) mod filter_menu;
 mod server;
 mod thread_row;
 

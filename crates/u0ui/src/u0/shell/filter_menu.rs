@@ -8,7 +8,14 @@
 //! open) filtering the options by substring, the options with their check
 //! box, optional icon, fuzzy-highlighted label and count, "No matching
 //! projects" when none match, and "Select all" / "Clear" links. Escape
-//! closes it and returns focus to the trigger; a press outside closes it.
+//! closes it and returns focus to the trigger; a press outside closes it,
+//! and so does focus leaving the panel and its trigger (the reference's
+//! `onBlur`). Tab follows the reference's DOM order, where the panel sits
+//! right after its trigger: Tab on the open trigger enters the search
+//! field, Shift+Tab from the search field returns to the trigger (the panel
+//! stays open), and Tab from "Clear" closes the panel and moves on to the
+//! stop after the trigger. These need [`init`]'s bindings, which beat
+//! Base's window-level Tab.
 //! The panel hangs from the trigger's start edge 4px below it (flipping
 //! above it when only that side has room), like a Carbon dropdown
 //! ([`crate::components::overlay::DropAnchor`]); positioning, focus return
@@ -33,7 +40,39 @@ use gpui_kit::{
     StatefulInteractiveElement as _, Styled, Window, component::input::InputState, div,
     prelude::FluentBuilder as _, px,
 };
+use gpui_kit::{KeyBinding, TestSupportExt as _, actions};
 use std::rc::Rc;
+
+actions!(
+    u0ui_filter_menu,
+    [
+        /// Tab on the open trigger: into the search field.
+        IntoPanel,
+        /// Shift+Tab from the search field: back to the trigger, still open.
+        BackToTrigger,
+        /// Tab from the panel's last stop ("Clear"): close the panel and go
+        /// on to the stop after the trigger.
+        TabOut
+    ]
+);
+
+/// The key context of an open menu's trigger.
+const TRIGGER_CONTEXT: &str = "U0FilterMenuTrigger";
+/// The key context around the search field (the panel's first stop).
+const FIRST_CONTEXT: &str = "U0FilterMenuFirst";
+/// The key context around "Clear" (the panel's last stop).
+const LAST_CONTEXT: &str = "U0FilterMenuLast";
+
+/// Bind Tab and Shift+Tab at the panel's edges. A binding in an element's
+/// own key context is deeper than Base's window-level `root::Tab`, so it
+/// wins. Called by [`crate::init`].
+pub(crate) fn init(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("tab", IntoPanel, Some(TRIGGER_CONTEXT)),
+        KeyBinding::new("shift-tab", BackToTrigger, Some(FIRST_CONTEXT)),
+        KeyBinding::new("tab", TabOut, Some(LAST_CONTEXT)),
+    ]);
+}
 
 /// `.g-fmenu-pop { top: calc(100% + 4px) }`: the gap under the trigger.
 pub const POP_GAP: f32 = 4.;
@@ -255,6 +294,41 @@ fn link_button(
         .when(ring, |b| b.child(focus_ring()))
 }
 
+/// Tab from "Clear": close the panel and move to the stop after the
+/// trigger, where the reference's DOM order (panel right after its trigger)
+/// takes focus. Base's `root::Tab` does each step, so a focus trap around
+/// the menu still holds. GPUI orders the floating panel's stops apart from
+/// the page's (last, as it paints last), so steps that land in the closing
+/// panel go on through it.
+fn tab_out(
+    trigger: FocusHandle,
+    surface: FocusHandle,
+    set_open: overlay::OpenChange,
+) -> impl Fn(&TabOut, &mut Window, &mut App) + 'static {
+    move |_, window, cx| {
+        cx.stop_propagation();
+        set_open(false, window, cx);
+        trigger.focus(window, cx);
+        let Ok(tab) = cx.build_action("root::Tab", None) else {
+            return;
+        };
+        let mut seen = Vec::new();
+        loop {
+            let Some(from) = window.focused(cx) else {
+                break;
+            };
+            if seen.contains(&from) {
+                break;
+            }
+            from.dispatch_action(&*tab, window, cx);
+            seen.push(from);
+            if !surface.contains_focused(window, cx) {
+                break;
+            }
+        }
+    }
+}
+
 impl RenderOnce for FilterMenu {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
@@ -304,7 +378,33 @@ impl RenderOnce for FilterMenu {
                 .text_color(color(ColorRole::TextOnColor))
                 .child(values.len().to_string())
         });
+        // Focus leaving the panel and its trigger closes the panel without
+        // moving focus back (the reference's `onBlur` on `.g-fmenu`, whose
+        // `contains(relatedTarget)` counts the trigger as inside). Focus
+        // enters a frame after the open, so only a panel focus has had
+        // focus can lose it.
+        let had_focus = window.use_keyed_state((id.clone(), "had-focus"), cx, |_, _| false);
+        if !open {
+            if *had_focus.read(cx) {
+                had_focus.update(cx, |v, _| *v = false);
+            }
+        } else if surface_focus.contains_focused(window, cx) {
+            if !*had_focus.read(cx) {
+                had_focus.update(cx, |v, _| *v = true);
+            }
+        } else if *had_focus.read(cx) && !tfocus.is_focused(window) {
+            had_focus.update(cx, |v, _| *v = false);
+            let set_open = set_open.clone();
+            window.defer(cx, move |window, cx| set_open(false, window, cx));
+        }
         let toggle = set_open.clone();
+        let into_panel = {
+            let search_focus = search_focus.clone();
+            move |_: &IntoPanel, window: &mut Window, cx: &mut App| {
+                search_focus.focus(window, cx);
+                cx.stop_propagation();
+            }
+        };
         // `.g-fmenu-trigger { display: inline-flex; align-items: center; gap:
         // var(--spacing-02); height: var(--density-field-sm); padding: 0
         // var(--spacing-03); font-size: 0.75rem }`, hover `layer-hover-01`.
@@ -332,6 +432,9 @@ impl RenderOnce for FilterMenu {
             })
         })
         .on_click(move |_, w, cx| toggle(!open, w, cx))
+        .when(open, |b| {
+            b.key_context(TRIGGER_CONTEXT).on_action(into_panel)
+        })
         .child(
             Icon::carbon(CarbonIcon::Filter)
                 .size_length(rem(16.))
@@ -448,6 +551,7 @@ impl RenderOnce for FilterMenu {
             // box-shadow: 0 2px 6px var(--shadow) }`.
             div()
                 .id((id.clone(), "surface"))
+                .test_support()
                 .track_focus(&surface_focus)
                 .tab_group()
                 .flex()
@@ -469,6 +573,14 @@ impl RenderOnce for FilterMenu {
                     // var(--spacing-04); border-bottom: 1px solid var(--border-subtle-01) }`,
                     // `:focus-within` outline.
                     div()
+                        .key_context(FIRST_CONTEXT)
+                        .on_action({
+                            let tfocus = tfocus.clone();
+                            move |_: &BackToTrigger, window: &mut Window, cx: &mut App| {
+                                tfocus.focus(window, cx);
+                                cx.stop_propagation();
+                            }
+                        })
                         .relative()
                         .flex()
                         .items_center()
@@ -534,13 +646,22 @@ impl RenderOnce for FilterMenu {
                             window,
                             cx,
                         ))
-                        .child(link_button(
-                            (id.clone(), "clear").into(),
-                            self.texts.clear.clone(),
-                            move |w, cx| set_none(Vec::new(), w, cx),
-                            window,
-                            cx,
-                        )),
+                        .child(
+                            div()
+                                .key_context(LAST_CONTEXT)
+                                .on_action(tab_out(
+                                    tfocus.clone(),
+                                    surface_focus.clone(),
+                                    set_open.clone(),
+                                ))
+                                .child(link_button(
+                                    (id.clone(), "clear").into(),
+                                    self.texts.clear.clone(),
+                                    move |w, cx| set_none(Vec::new(), w, cx),
+                                    window,
+                                    cx,
+                                )),
+                        ),
                 )
         });
         // `.g-fmenu-pop { position: absolute; top: calc(100% + 4px); left: 0 }`:

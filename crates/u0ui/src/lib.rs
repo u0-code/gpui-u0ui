@@ -87,6 +87,7 @@ pub fn init(cx: &mut gpui_kit::App) {
     icons::init(cx);
     components::tooltip::init(cx);
     components::menu::init(cx);
+    u0::shell::filter_menu::init(cx);
     if cx.try_global::<density::ActiveDensity>().is_none() {
         cx.set_global(density::ActiveDensity(density::current()));
     }
