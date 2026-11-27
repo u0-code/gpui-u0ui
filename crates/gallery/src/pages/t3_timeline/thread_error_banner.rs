@@ -38,8 +38,7 @@ fn usage(id: &'static str) -> ThreadErrorBanner {
         .action(
             Button::new((gpui_kit::ElementId::from(id), "switch"), "Switch model")
                 .variant(ButtonVariant::Secondary)
-                .size(ButtonSize::Sm)
-                .balanced(true),
+                .size(ButtonSize::Sm),
         )
 }
 
@@ -73,8 +72,7 @@ impl Render for BannerPage {
             banner = banner.action(
                 Button::new("tb-live-restart", "Restart agent")
                     .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .balanced(true),
+                    .size(ButtonSize::Sm),
             );
         }
         let kinds = ThreadBannerKind::ALL.map(|k| k.name());

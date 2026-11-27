@@ -1087,7 +1087,6 @@ impl RenderOnce for ProposedPlanCard {
                     .child(
                         Button::new((id.clone(), "implement"), texts.implement.clone())
                             .size(ButtonSize::Sm)
-                            .balanced(true)
                             .when_some(self.on_implement.clone(), |b, f| {
                                 b.on_click(move |_, w, cx| f(w, cx))
                             }),
@@ -1201,7 +1200,6 @@ impl RenderOnce for RequestCard {
                     .child(
                         Button::new((id.clone(), "primary"), self.primary.clone())
                             .size(ButtonSize::Sm)
-                            .balanced(true)
                             .when_some(self.on_primary.clone(), |b, f| {
                                 b.on_click(move |_, w, cx| f(w, cx))
                             }),

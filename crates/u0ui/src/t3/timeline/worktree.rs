@@ -497,7 +497,6 @@ impl RenderOnce for WorktreeSetupCard {
                         Button::new((id.clone(), "local"), texts.work_locally.clone())
                             .variant(ButtonVariant::Secondary)
                             .size(ButtonSize::Sm)
-                            .balanced(true)
                             .when_some(f, |b, f| b.on_click(move |_, w, cx| f(w, cx))),
                     )
                 });

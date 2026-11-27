@@ -259,8 +259,7 @@ fn surface_reference() -> impl IntoElement {
                         .action(
                             Button::new("fsurf-ref-1-show", "Show anyway")
                                 .size(ButtonSize::Sm)
-                                .variant(ButtonVariant::Secondary)
-                                .balanced(true),
+                                .variant(ButtonVariant::Secondary),
                         )
                         .into_any_element(),
                 )),
@@ -315,8 +314,7 @@ impl Render for SurfacePage {
             live = live.action(
                 Button::new("fsurf-live-action", "Show anyway")
                     .size(ButtonSize::Sm)
-                    .variant(ButtonVariant::Secondary)
-                    .balanced(true),
+                    .variant(ButtonVariant::Secondary),
             );
         }
         let kinds = FileSurfaceKind::ALL.map(|k| k.name());
@@ -392,7 +390,6 @@ impl Render for MiniPage {
                     Button::new("mini-reopen", "Reopen")
                         .size(ButtonSize::Sm)
                         .variant(ButtonVariant::Tertiary)
-                        .balanced(true)
                         .on_click({
                             let entity = entity.clone();
                             move |_, _, cx| {
@@ -831,7 +828,6 @@ impl Render for TerminalPage {
                 Button::new("term-reset", "Restore tabs")
                     .size(ButtonSize::Sm)
                     .variant(ButtonVariant::Tertiary)
-                    .balanced(true)
                     .on_click({
                         let entity = entity.clone();
                         move |_, _, cx| {

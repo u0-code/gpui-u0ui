@@ -488,7 +488,6 @@ impl RenderOnce for PermissionChecklist {
                 Button::new(child_id(&id, "open", i), self.texts.open.clone())
                     .size(ButtonSize::Sm)
                     .variant(ButtonVariant::Secondary)
-                    .balanced(true)
                     .when_some(f, |b, f| b.on_click(move |_, w, cx| f(i, w, cx)))
                     .into_any_element()
             };

@@ -350,7 +350,6 @@ impl RenderOnce for WorkflowRunFeed {
                         div().flex().flex_row().child(
                             Button::new(child_id(&id, "answer", i), self.texts.answer.clone())
                                 .size(ButtonSize::Sm)
-                                .balanced(true)
                                 .when_some(f, |b, f| b.on_click(move |_, w, cx| f(i, w, cx))),
                         ),
                     )

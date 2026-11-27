@@ -279,13 +279,11 @@ impl RenderOnce for ComposerPrimaryActions {
                 self.answer_label.clone().unwrap_or(t.answer.clone()),
             )
             .size(ButtonSize::Md)
-            .balanced(true)
             .on_click(click(self.on_send.clone()))
             .into_any_element(),
             ComposerState::Submitting => {
                 Button::new((id.clone(), "submitting"), t.submitting.clone())
                     .size(ButtonSize::Md)
-                    .balanced(true)
                     .disabled(true)
                     .into_any_element()
             }

@@ -424,8 +424,7 @@ impl RenderOnce for ProviderInstanceCard {
                                             ButtonVariant::Primary
                                         } else {
                                             ButtonVariant::Tertiary
-                                        })
-                                        .balanced(true),
+                                        }),
                                     self.on_run.clone(),
                                 ))
                                 .child(click(
@@ -899,14 +898,12 @@ impl RenderOnce for Wizard {
                         Button::new((id.clone(), "back"), self.texts.back.clone())
                             .variant(ButtonVariant::Secondary)
                             .size(ButtonSize::Xl)
-                            .balanced(true)
                             .disabled(self.current == 0),
                         self.on_back.clone(),
                     )))
                     .child(half(click(
                         Button::new((id.clone(), "next"), self.texts.next.clone())
-                            .size(ButtonSize::Xl)
-                            .balanced(true),
+                            .size(ButtonSize::Xl),
                         self.on_next.clone(),
                     ))),
             )

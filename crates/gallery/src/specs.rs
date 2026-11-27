@@ -216,14 +216,24 @@ pub fn button(_: &mut Window, _: &mut App) -> AnyElement {
     for size in ButtonSize::ALL {
         let compact = Geometry::of(size, Density::Compact, ButtonKind::Primary, false);
         let comfortable = Geometry::of(size, Density::Comfortable, ButtonKind::Primary, false);
+        let text_only = Geometry::for_content(
+            size,
+            Density::Comfortable,
+            ButtonKind::Primary,
+            false,
+            false,
+        );
         sizes.push(vec![
             text(size.name()),
             px_text(size.carbon_height()),
             px_text(compact.height),
             px_text(comfortable.height),
             text(format!(
-                "{} / {} / {}",
-                comfortable.padding_top, comfortable.padding_right, comfortable.padding_left
+                "{} / {} ({} text-only) / {}",
+                comfortable.padding_top,
+                comfortable.padding_right,
+                text_only.padding_right,
+                comfortable.padding_left
             )),
         ]);
     }
@@ -288,6 +298,8 @@ pub fn button(_: &mut Window, _: &mut App) -> AnyElement {
                 "Container: square, kind fill (`button-*`)",
                 "Label: body-compact-01, text-on-color",
                 "Icon: 16px Material Symbol, 16px from the end",
+                "Text-only (non-ghost): no icon slot, 16px end padding",
+                "Disabled tertiary / danger outlines: layer-01, text-secondary, 1px border-subtle-01",
                 "Focus: 2px focus ring, 1px focus-inset inside on filled kinds",
             ],
         ),
@@ -302,7 +314,7 @@ pub fn button(_: &mut Window, _: &mut App) -> AnyElement {
                     "Carbon",
                     "Compact",
                     "Comfortable",
-                    "Padding t / r / l",
+                    "Padding t / r / l (px)",
                 ],
                 sizes,
             ))

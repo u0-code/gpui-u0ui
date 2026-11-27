@@ -334,9 +334,22 @@ impl Look {
         };
 
         if state.disabled {
-            // `.cds--btn:disabled`: button-disabled fill and border,
-            // text-on-color-disabled; tertiary/ghost/link variants override.
             look = match kind {
+                // `t3.css` global craft pass (gemini-A, "disabled buttons stay
+                // legible"): `.cds--btn:disabled:not(.cds--btn--ghost)
+                // :not(.cds--btn--icon-only) { background: layer-01; color:
+                // text-secondary; box-shadow: inset 0 0 0 1px border-subtle-01;
+                // border-color: transparent }`. It outranks the per-kind
+                // `:disabled` rules, `.cds--btn--danger--ghost` included (that
+                // class is not `.cds--btn--ghost`); the inset line is drawn as
+                // the 1px border. Primary, secondary and danger are taken back
+                // by the later r2-gal rule below.
+                ButtonKind::Tertiary | ButtonKind::DangerTertiary | ButtonKind::DangerGhost
+                    if !icon_only =>
+                {
+                    Look::plain(c(Layer01), c(BorderSubtle01), c(TextSecondary))
+                }
+                // `.cds--btn--tertiary:disabled`, `.cds--btn--danger--tertiary:disabled`.
                 ButtonKind::Tertiary | ButtonKind::DangerTertiary => {
                     Look::plain(clear, c(ButtonDisabled), c(TextDisabled))
                 }
@@ -348,6 +361,14 @@ impl Look {
                     }
                     look
                 }
+                // `.cds--btn:disabled`: button-disabled fill and border,
+                // text-on-color-disabled. For text buttons this is the r2-gal
+                // rule that follows the craft pass in `t3.css`: "disabled filled
+                // buttons (primary, secondary, danger) use Carbon's disabled fill
+                // so they never read as a tertiary or ghost" (`.cds--btn.cds--btn--
+                // primary:disabled:not(.cds--btn--icon-only), … { background:
+                // button-disabled; color: text-on-color-disabled; box-shadow:
+                // none }`).
                 _ => Look::plain(c(ButtonDisabled), c(ButtonDisabled), c(TextOnColorDisabled)),
             };
             return look;
@@ -389,7 +410,9 @@ pub struct Geometry {
     pub padding_top: f32,
     /// `padding-inline-start`: `spacing-05 − 1px` = 15px.
     pub padding_left: f32,
-    /// `padding-inline-end`: `3 × 16 + 16 − 1` = 63px, ghost 15px.
+    /// `padding-inline-end`: `3 × 16 + 16 − 1` = 63px when the button carries
+    /// an icon, 16px when it is text-only (see [`TEXT_ONLY_END_PADDING`]),
+    /// ghost 15px.
     pub padding_right: f32,
     /// Absolute icon offset from the padding box top (`inset-block-start` + margin),
     /// `None` when the icon flows inline (ghost, icon-only).
@@ -405,8 +428,16 @@ const PAD: f32 = 16.;
 /// `--temp-padding-block-max`: (size-lg − 1lh) / 2 − 1px.
 const PAD_BLOCK_MAX: f32 = (48. - LINE) / 2. - 1.;
 
+/// `padding-inline-end` of a text-only, non-ghost button: `spacing-05`
+/// (`t3.css` global craft pass: `.cds--btn:not(.cds--btn--icon-only)
+/// :not(.cds--btn--ghost):not(:has(.cds--btn__icon)) { padding-inline-end:
+/// var(--spacing-05) }`). Text-only buttons don't reserve Carbon's 63px icon slot.
+pub const TEXT_ONLY_END_PADDING: f32 = PAD;
+
 impl Geometry {
-    /// Geometry for `size` under `density`.
+    /// Geometry for `size` under `density` of a button that carries an icon
+    /// (Carbon's 63px end slot). Use [`Self::for_content`] for the geometry a
+    /// [`Button`] actually draws.
     pub fn of(size: ButtonSize, density: Density, kind: ButtonKind, icon_only: bool) -> Self {
         let height = size.height(density);
         if icon_only {
@@ -454,6 +485,24 @@ impl Geometry {
             icon_right: PAD,
         }
     }
+
+    /// Geometry of a button with or without an icon: a text-only button that
+    /// is neither ghost nor icon-only ends at [`TEXT_ONLY_END_PADDING`]. The
+    /// craft-pass rule excludes `.cds--btn--ghost` only, so a text-only
+    /// danger ghost takes it too.
+    pub fn for_content(
+        size: ButtonSize,
+        density: Density,
+        kind: ButtonKind,
+        icon_only: bool,
+        has_icon: bool,
+    ) -> Self {
+        let mut geometry = Self::of(size, density, kind, icon_only);
+        if !icon_only && !has_icon && !matches!(kind, ButtonKind::Ghost | ButtonKind::Link) {
+            geometry.padding_right = TEXT_ONLY_END_PADDING;
+        }
+        geometry
+    }
 }
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
@@ -477,15 +526,8 @@ pub struct Button {
     tab_index: isize,
     focus_handle: Option<FocusHandle>,
     on_click: Option<ClickHandler>,
-    balanced: bool,
     trailing: Vec<AnyElement>,
 }
-
-/// `padding-inline-end` of a balanced text-only button: `spacing-05`
-/// (`t3.css` global craft pass: `.cds--btn:not(.cds--btn--icon-only)
-/// :not(.cds--btn--ghost):not(:has(.cds--btn__icon)) { padding-inline-end:
-/// var(--spacing-05) }`).
-pub const BALANCED_END_PADDING: f32 = PAD;
 
 impl Button {
     /// A button with a stable `id` and a `label` (the visible text, or the
@@ -508,18 +550,8 @@ impl Button {
             tab_index: 0,
             focus_handle: None,
             on_click: None,
-            balanced: false,
             trailing: Vec::new(),
         }
-    }
-
-    /// Drop Carbon's 63px end padding reserved for an icon when the button
-    /// has none, as the pattern libraries' craft pass does (see
-    /// [`BALANCED_END_PADDING`]). No effect on ghost, icon-only and
-    /// with-icon buttons.
-    pub fn balanced(mut self, balanced: bool) -> Self {
-        self.balanced = balanced;
-        self
     }
 
     /// Content after the label inside the button, such as a shortcut key
@@ -663,7 +695,13 @@ impl RenderOnce for Button {
     fn render(mut self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let kind = self.kind();
         let density = self.density.unwrap_or_else(density::current);
-        let geometry = Geometry::of(self.size, density, kind, self.icon_only);
+        let geometry = Geometry::for_content(
+            self.size,
+            density,
+            kind,
+            self.icon_only,
+            self.icon.is_some() || self.loading,
+        );
         let id = self.id.clone();
         let pointer =
             window.use_keyed_state((id.clone(), "pointer"), cx, |_, _| Pointer::default());
@@ -819,13 +857,7 @@ impl RenderOnce for Button {
                 .items_start()
                 .pt(rem(geometry.padding_top))
                 .pl(rem(geometry.padding_left))
-                .pr(rem(
-                    if self.balanced && icon.is_none() && !kind.is_ghost() {
-                        BALANCED_END_PADDING
-                    } else {
-                        geometry.padding_right
-                    },
-                ))
+                .pr(rem(geometry.padding_right))
                 .child(label.clone())
                 .children(std::mem::take(&mut self.trailing));
             button = match (icon, geometry.icon_top) {
@@ -952,9 +984,52 @@ mod tests {
             },
             false,
         );
+        // `t3.css` r2-gal: filled kinds keep Carbon's disabled fill.
         assert_eq!(hex(disabled.background), "#c6c6c6");
         assert_eq!(hex(disabled.text), "#8d8d8d");
         assert!(disabled.focus_ring.is_none());
+    }
+
+    #[test]
+    fn disabled_outlined_kinds_follow_the_craft_pass() {
+        let disabled = ButtonState {
+            disabled: true,
+            ..Default::default()
+        };
+        crate::theme::tests_set(CarbonTheme::G100);
+        for kind in [
+            ButtonKind::Tertiary,
+            ButtonKind::DangerTertiary,
+            ButtonKind::DangerGhost,
+        ] {
+            let look = Look::of(kind, disabled, false);
+            // G100 layer-01 / text-secondary / border-subtle-01.
+            assert_eq!(hex(look.background), "#262626", "{kind:?}");
+            assert_eq!(hex(look.text), "#c6c6c6", "{kind:?}");
+            assert_eq!(hex(look.border), "#525252", "{kind:?}");
+        }
+        // r2-gal: primary, secondary and danger keep button-disabled.
+        for kind in [
+            ButtonKind::Primary,
+            ButtonKind::Secondary,
+            ButtonKind::Danger,
+        ] {
+            let look = Look::of(kind, disabled, false);
+            assert_eq!(
+                look.background,
+                color(ColorRole::ButtonDisabled),
+                "{kind:?}"
+            );
+            assert_eq!(look.text, color(ColorRole::TextOnColorDisabled), "{kind:?}");
+        }
+        crate::theme::tests_set(CarbonTheme::White);
+        let ghost = Look::of(ButtonKind::Ghost, disabled, false);
+        assert_eq!(ghost.background.a, 0.);
+        assert_eq!(hex(ghost.text), "#161616");
+        assert!(ghost.text.a < 1.);
+        // Icon-only filled buttons keep `.cds--btn:disabled`.
+        let icon = Look::of(ButtonKind::Primary, disabled, true);
+        assert_eq!(hex(icon.background), "#c6c6c6");
     }
 
     #[test]
@@ -1030,6 +1105,39 @@ mod tests {
         assert_eq!((compact.height, compact.padding_top), (32., 6.));
         let compact_xl = Geometry::of(ButtonSize::Xl, Density::Compact, ButtonKind::Primary, false);
         assert_eq!(compact_xl.height, 64.);
+        // `t3.css` craft pass: text-only, non-ghost buttons end at spacing-05.
+        let text_only = Geometry::for_content(
+            ButtonSize::Lg,
+            Density::Comfortable,
+            ButtonKind::Primary,
+            false,
+            false,
+        );
+        assert_eq!(text_only.padding_right, 16.);
+        let with_icon = Geometry::for_content(
+            ButtonSize::Lg,
+            Density::Comfortable,
+            ButtonKind::Secondary,
+            false,
+            true,
+        );
+        assert_eq!(with_icon.padding_right, 63.);
+        let ghost_text = Geometry::for_content(
+            ButtonSize::Lg,
+            Density::Comfortable,
+            ButtonKind::Ghost,
+            false,
+            false,
+        );
+        assert_eq!(ghost_text.padding_right, 15.);
+        let danger_ghost_text = Geometry::for_content(
+            ButtonSize::Lg,
+            Density::Comfortable,
+            ButtonKind::DangerGhost,
+            false,
+            false,
+        );
+        assert_eq!(danger_ghost_text.padding_right, 16.);
         let icon = Geometry::of(
             ButtonSize::Md,
             Density::Comfortable,

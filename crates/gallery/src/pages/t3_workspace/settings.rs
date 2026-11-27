@@ -893,7 +893,6 @@ impl Render for WizardPage {
                     Button::new("wizard-restart", "Start again")
                         .size(ButtonSize::Sm)
                         .variant(ButtonVariant::Tertiary)
-                        .balanced(true)
                         .on_click({
                             let entity = entity.clone();
                             move |_, _, cx| {

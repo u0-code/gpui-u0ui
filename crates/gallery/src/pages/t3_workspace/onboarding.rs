@@ -127,7 +127,6 @@ impl Render for ToastPage {
                     Button::new("xtoast-reopen", "Show again")
                         .size(ButtonSize::Sm)
                         .variant(ButtonVariant::Tertiary)
-                        .balanced(true)
                         .on_click({
                             let entity = entity.clone();
                             move |_, _, cx| {

@@ -179,7 +179,6 @@ impl RenderOnce for TurnChanges {
                 Button::new((id.clone(), "review"), texts.review.clone())
                     .variant(ButtonVariant::Tertiary)
                     .size(ButtonSize::Sm)
-                    .balanced(true)
                     .when_some(review, |b, f| b.on_click(move |_, w, cx| f(w, cx))),
             );
         let rows: Vec<_> = self
