@@ -15,9 +15,11 @@ use u0ui::prelude::*;
 pub fn build(window: &mut Window, cx: &mut App) -> AnyView {
     let name = stand_in::input_state("vm-104", window, cx);
     let live_name = stand_in::input_state("vm-104", window, cx);
+    let contained_name = stand_in::input_state("vm-104", window, cx);
     cx.new(|_| SheetPage {
         name,
         live_name,
+        contained_name,
         reference_open: true,
         live_open: false,
         contained_open: true,
@@ -32,6 +34,9 @@ pub fn build(window: &mut Window, cx: &mut App) -> AnyView {
 struct SheetPage {
     name: Entity<InputState>,
     live_name: Entity<InputState>,
+    /// Its own state: an input shared with another sheet registers one
+    /// focus handle twice and breaks Tab (design review FB4).
+    contained_name: Entity<InputState>,
     reference_open: bool,
     live_open: bool,
     contained_open: bool,
@@ -155,7 +160,7 @@ impl Render for SheetPage {
                 .open(self.contained_open)
                 .on_open_change(update(|this, open| this.contained_open = open)),
             "contained-sheet-name",
-            &self.name,
+            &self.contained_name,
         );
         if self.footer {
             live_sheet = live_sheet
