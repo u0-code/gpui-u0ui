@@ -68,24 +68,24 @@ impl Render for FieldPage {
                                 .child(
                                     Field::new()
                                         .child(FieldLabel::new("Full name"))
-                                        .child(
+                                        .child(natural_width(
                                             InputGroup::new("ref-fn").input(
                                                 InputGroupInput::new(&self.name)
                                                     .placeholder("Jane Doe"),
                                             ),
-                                        )
+                                        ))
                                         .child(FieldDescription::new("As shown on the invoice.")),
                                 )
                                 .child(
                                     Field::new()
                                         .invalid(vat_invalid)
                                         .child(FieldLabel::new("VAT number"))
-                                        .child(
+                                        .child(natural_width(
                                             // `.cu-field[data-invalid] .cu-ig`: the field's
                                             // `invalid` outlines the group.
                                             InputGroup::new("ref-vat")
                                                 .input(InputGroupInput::new(&self.vat)),
-                                        )
+                                        ))
                                         .when_invalid(
                                             vat_invalid,
                                             FieldError::new("VAT numbers have 9–12 characters."),
@@ -187,6 +187,15 @@ impl Render for FieldPage {
             .config(config)
             .example(reference)
     }
+}
+
+/// An input group at the reference's natural width. `.cds--form-item {
+/// align-items: flex-start }` shrink-wraps the `.cu-ig`, so it is as wide as
+/// its `<input>` (the default `size="20"`, 149px in Plex 14px) plus the
+/// `.cu-ig-input` 1rem side padding: 181px (refrender `--computed '.cu-ig'`).
+/// GPUI inputs have no intrinsic width, so the preview gives it explicitly.
+fn natural_width(group: InputGroup) -> impl IntoElement {
+    div().w(rems(181. / 16.)).child(group)
 }
 
 trait WhenInvalid {
