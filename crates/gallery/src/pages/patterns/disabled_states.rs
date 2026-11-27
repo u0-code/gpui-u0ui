@@ -83,7 +83,9 @@ fn disabled(p: &str, s: State) -> AnyElement {
             )
         })
         .child(
-            div().mt(tokens::SPACING_05).child(
+            // `.cds--btn` is `inline-flex`: its natural width, not the
+            // column's (a block child would stretch to `max-inline-size: 20rem`).
+            div().mt(tokens::SPACING_05).flex().child(
                 Button::new(id(p, "new"), "New Codex thread")
                     .variant(ButtonVariant::Primary)
                     .icon(Icon::carbon(CarbonIcon::Add))
