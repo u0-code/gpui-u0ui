@@ -10,7 +10,7 @@
 //!   `border-subtle-01` rule and `layer-hover-01` hover; cells 12px padded,
 //!   truncated; the first column indents 16px per level from 8px; a column
 //!   is fixed (`width`) or shares the rest, aligned start/end.
-use super::parts::rem;
+use super::parts::{self, rem};
 use super::tree::CHEVRON_MOTION;
 use crate::{
     density,
@@ -23,7 +23,7 @@ use crate::{
 use gpui_kit::{
     AnyElement, App, CursorStyle, ElementId, FontWeight, InteractiveElement as _, IntoElement,
     ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
-    px,
+    prelude::FluentBuilder as _, px,
 };
 use std::{collections::HashSet, rc::Rc};
 
@@ -280,6 +280,17 @@ impl RenderOnce for TreeTable {
                 window,
                 cx,
             );
+            // `.g-ttable-tog:focus-visible` (ghost.css:17): the 2px `focus`
+            // outline at offset -2px, for keyboard focus only.
+            let tog_focus = parts::keyed_focus(
+                (
+                    id.clone(),
+                    SharedString::from(format!("tog-focus-{}", r.id)),
+                ),
+                window,
+                cx,
+            );
+            let tog_ring = parts::focus_visible(&tog_focus, window);
             let cells = self.columns.iter().enumerate().map(|(ci, c)| {
                 let value = r.get(&c.key);
                 let content = match &c.render {
@@ -305,6 +316,8 @@ impl RenderOnce for TreeTable {
                         "{} {name}",
                         if is_open { collapse } else { expand }
                     ))
+                    .track_focus(&tog_focus)
+                    .relative()
                     .flex()
                     .flex_none()
                     .items_center()
@@ -317,6 +330,7 @@ impl RenderOnce for TreeTable {
                             .color(color(ColorRole::IconSecondary))
                             .rotate(gpui_kit::radians(chevron)),
                     )
+                    .when(tog_ring, |b| b.child(parts::focus_ring()))
                     .on_click(move |_, _, cx| {
                         open.update(cx, |s, cx| {
                             if !s.remove(&rid) {
