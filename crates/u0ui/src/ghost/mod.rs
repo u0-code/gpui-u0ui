@@ -5,3 +5,4 @@ pub mod foundations;
 pub mod primitives;
 pub mod shell;
 pub mod tasks;
+pub mod thread;

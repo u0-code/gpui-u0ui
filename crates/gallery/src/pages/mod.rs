@@ -34,6 +34,7 @@ pub mod ghost_foundations;
 pub mod ghost_primitives;
 pub mod ghost_shell;
 pub mod ghost_tasks;
+pub mod ghost_thread;
 pub mod hover_card;
 pub mod icons;
 pub mod input;

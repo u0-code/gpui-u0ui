@@ -105,6 +105,8 @@ pub const CHAT_AI: &str = "Chat & AI";
 pub const GHOST_FOUNDATIONS: &str = "Ghost · Foundations";
 /// `Ghost · Primitives`: desktop-density building blocks.
 pub const GHOST_PRIMITIVES: &str = "Ghost · Primitives";
+/// `Ghost · Thread`: the pieces of an agent transcript.
+pub const GHOST_THREAD: &str = "Ghost · Thread";
 
 /// `Ghost · Shell`: the sidebar pieces Ghost adds to the T3 shell.
 pub const GHOST_SHELL: &str = "Ghost · Shell";
@@ -411,6 +413,8 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("no-projects-hero", "NoProjectsHero", "T3 · Onboarding & feedback", Component::NoProjectsHero.summary(), pages::t3_workspace::onboarding::build_no_projects_hero).thumbnail(pages::t3_workspace::onboarding::no_projects_hero_thumbnail),
     PageDef::new("permission-checklist", "PermissionChecklist", "T3 · Onboarding & feedback", Component::PermissionChecklist.summary(), pages::t3_workspace::onboarding::build_permission_checklist).thumbnail(pages::t3_workspace::onboarding::permission_checklist_thumbnail),
     PageDef::new("truncated-text", "TruncatedText", "T3 · Onboarding & feedback", Component::TruncatedText.summary(), pages::t3_workspace::onboarding::build_truncated_text).thumbnail(pages::t3_workspace::onboarding::truncated_text_thumbnail),
+    // Ghost · Thread (src/ghost/workspace.jsx)
+    PageDef::new("turn-footer", "TurnFooter", GHOST_THREAD, Component::TurnFooter.summary(), pages::ghost_thread::turn_footer::build).thumbnail(pages::ghost_thread::turn_footer::thumbnail),
 ];
 
 /// Look a page up by id.

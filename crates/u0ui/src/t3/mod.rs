@@ -16,7 +16,7 @@ pub mod chat;
 pub mod composer;
 pub(crate) mod craft;
 pub mod mobile;
-mod press;
+pub(crate) mod press;
 pub mod review;
 pub mod shell;
 pub mod timeline;
