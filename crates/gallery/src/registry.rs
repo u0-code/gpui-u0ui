@@ -316,6 +316,15 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("time-field", "TimeField", GHOST_PRIMITIVES, Component::TimeField.summary(), pages::ghost_primitives::time_field::build).thumbnail(pages::ghost_primitives::time_field::thumbnail),
     PageDef::new("tree", "Tree", GHOST_PRIMITIVES, Component::Tree.summary(), pages::ghost_primitives::tree::build).thumbnail(pages::ghost_primitives::tree::thumbnail),
     PageDef::new("tree-table", "TreeTable", GHOST_PRIMITIVES, Component::TreeTable.summary(), pages::ghost_primitives::tree_table::build).thumbnail(pages::ghost_primitives::tree_table::thumbnail),
+    PageDef::new("control-pill", "ControlPill", "T3 · Mobile", Component::ControlPill.summary(), pages::t3_mobile::control_pill::build).thumbnail(pages::t3_mobile::control_pill::thumbnail),
+    PageDef::new("floating-action-button", "FloatingActionButton", "T3 · Mobile", Component::FloatingActionButton.summary(), pages::t3_mobile::floating_action_button::build).thumbnail(pages::t3_mobile::floating_action_button::thumbnail),
+    PageDef::new("floating-working-control", "FloatingWorkingControl", "T3 · Mobile", Component::FloatingWorkingControl.summary(), pages::t3_mobile::floating_working_control::build).thumbnail(pages::t3_mobile::floating_working_control::thumbnail),
+    PageDef::new("mobile-app-bar", "MobileAppBar", "T3 · Mobile", Component::MobileAppBar.summary(), pages::t3_mobile::mobile_app_bar::build).thumbnail(pages::t3_mobile::mobile_app_bar::thumbnail),
+    PageDef::new("mobile-list", "MobileList", "T3 · Mobile", Component::MobileList.summary(), pages::t3_mobile::mobile_list::build).thumbnail(pages::t3_mobile::mobile_list::thumbnail),
+    PageDef::new("mobile-notice", "MobileNotice", "T3 · Mobile", Component::MobileNotice.summary(), pages::t3_mobile::mobile_notice::build).thumbnail(pages::t3_mobile::mobile_notice::thumbnail),
+    PageDef::new("mobile-sheet", "MobileSheet", "T3 · Mobile", Component::MobileSheet.summary(), pages::t3_mobile::mobile_sheet::build).thumbnail(pages::t3_mobile::mobile_sheet::thumbnail),
+    PageDef::new("mobile-tab-dock", "MobileTabDock", "T3 · Mobile", Component::MobileTabDock.summary(), pages::t3_mobile::mobile_tab_dock::build).thumbnail(pages::t3_mobile::mobile_tab_dock::thumbnail),
+    PageDef::new("split-button", "SplitButton", "T3 · Mobile", Component::SplitButton.summary(), pages::t3_mobile::split_button::build).thumbnail(pages::t3_mobile::split_button::thumbnail),
 ];
 
 /// Look a page up by id.

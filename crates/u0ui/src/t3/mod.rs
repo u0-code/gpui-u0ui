@@ -9,6 +9,7 @@
 pub mod base;
 pub mod composer;
 pub(crate) mod craft;
+pub mod mobile;
 mod press;
 pub mod review;
 pub mod shell;
