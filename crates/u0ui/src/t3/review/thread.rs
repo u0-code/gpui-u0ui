@@ -739,6 +739,7 @@ pub struct GitActionsControl {
     files: usize,
     progress: Option<SharedString>,
     disabled: bool,
+    approval_pending: bool,
     note: Option<SharedString>,
     label: Option<SharedString>,
     on_primary: Option<Handler>,
@@ -758,6 +759,7 @@ impl GitActionsControl {
             files: 0,
             progress: None,
             disabled: false,
+            approval_pending: false,
             note: None,
             label: None,
             on_primary: None,
@@ -798,6 +800,14 @@ impl GitActionsControl {
         self
     }
 
+    /// An approval is waiting elsewhere on the page (`body:has(.t3-approval--pending)`):
+    /// the control goes quiet so Approve is the only heavy button. See
+    /// [`GitQuiet`].
+    pub fn approval_pending(mut self, pending: bool) -> Self {
+        self.approval_pending = pending;
+        self
+    }
+
     /// A warning note after the buttons.
     pub fn note(mut self, note: impl Into<SharedString>) -> Self {
         self.note = Some(note.into());
@@ -833,6 +843,50 @@ impl GitActionsControl {
         self.menu_items = items;
         self.behind_note = behind_note.into();
         self
+    }
+}
+
+/// The quiet colors of a [`GitActionsControl`] while an approval is pending
+/// (`t3.css` "r2-desk: approval hierarchy"):
+/// `body:has(.t3-approval--pending) .t3-gitctl .cds--btn.cds--btn--secondary
+/// { background: transparent; color: var(--text-secondary); box-shadow:
+/// none; border-color: transparent }`, `… .cds--btn--secondary svg { fill:
+/// var(--icon-secondary) }` and `… .t3-gitctl-n { background:
+/// var(--layer-accent-01); color: var(--text-secondary) }`. The rule
+/// outranks the secondary hover and active fills, so the buttons stay
+/// transparent while hovered or pressed.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GitQuiet {
+    /// The secondary buttons' label ink.
+    pub text: Hsla,
+    /// Their glyph ink.
+    pub icon: Hsla,
+    /// The count chip's (background, text).
+    pub chip: (Hsla, Hsla),
+}
+
+impl GitQuiet {
+    /// The quiet colors on the active theme.
+    pub fn current() -> Self {
+        Self {
+            text: color(ColorRole::TextSecondary),
+            icon: color(ColorRole::IconSecondary),
+            chip: (
+                color(ColorRole::LayerAccent01),
+                color(ColorRole::TextSecondary),
+            ),
+        }
+    }
+}
+
+/// The count chip's (background, text): `.t3-gitctl-n { background:
+/// var(--layer-02); color: var(--text-primary) }`, or the quiet colors
+/// while an approval is pending (whatever the button kind).
+pub fn git_chip_colors(approval_pending: bool) -> (Hsla, Hsla) {
+    if approval_pending {
+        GitQuiet::current().chip
+    } else {
+        (color(ColorRole::Layer02), color(ColorRole::TextPrimary))
     }
 }
 
@@ -903,7 +957,19 @@ impl RenderOnce for GitActionsControl {
                 disabled: off,
             }
         };
-        let look = Look::of(kind, state, false);
+        let mut look = Look::of(kind, state, false);
+        // Only a `secondary` button goes quiet (an `off` control is ghost).
+        let quiet = (self.approval_pending && !off).then(GitQuiet::current);
+        if let Some(q) = quiet {
+            look.background = Hsla::transparent_black();
+            look.text = q.text;
+            look.icon = q.icon;
+            // `border-color: transparent; box-shadow: none` would hide the
+            // focus ring too; u0ui keeps it on every focusable control.
+            if !state.focused {
+                look.border = Hsla::transparent_black();
+            }
+        }
         let geometry = Geometry::of(ButtonSize::Sm, density::current(), kind, false);
         let bg = motion::animate_color(
             (id.clone(), "bg"),
@@ -916,13 +982,14 @@ impl RenderOnce for GitActionsControl {
         let on_primary = self.on_primary.clone();
         let chip = (self.files > 0 && !count_in_label).then(|| {
             // `.t3-gitctl-n { margin-left: 8px; padding: 0 4px; layer-02; 11px/16px; pill }`.
+            let (chip_bg, chip_ink) = git_chip_colors(self.approval_pending);
             sans(div(), 11., 400)
                 .ml(rem(8.))
                 .px(rem(4.))
                 .line_height(rem(16.))
                 .rounded(rem(16.))
-                .bg(color(ColorRole::Layer02))
-                .text_color(color(ColorRole::TextPrimary))
+                .bg(chip_bg)
+                .text_color(chip_ink)
                 .child(self.files.to_string())
         });
         let icon = Icon::carbon(self.state.icon())
@@ -1043,7 +1110,10 @@ impl RenderOnce for GitActionsControl {
             }
             items.push(item);
         }
-        let variant = if off {
+        // The quiet secondary trigger is drawn as a ghost one (transparent,
+        // `icon-secondary` glyph); unlike the reference it keeps the ghost
+        // hover fill, as u0ui's Button has no hover-less kind.
+        let variant = if off || quiet.is_some() {
             ButtonVariant::Ghost
         } else {
             ButtonVariant::Secondary
@@ -1059,6 +1129,7 @@ impl RenderOnce for GitActionsControl {
                     .variant(variant)
                     .size(ButtonSize::Sm)
                     .disabled(off)
+                    .when_some(quiet, |m, q| m.icon_color(q.icon))
                     .items(items),
             )
             .when_some(self.note.clone(), |d, n| d.child(warn(n)))
@@ -1452,6 +1523,33 @@ mod tests {
         assert_eq!(
             git_menu_enabled(GitState::Changes, 6),
             [true, true, false, false, true]
+        );
+    }
+
+    #[test]
+    fn approval_pending_quiets_the_control() {
+        // `t3.css` 1096–1098: text-secondary ink, icon-secondary glyphs and a
+        // layer-accent-01 / text-secondary count chip.
+        let q = GitQuiet::current();
+        assert_eq!(q.text, color(ColorRole::TextSecondary));
+        assert_eq!(q.icon, color(ColorRole::IconSecondary));
+        assert_eq!(
+            git_chip_colors(true),
+            (
+                color(ColorRole::LayerAccent01),
+                color(ColorRole::TextSecondary)
+            )
+        );
+        // `.t3-gitctl-n { background: var(--layer-02); color: var(--text-primary) }`.
+        assert_eq!(
+            git_chip_colors(false),
+            (color(ColorRole::Layer02), color(ColorRole::TextPrimary))
+        );
+        assert!(!GitActionsControl::new("g", GitState::Changes).approval_pending);
+        assert!(
+            GitActionsControl::new("g", GitState::Changes)
+                .approval_pending(true)
+                .approval_pending
         );
     }
 

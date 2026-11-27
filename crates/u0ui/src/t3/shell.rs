@@ -1092,6 +1092,7 @@ pub struct IconMenu {
     variant: ButtonVariant,
     size: ButtonSize,
     disabled: bool,
+    icon_color: Option<Hsla>,
     items: Vec<MenuItem>,
 }
 
@@ -1106,8 +1107,16 @@ impl IconMenu {
             variant: ButtonVariant::Secondary,
             size: ButtonSize::Md,
             disabled: false,
+            icon_color: None,
             items: Vec::new(),
         }
+    }
+
+    /// Paint the trigger glyph in `ink` while enabled, for a context rule
+    /// (see [`Button::icon_color`]).
+    pub fn icon_color(mut self, ink: Hsla) -> Self {
+        self.icon_color = Some(ink);
+        self
     }
 
     /// The trigger glyph (`icon`).
@@ -1161,14 +1170,17 @@ impl RenderOnce for IconMenu {
         let openness = overlay::openness(&id, None, false, None, window, cx);
         let open = openness.open && !self.disabled;
         let set_open = openness.setter();
-        let button = Button::new((id.clone(), "button"), self.label.clone())
+        let mut button = Button::new((id.clone(), "button"), self.label.clone())
             .variant(self.variant)
             .size(self.size)
             .icon(self.icon)
             .icon_only(true)
             .disabled(self.disabled)
-            .tooltip(!open)
-            .into_any_element();
+            .tooltip(!open);
+        if let Some(ink) = self.icon_color {
+            button = button.icon_color(ink);
+        }
+        let button = button.into_any_element();
         let disabled = self.disabled;
         // The same keyed placement state the anchored menu measures into.
         let end =

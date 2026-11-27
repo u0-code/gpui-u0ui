@@ -1,6 +1,6 @@
 //! T3 · Thread › GitActionsControl: the reference states (6 changed files,
 //! 2 commits ahead, pushed, behind upstream, pushing) and a live control
-//! for every state, note and progress.
+//! for every state, note, progress and the approval-pending quiet state.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
@@ -17,6 +17,7 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
         files: 1,
         busy: false,
         note: false,
+        pending: false,
         last: None,
     })
     .into()
@@ -27,17 +28,19 @@ struct Page {
     files: usize,
     busy: bool,
     note: bool,
+    pending: bool,
     last: Option<SharedString>,
 }
 
 const FILES: [usize; 3] = [0, 6, 1];
 
 fn reference() -> gpui_kit::Div {
-    // `cu-stack` with `gap: 12`.
+    // `cu-stack` with `gap: 12`: a column that stretches its children, so
+    // the busy row's `layer-01` runs the full width.
     div()
+        .w_full()
         .flex()
         .flex_col()
-        .items_start()
         .gap(rems(0.75))
         .child(GitActionsControl::new("ga-ref-0", GitState::Changes).files(6))
         .child(GitActionsControl::new("ga-ref-1", GitState::Ahead).ahead(2))
@@ -76,6 +79,7 @@ impl Render for Page {
         let mut control = GitActionsControl::new("ga-live", GitState::ALL[self.state])
             .files(FILES[self.files])
             .ahead(2)
+            .approval_pending(self.pending)
             .on_primary({
                 let entity = entity.clone();
                 move |_, cx| {
@@ -140,6 +144,12 @@ impl Render for Page {
                 "note",
                 self.note,
                 controls::setter(&entity, |this: &mut Page, v| this.note = v),
+            ))
+            .child(controls::toggle(
+                "ga-pending",
+                "approval pending",
+                self.pending,
+                controls::setter(&entity, |this: &mut Page, v| this.pending = v),
             ))
             .child(controls::toggle(
                 "ga-busy",

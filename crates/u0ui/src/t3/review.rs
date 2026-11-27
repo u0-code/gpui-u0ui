@@ -30,6 +30,6 @@ pub use pr_detail::{
 pub mod thread;
 pub use thread::{
     BranchToolbar, BranchToolbarTexts, ChatHeader, ContextMeter, GitAction, GitActionsControl,
-    GitState, HeaderEnvironment, HeaderLayout, MeterTone, ThreadDetailsSection, ThreadHoverCard,
-    WorkspaceMode,
+    GitQuiet, GitState, HeaderEnvironment, HeaderLayout, MeterTone, ThreadDetailsSection,
+    ThreadHoverCard, WorkspaceMode, git_chip_colors,
 };
