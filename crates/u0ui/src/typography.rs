@@ -25,7 +25,7 @@
 //! code of 14px prose uses a derived face, [`INLINE_CODE_FAMILY`] (see
 //! [`inline_code_font`] and `inline_face.rs`).
 use crate::tokens::{FontFamilyKey, TypeStyle};
-use gpui_kit::{App, Font, FontFallbacks, FontFeatures, FontStyle, FontWeight, Styled};
+use gpui_kit::{App, Div, Font, FontFallbacks, FontFeatures, FontStyle, FontWeight, Styled, div};
 use std::borrow::Cow;
 
 /// The bundled font files (IBM Plex, SIL OFL 1.1; see `assets/fonts/OFL.txt`).
@@ -145,9 +145,33 @@ pub trait TypeStyled: Styled + Sized {
 
 impl<T: Styled> TypeStyled for T {}
 
+/// The type style of a bare `<p>`: Carbon's global rule
+/// (`bundle.css`: `p { font-size: var(--body-02-font-size); line-height:
+/// var(--body-02-line-height); letter-spacing: 0 }`), 16px/24px. It wins over
+/// an inherited `font-size`, so a `<p>` inside 14px text is still 16px unless
+/// a rule of its own (`.cu-pempty p`, …) sets the size.
+pub const PARAGRAPH: TypeStyle = TypeStyle::Body02;
+
+/// A block for a reference's bare `<p>` (one without a size rule of its
+/// own): [`PARAGRAPH`], 16px/24px. Callers set the color.
+pub fn paragraph() -> Div {
+    div().type_style(PARAGRAPH)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bare_paragraph_is_body_02_16_on_24() {
+        let spec = PARAGRAPH.spec();
+        assert_eq!(spec.font_size_rem * 16., 16.);
+        assert_eq!(spec.weight, 400);
+        assert_eq!(spec.letter_spacing_px, 0.);
+        assert!(
+            matches!(spec.line_height, crate::tokens::LineHeight::Multiplier(m) if (m * 16. - 24.).abs() < 0.01)
+        );
+    }
 
     #[test]
     fn fonts_are_bundled_and_stacks_fall_back_to_cjk() {
