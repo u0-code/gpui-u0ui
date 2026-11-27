@@ -35,9 +35,12 @@ pub fn masked(value: &str) -> String {
     format!("{head}…{tail}")
 }
 
-/// Contextual colors of `.g-copy` on `level`: `(fill, border_strong)`.
+/// Colors of `.g-copy` on `level`: `(fill, border_strong)`. The fill is
+/// `.g-copy { background: var(--layer-02, var(--field-01)) }`, and
+/// `--layer-02` is a theme token (no layer context redefines it), so only the
+/// bottom rule follows the level.
 pub fn box_look(level: LayerLevel) -> (Hsla, Hsla) {
-    (color(level.field()), color(level.border_strong()))
+    (color(ColorRole::Layer02), color(level.border_strong()))
 }
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
@@ -77,8 +80,8 @@ impl CopyField {
         }
     }
 
-    /// The layer the field sits on (`LayerLevel::One` paints `field-01`,
-    /// `LayerLevel::Two` `field-02`).
+    /// The layer the field sits on: picks the bottom rule's contextual
+    /// `border-strong` token (the fill is always `layer-02`).
     pub fn level(mut self, level: LayerLevel) -> Self {
         self.level = level;
         self
@@ -228,13 +231,19 @@ mod tests {
     fn layer_levels_select_contextual_tokens() {
         crate::theme::tests_set(CarbonTheme::White);
         let c = |r| color_in(CarbonTheme::White, r);
+        // White: `layer-02` is #ffffff (the page's `field-01` is #f4f4f4).
         assert_eq!(
             box_look(LayerLevel::One),
-            (c(ColorRole::Field01), c(ColorRole::BorderStrong01))
+            (c(ColorRole::Layer02), c(ColorRole::BorderStrong01))
         );
         assert_eq!(
             box_look(LayerLevel::Two),
-            (c(ColorRole::Field02), c(ColorRole::BorderStrong02))
+            (c(ColorRole::Layer02), c(ColorRole::BorderStrong02))
+        );
+        assert_eq!(c(ColorRole::Layer02), gpui_kit::rgb(0xffffff).into());
+        assert_eq!(
+            color_in(CarbonTheme::G100, ColorRole::Layer02),
+            gpui_kit::rgb(0x393939).into()
         );
     }
 }
