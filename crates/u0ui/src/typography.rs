@@ -1,7 +1,8 @@
 //! IBM Plex fonts and Carbon type styles.
 //!
 //! [`crate::init`] registers the bundled IBM Plex Sans (Light 300, Regular 400,
-//! SemiBold 600, Italic 400), IBM Plex Mono (Regular 400, SemiBold 600) and IBM
+//! SemiBold 600, Italic 400), IBM Plex Mono (Regular 400, Italic 400 for
+//! `.g-syn-comment`, SemiBold 600) and IBM
 //! Plex Serif (Light 300, Regular 400; `.cu-typeset blockquote`), so nothing
 //! depends on what the machine has installed. Chinese/Japanese text falls back
 //! through `tokens.json`'s stack: PingFang SC → Hiragino Sans GB → Noto Sans CJK
@@ -48,6 +49,12 @@ pub const FONT_FILES: &[(&str, &[u8])] = &[
     (
         "IBMPlexMono-Regular.ttf",
         include_bytes!("../assets/fonts/IBMPlexMono-Regular.ttf"),
+    ),
+    (
+        // IBM/plex v6.4.0 `IBM-Plex-Mono/fonts/complete/ttf`, the release the
+        // other Plex files come from.
+        "IBMPlexMono-Italic.ttf",
+        include_bytes!("../assets/fonts/IBMPlexMono-Italic.ttf"),
     ),
     (
         "IBMPlexMono-SemiBold.ttf",
@@ -144,7 +151,7 @@ mod tests {
 
     #[test]
     fn fonts_are_bundled_and_stacks_fall_back_to_cjk() {
-        assert_eq!(FONT_FILES.len(), 8);
+        assert_eq!(FONT_FILES.len(), 9);
         for (name, bytes) in FONT_FILES {
             assert!(bytes.len() > 100_000, "{name}");
         }
@@ -160,6 +167,31 @@ mod tests {
                 .iter()
                 .any(|(n, _)| *n == "IBMPlexSerif-Light.ttf")
         );
+        // `.g-syn-comment { font-style: italic }` in Plex Mono, and italic
+        // prose in Plex Sans, each resolve to a real italic face: the `head`
+        // table's macStyle has the italic bit.
+        for name in ["IBMPlexMono-Italic.ttf", "IBMPlexSans-Italic.ttf"] {
+            let (_, bytes) = FONT_FILES.iter().find(|(n, _)| *n == name).unwrap();
+            assert!(mac_style(bytes) & 0b10 != 0, "{name} is italic");
+        }
+        let (_, regular) = FONT_FILES
+            .iter()
+            .find(|(n, _)| *n == "IBMPlexMono-Regular.ttf")
+            .unwrap();
+        assert_eq!(mac_style(regular) & 0b10, 0);
+    }
+
+    /// `head.macStyle` (offset 44) of a TrueType font.
+    fn mac_style(font: &[u8]) -> u16 {
+        let be16 = |o: usize| u16::from_be_bytes([font[o], font[o + 1]]);
+        let be32 = |o: usize| u32::from_be_bytes([font[o], font[o + 1], font[o + 2], font[o + 3]]);
+        let tables = be16(4) as usize;
+        let head = (0..tables)
+            .map(|i| 12 + 16 * i)
+            .find(|&rec| &font[rec..rec + 4] == b"head")
+            .map(|rec| be32(rec + 8) as usize)
+            .expect("head table");
+        be16(head + 44)
     }
 
     #[test]
