@@ -290,7 +290,10 @@ impl RenderOnce for ComputerSetupSteps {
                 .items_start()
                 .gap(rem(12.))
                 .child(mark)
-                .child(div().flex_1().min_w_0().child(content))
+                // The step's text block hugs its content (`flex: 0 1 auto`),
+                // so `.t3-setup-cmd` is as wide as the wider of its label and
+                // command, not the list.
+                .child(div().min_w_0().child(content))
         };
         // `.t3-setup-cmd { display: flex; align-items: center; justify-content: space-between;
         // gap: spacing-04; margin-top: spacing-03; padding-left: spacing-04; background: layer-01;
@@ -320,7 +323,9 @@ impl RenderOnce for ComputerSetupSteps {
             .flex_col()
             .gap(rem(12.))
             .my(rem(8.))
-            .w_full()
+            // `.t3-setup { align-items: flex-start }`: the list hugs its
+            // widest step, wrapping only when the card is narrower.
+            .max_w_full()
             .child(step(
                 number("1"),
                 div()
