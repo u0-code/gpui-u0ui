@@ -7,9 +7,7 @@ use gpui_kit::{
     Styled, Window, div, rems,
 };
 use u0ui::components::toggle::ToggleSize;
-use u0ui::components::toggle_group::{
-    ToggleGroup, ToggleGroupFrame, ToggleGroupItem, ToggleGroupType,
-};
+use u0ui::components::toggle_group::{ToggleGroup, ToggleGroupItem, ToggleGroupType};
 use u0ui::prelude::*;
 
 /// Build the page.
@@ -17,7 +15,6 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
     cx.new(|_| ToggleGroupPage {
         kind: 0,
         size: 1,
-        frame: 0,
         disabled_item: false,
         value: vec!["week".into()],
     })
@@ -27,7 +24,6 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
 struct ToggleGroupPage {
     kind: usize,
     size: usize,
-    frame: usize,
     disabled_item: bool,
     value: Vec<SharedString>,
 }
@@ -46,7 +42,6 @@ impl Render for ToggleGroupPage {
         };
         let kind = ToggleGroupType::ALL[self.kind];
         let size = ToggleSize::ALL[self.size];
-        let frame = ToggleGroupFrame::ALL[self.frame];
 
         // `components/ToggleGroup/preview.html` (`cu-stack`).
         let reference = div()
@@ -92,7 +87,6 @@ impl Render for ToggleGroupPage {
                     ToggleGroup::new(SharedString::from(format!("live-{}", kind.name())))
                         .kind(kind)
                         .size(size)
-                        .frame(frame)
                         .value(self.value.clone())
                         .on_value_change({
                             let entity = entity.clone();
@@ -140,37 +134,6 @@ impl Render for ToggleGroupPage {
                 )
             }));
 
-        // `bundle.css` `u0: a toggle group in a toolbar`: border-strong-01
-        // frame, square, inverse fill for the selected segment.
-        let toolbar = div()
-            .flex()
-            .flex_col()
-            .gap(tokens::SPACING_05)
-            .child(controls::section("In a toolbar"))
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap(tokens::SPACING_05)
-                    .px(tokens::SPACING_05)
-                    .py(tokens::SPACING_03)
-                    .bg(color(ColorRole::Layer01))
-                    .border_b_1()
-                    .border_color(color(ColorRole::BorderSubtle01))
-                    .child(
-                        div().w(rems(16.)).child(
-                            ToggleGroup::new("toolbar-view")
-                                .frame(ToggleGroupFrame::Toolbar)
-                                .size(ToggleSize::Sm)
-                                .default_value(["list"])
-                                .item(ToggleGroupItem::new("list").child("List"))
-                                .item(ToggleGroupItem::new("board").child("Board"))
-                                .item(ToggleGroupItem::new("table").child("Table")),
-                        ),
-                    ),
-            );
-
         let config = div()
             .flex()
             .flex_col()
@@ -193,15 +156,6 @@ impl Render for ToggleGroupPage {
                     set(|this, i| this.size = i),
                 ),
             ))
-            .child(controls::field(
-                "frame",
-                controls::choices(
-                    "tg-frame",
-                    &ToggleGroupFrame::ALL.map(|f| f.name()),
-                    self.frame,
-                    set(|this, i| this.frame = i),
-                ),
-            ))
             .child(controls::toggle(
                 "tg-disabled",
                 "Month disabled",
@@ -222,7 +176,6 @@ impl Render for ToggleGroupPage {
             .hint("←/→ move the selection")
             .config(config)
             .example(reference)
-            .example(toolbar)
             .example(sizes)
     }
 }

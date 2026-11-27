@@ -4,18 +4,19 @@
 //!   selected option, a square track (`t3.css` global craft pass:
 //!   `.cds--content-switcher, .cds--content-switcher-btn,
 //!   .cds--content-switcher-btn::after { border-radius: 0 !important }`) with a
-//!   1px `border-inverse` outline and centered labels
+//!   1px `border-strong-01` outline, segment lines and side lines
+//!   (`bundle.css` `.cds--content-switcher { outline: … var(--border-strong-01) }`,
+//!   `.cds--content-switcher-btn { border-block-*: … var(--border-strong-01) }`)
+//!   and centered labels
 //!   (`.cds--content-switcher-btn { justify-content: center; text-align: center }`);
-//!   the selected button fills `layer-selected-inverse` with `text-inverse`;
+//!   the selected button fills `layer-selected-inverse` with `text-inverse`
+//!   edge to edge (its `border: 0` lets the fill cover the outline);
 //!   others are `text-secondary`, hover `layer-hover`, split by 1×16px
 //!   `border-subtle` dividers that hide next to the selected/hovered/focused
-//!   button. Focus: inset 2px `focus` + 1px `focus-inset`.
+//!   button. Focus: inset 2px `focus` + 1px `focus-inset`. Disabled segments
+//!   draw `border-disabled` lines and dividers.
 //!   Keyboard: roving focus, ←/→ (and Home/End) move and select (Carbon's
 //!   automatic selection), wrapping; Enter/Space select.
-//! - [`ToggleGroupFrame::Toolbar`]: a single-select group in a toolbar reads
-//!   like a field (`bundle.css` `u0: a toggle group in a toolbar reads like a
-//!   field: border-strong-01 frame (not the black border-inverse), square,
-//!   inverse fill for the selected segment`).
 //! - `type="multiple"` → a row of outline [`Toggle`]s 4px apart
 //!   (`.cu-toggle-group { gap: var(--spacing-02) }`).
 //!
@@ -65,35 +66,32 @@ impl ToggleGroupType {
     }
 }
 
-/// The frame of a single-select group: the context it sits in.
+/// The frame of a single-select group. Kept for downstream code: since the
+/// design moved every content-switcher line to `border-strong-01`, the toolbar
+/// frame is identical to the default and every value draws the same.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum ToggleGroupFrame {
-    /// Carbon's content switcher: `border-inverse` outline.
+    /// Carbon's content switcher.
     #[default]
     Default,
-    /// In a toolbar: a `border-strong-01` frame like a field, the selected
-    /// segment still filled `layer-selected-inverse` (`bundle.css` `u0: a
-    /// toggle group in a toolbar`).
+    /// Same as [`ToggleGroupFrame::Default`].
+    #[deprecated(
+        note = "identical to `ToggleGroupFrame::Default`; the content switcher \
+                         now always draws `border-strong-01` lines"
+    )]
     Toolbar,
 }
 
 impl ToggleGroupFrame {
-    /// Both frames.
-    pub const ALL: [Self; 2] = [Self::Default, Self::Toolbar];
+    /// The one distinct frame.
+    pub const ALL: [Self; 1] = [Self::Default];
 
     /// A short name for controls.
+    #[allow(deprecated)]
     pub const fn name(self) -> &'static str {
         match self {
             Self::Default => "default",
             Self::Toolbar => "toolbar",
-        }
-    }
-
-    /// The enabled frame color.
-    fn border(self) -> ColorRole {
-        match self {
-            Self::Default => ColorRole::BorderInverse,
-            Self::Toolbar => ColorRole::BorderStrong01,
         }
     }
 }
@@ -148,8 +146,8 @@ pub struct SegmentLook {
     pub background: Hsla,
     /// Label color.
     pub text: Hsla,
-    /// Top/bottom 1px border (`border-block-*: 1px solid var(--border-inverse)`;
-    /// `border-strong-01` in a toolbar).
+    /// The 1px edge color (top/bottom, plus the outer side of the first and
+    /// last segment): what shows on the track outline over this segment.
     pub border: Hsla,
     /// Focus ring (`inset 0 0 0 2px var(--focus)`).
     pub focus: Option<Hsla>,
@@ -160,48 +158,60 @@ pub struct SegmentLook {
 impl SegmentLook {
     /// The look of a segment (`.cds--content-switcher-btn*` rules).
     pub fn of(state: SegmentState) -> Self {
-        Self::framed(state, ToggleGroupFrame::Default)
-    }
-
-    /// The look of a segment in `frame`.
-    pub fn framed(state: SegmentState, frame: ToggleGroupFrame) -> Self {
         let clear = Hsla::transparent_black();
         if state.disabled {
             // `.cds--content-switcher-btn:disabled { border-color: var(--border-disabled);
-            // color: var(--text-disabled) }`; selected adds `button-disabled`.
+            // color: var(--text-disabled) }`; the first/last side line drops its
+            // `box-shadow`, leaving the outline, which `:has(:disabled)` turns
+            // `border-disabled`. Selected adds `button-disabled` with `border: 0`,
+            // so its fill reaches the edge.
+            let fill = color(ColorRole::ButtonDisabled);
             return Self {
-                background: if state.selected {
-                    color(ColorRole::ButtonDisabled)
-                } else {
-                    clear
-                },
+                background: if state.selected { fill } else { clear },
                 text: color(ColorRole::TextDisabled),
-                border: color(ColorRole::BorderDisabled),
+                border: if state.selected {
+                    fill
+                } else {
+                    color(ColorRole::BorderDisabled)
+                },
                 focus: None,
                 focus_inset: None,
             };
         }
-        let border = color(frame.border());
+        // `.cds--content-switcher-btn { border-block-*: 1px solid var(--border-strong-01) }`,
+        // `:first-child`/`:last-child { box-shadow: inset ±1px 0 0 0 var(--border-strong-01) }`,
+        // `:focus:hover::after { border-block-*: … var(--border-strong-01) }`. These sit
+        // over the track outline, so an enabled segment keeps `border-strong-01` even
+        // when another segment is disabled.
+        let strong = color(ColorRole::BorderStrong01);
+        let focus = color(ColorRole::Focus);
         if state.selected {
-            // `.cds--content-switcher--selected { color: var(--text-inverse) }`,
-            // `::after { background: var(--layer-selected-inverse); transform: scaleY(1) }`;
+            // `.cds--content-switcher--selected { border: 0; color: var(--text-inverse) }`,
+            // `::after { background: var(--layer-selected-inverse); transform: scaleY(1) }`
+            // over the outline (z-index 3);
             // `:focus::after { box-shadow: inset 0 0 0 2px focus, inset 0 0 0 3px focus-inset }`.
+            let fill = color(ColorRole::LayerSelectedInverse);
             return Self {
-                background: color(ColorRole::LayerSelectedInverse),
+                background: fill,
                 text: color(ColorRole::TextInverse),
-                border,
-                focus: state.focused.then(|| color(ColorRole::Focus)),
+                border: if state.focused { focus } else { fill },
+                focus: state.focused.then_some(focus),
                 focus_inset: state.focused.then(|| color(ColorRole::FocusInset)),
             };
         }
-        if state.focused && !state.hovered {
-            // `:not(--selected):focus::after { background: var(--focus-inset) }` inside
-            // `::before { box-shadow: inset 0 0 0 2px var(--focus) }`.
+        if state.focused {
+            // `:focus { border: 0 }`; `:not(--selected):focus::before { box-shadow: inset 0 0 0
+            // 0.125rem var(--focus) }` (z-index 2) over `::after { background: var(--focus-inset) }`,
+            // which turns `layer-hover` on hover (`:focus:hover::after`).
             return Self {
-                background: color(ColorRole::FocusInset),
+                background: color(if state.hovered {
+                    ColorRole::LayerHover01
+                } else {
+                    ColorRole::FocusInset
+                }),
                 text: color(ColorRole::TextPrimary),
-                border,
-                focus: Some(color(ColorRole::Focus)),
+                border: focus,
+                focus: Some(focus),
                 focus_inset: None,
             };
         }
@@ -210,7 +220,7 @@ impl SegmentLook {
             return Self {
                 background: color(ColorRole::LayerHover01),
                 text: color(ColorRole::TextPrimary),
-                border,
+                border: strong,
                 focus: None,
                 focus_inset: None,
             };
@@ -218,35 +228,65 @@ impl SegmentLook {
         Self {
             background: clear,
             text: color(ColorRole::TextSecondary),
-            border,
+            border: strong,
             focus: None,
             focus_inset: None,
         }
     }
 }
 
+/// Same as [`SegmentLook::of`]; every frame draws the same.
+impl SegmentLook {
+    /// The look of a segment; `frame` no longer changes it.
+    #[deprecated(note = "use `SegmentLook::of`; every frame draws the same")]
+    pub fn framed(state: SegmentState, _frame: ToggleGroupFrame) -> Self {
+        Self::of(state)
+    }
+}
+
 /// The track outline (`.cds--content-switcher { outline: 0.0625rem solid
-/// var(--border-inverse) }`), dimmed for the whole track when any segment is
-/// disabled (`:has(.cds--content-switcher-btn:disabled) { outline-color:
-/// var(--border-disabled) }`); `border-strong-01` in a toolbar.
-pub fn track_outline(any_disabled: bool, frame: ToggleGroupFrame) -> Hsla {
+/// var(--border-strong-01) }`), dimmed when any segment is disabled
+/// (`:has(.cds--content-switcher-btn:disabled) { outline-color:
+/// var(--border-disabled) }`); `frame` no longer changes it. Each segment
+/// paints its own edge over it ([`SegmentLook::border`]), so it only shows
+/// beside a disabled segment, where that edge is `border-disabled` too.
+pub fn track_outline(any_disabled: bool, _frame: ToggleGroupFrame) -> Hsla {
     color(if any_disabled {
         ColorRole::BorderDisabled
     } else {
-        frame.border()
+        ColorRole::BorderStrong01
     })
 }
 
-/// Whether the 1×16px divider before segment `index` shows
-/// (`.cds--content-switcher-btn::before`): hidden on the first segment and
-/// next to a selected, hovered or focused one
-/// (`.cds--content-switcher--selected::before, … + .cds--content-switcher-btn::before`).
+/// Whether the divider before segment `index` shows (see [`divider`]).
+#[deprecated(note = "use `divider`, which also gives its color")]
 pub fn divider_visible(index: usize, states: &[SegmentState]) -> bool {
+    divider(index, states).is_some()
+}
+
+/// The 1×16px divider before segment `index`
+/// (`.cds--content-switcher-btn::before { background-color: var(--border-subtle) }`),
+/// or `None` where it hides: on the first segment and next to a selected,
+/// hovered or focused one
+/// (`.cds--content-switcher--selected::before, … + .cds--content-switcher-btn::before`).
+/// Before a disabled segment it turns `border-disabled`
+/// (`.cds--content-switcher-btn:disabled::before`, which wins over the
+/// selected-neighbour rule by source order but not over the `:focus +` and
+/// `:hover +` rules) and hides on a disabled selected one or after it
+/// (`--selected:disabled::before { display: none }`,
+/// `--selected:disabled + .cds--content-switcher-btn::before`).
+pub fn divider(index: usize, states: &[SegmentState]) -> Option<Hsla> {
     if index == 0 {
-        return false;
+        return None;
     }
-    let busy = |s: &SegmentState| s.selected || s.hovered || s.focused;
-    !(busy(&states[index]) || busy(&states[index - 1]))
+    let (prev, this) = (states[index - 1], states[index]);
+    if this.disabled {
+        let hidden =
+            this.selected || prev.focused || prev.hovered || (prev.selected && prev.disabled);
+        return (!hidden).then(|| color(ColorRole::BorderDisabled));
+    }
+    let busy = |s: SegmentState| s.selected || s.hovered || s.focused;
+    (!(busy(this) || busy(prev))).then(|| color(ColorRole::BorderSubtle01))
 }
 
 /// The next selectable index for a key, wrapping and skipping disabled
@@ -277,7 +317,6 @@ pub struct ToggleGroup {
     value: Option<Vec<SharedString>>,
     default_value: Option<Vec<SharedString>>,
     size: ToggleSize,
-    frame: ToggleGroupFrame,
     items: Vec<ToggleGroupItem>,
     on_value_change: Option<ChangeHandler>,
 }
@@ -291,7 +330,6 @@ impl ToggleGroup {
             value: None,
             default_value: None,
             size: ToggleSize::Md,
-            frame: ToggleGroupFrame::Default,
             items: Vec::new(),
             on_value_change: None,
         }
@@ -333,10 +371,10 @@ impl ToggleGroup {
         self
     }
 
-    /// The frame of a single-select group (default Carbon's; `Toolbar` in a
-    /// toolbar). No effect on `type="multiple"`.
-    pub fn frame(mut self, frame: ToggleGroupFrame) -> Self {
-        self.frame = frame;
+    /// The frame of a single-select group; every frame now draws the same
+    /// `border-strong-01` lines, so this has no effect.
+    #[deprecated(note = "every frame draws the same; drop the call")]
+    pub fn frame(self, _frame: ToggleGroupFrame) -> Self {
         self
     }
 
@@ -444,8 +482,6 @@ impl RenderOnce for ToggleGroup {
             (s.hovered, s.focus.clone())
         };
         let disabled: Vec<bool> = self.items.iter().map(|i| i.disabled).collect();
-        let frame = self.frame;
-        let outline = track_outline(disabled.iter().any(|d| *d), frame);
         let states: Vec<SegmentState> = (0..count)
             .map(|i| SegmentState {
                 selected: i == selected,
@@ -496,14 +532,14 @@ impl RenderOnce for ToggleGroup {
             .children(self.items.into_iter().enumerate().map(|(i, item)| {
                 let state = states[i];
                 // No transition: `.cds--content-switcher-btn` has none in `bundle.css`.
-                let look = SegmentLook::framed(state, frame);
+                let look = SegmentLook::of(state);
                 let (bg, text) = (look.background, look.text);
                 let first = i == 0;
                 let last = i + 1 == count;
                 let commit = commit.clone();
                 let value = item.value.clone();
                 let segments = segments.clone();
-                let divider = divider_visible(i, &states);
+                let divider = divider(i, &states);
                 gpui_kit::base::Button::new((id.clone(), format!("seg-{i}")))
                     .track_focus(&focus[i])
                     .tab_stop(i == selected)
@@ -520,10 +556,11 @@ impl RenderOnce for ToggleGroup {
                     .px(rem(pad_x))
                     .border_t_1()
                     .border_b_1()
-                    // The track outline (`outline: 1px solid; outline-offset: -1px`) is
-                    // painted over each segment's own border edge, so the edge takes the
-                    // outline's color.
-                    .border_color(outline)
+                    // The track outline (`outline: 1px solid; outline-offset: -1px`)
+                    // lies under each segment's edge; the segment's own lines, fill or
+                    // focus ring decide the color there (GPUI paints borders over the
+                    // children, so the fill below never hides them).
+                    .border_color(look.border)
                     .when(first, |this| this.border_l_1())
                     .when(last, |this| this.border_r_1())
                     .type_style(TypeStyle::BodyCompact01)
@@ -573,7 +610,7 @@ impl RenderOnce for ToggleGroup {
                                 )
                             }),
                     )
-                    .when(divider, |this| {
+                    .when_some(divider, |this, line| {
                         this.child(
                             div()
                                 .absolute()
@@ -581,7 +618,7 @@ impl RenderOnce for ToggleGroup {
                                 .top(rem((height - 2. - 16.) / 2.))
                                 .w(px(1.))
                                 .h(rem(16.))
-                                .bg(color(ColorRole::BorderSubtle01)),
+                                .bg(line),
                         )
                     })
                     .child(
@@ -618,19 +655,23 @@ mod tests {
         let rest = SegmentLook::of(SegmentState::default());
         assert_eq!(rest.background.a, 0.);
         assert_eq!(hex(rest.text), "#525252");
-        assert_eq!(hex(rest.border), "#161616");
+        // `border-block-*: 1px solid var(--border-strong-01)`.
+        assert_eq!(hex(rest.border), "#8d8d8d");
         let selected = SegmentLook::of(SegmentState {
             selected: true,
             ..Default::default()
         });
         assert_eq!(hex(selected.background), "#161616");
         assert_eq!(hex(selected.text), "#ffffff");
+        // `border: 0`: the fill covers the outline.
+        assert_eq!(hex(selected.border), "#161616");
         let hover = SegmentLook::of(SegmentState {
             hovered: true,
             ..Default::default()
         });
         assert_eq!(hex(hover.background), "#e8e8e8");
         assert_eq!(hex(hover.text), "#161616");
+        assert_eq!(hex(hover.border), "#8d8d8d");
         let focus = SegmentLook::of(SegmentState {
             focused: true,
             selected: true,
@@ -638,67 +679,76 @@ mod tests {
         });
         assert_eq!(focus.focus.map(hex).as_deref(), Some("#0f62fe"));
         assert_eq!(focus.focus_inset.map(hex).as_deref(), Some("#ffffff"));
+        assert_eq!(hex(focus.border), "#0f62fe");
+        // `:focus:hover::after { background: var(--layer-hover) }` under the ring.
+        let focus_hover = SegmentLook::of(SegmentState {
+            focused: true,
+            hovered: true,
+            ..Default::default()
+        });
+        assert_eq!(hex(focus_hover.background), "#e8e8e8");
+        assert_eq!(focus_hover.focus.map(hex).as_deref(), Some("#0f62fe"));
         let disabled = SegmentLook::of(SegmentState {
+            disabled: true,
+            ..Default::default()
+        });
+        assert_eq!(hex(disabled.border), "#c6c6c6");
+        let disabled_selected = SegmentLook::of(SegmentState {
             disabled: true,
             selected: true,
             ..Default::default()
         });
-        assert_eq!(hex(disabled.background), "#c6c6c6");
-        assert_eq!(hex(disabled.border), "#c6c6c6");
-    }
-
-    #[test]
-    fn track_outline_dims_when_any_segment_is_disabled() {
-        crate::theme::tests_set(CarbonTheme::White);
-        assert_eq!(
-            hex(track_outline(false, ToggleGroupFrame::Default)),
-            "#161616"
-        );
-        assert_eq!(
-            hex(track_outline(true, ToggleGroupFrame::Default)),
-            "#c6c6c6"
-        );
-        // `u0: a toggle group in a toolbar`: border-strong-01 frame.
-        assert_eq!(
-            hex(track_outline(false, ToggleGroupFrame::Toolbar)),
-            "#8d8d8d"
-        );
-        assert_eq!(
-            hex(track_outline(true, ToggleGroupFrame::Toolbar)),
-            "#c6c6c6"
-        );
+        assert_eq!(hex(disabled_selected.background), "#c6c6c6");
+        assert_eq!(hex(disabled_selected.border), "#c6c6c6");
         // `--layout-size-height-local`: 32/40/48 by size, whatever the density.
         assert_eq!(ToggleSize::ALL.map(toggle_height), [32., 40., 48.]);
     }
 
     #[test]
-    fn toolbar_frame_keeps_the_inverse_selection() {
+    fn g100_lines_are_border_strong_01() {
         crate::theme::tests_set(CarbonTheme::G100);
-        let selected = SegmentState {
-            selected: true,
-            ..Default::default()
-        };
-        let toolbar = SegmentLook::framed(selected, ToggleGroupFrame::Toolbar);
-        // G100 border-strong-01, layer-selected-inverse, text-inverse.
-        assert_eq!(hex(toolbar.border), "#6f6f6f");
-        assert_eq!(hex(toolbar.background), "#f4f4f4");
-        assert_eq!(hex(toolbar.text), "#161616");
-        let rest = SegmentLook::framed(SegmentState::default(), ToggleGroupFrame::Toolbar);
-        assert_eq!(hex(rest.border), "#6f6f6f");
         assert_eq!(
             hex(SegmentLook::of(SegmentState::default()).border),
-            "#f4f4f4"
+            "#6f6f6f"
         );
+        let selected = SegmentLook::of(SegmentState {
+            selected: true,
+            ..Default::default()
+        });
+        // G100 layer-selected-inverse, text-inverse.
+        assert_eq!(hex(selected.background), "#f4f4f4");
+        assert_eq!(hex(selected.text), "#161616");
     }
 
     #[test]
     fn dividers_hide_next_to_busy_segments() {
+        crate::theme::tests_set(CarbonTheme::White);
+        // `.cds--content-switcher { outline: … var(--border-strong-01) }`.
+        assert_eq!(
+            hex(track_outline(false, ToggleGroupFrame::Default)),
+            "#8d8d8d"
+        );
+        assert_eq!(
+            hex(track_outline(true, ToggleGroupFrame::Default)),
+            "#c6c6c6"
+        );
+        // G100, where border-subtle and border-disabled differ.
+        crate::theme::tests_set(CarbonTheme::G100);
+        let subtle = Some(color(ColorRole::BorderSubtle01));
+        let dim = Some(color(ColorRole::BorderDisabled));
+        assert_ne!(subtle, dim);
         let mut states = vec![SegmentState::default(); 3];
-        assert!(!divider_visible(0, &states));
-        assert!(divider_visible(1, &states));
+        assert_eq!(divider(0, &states), None);
+        assert_eq!(divider(1, &states), subtle);
         states[1].selected = true;
-        assert!(!divider_visible(1, &states));
-        assert!(!divider_visible(2, &states));
+        assert_eq!(divider(1, &states), None);
+        assert_eq!(divider(2, &states), None);
+        // `:disabled::before { background-color: var(--border-disabled) }` wins
+        // over the selected neighbour.
+        states[2].disabled = true;
+        assert_eq!(divider(2, &states), dim);
+        states[1].disabled = true;
+        assert_eq!(divider(2, &states), None);
     }
 
     #[test]
