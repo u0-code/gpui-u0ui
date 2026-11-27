@@ -30,13 +30,18 @@ use crate::{
 };
 use gpui_kit::{
     AnyElement, App, AppContext as _, Context, CursorStyle, ElementId, Entity, Focusable as _,
-    Hsla, InteractiveElement as _, IntoElement, ParentElement, RenderOnce, SharedString, Styled,
-    Subscription, Window,
+    Hsla, InteractiveElement as _, IntoElement, ParentElement, Pixels, RenderOnce, SharedString,
+    Styled, Subscription, Window,
     component::input::{InputEvent, InputState},
     div,
     prelude::FluentBuilder as _,
+    px,
 };
 use std::rc::Rc;
+
+/// `.g-ccompact-input` sets no padding, so the `<input>` keeps the user
+/// agent's `padding: 1px 2px`: text and placeholder start 2px in.
+const INPUT_PAD_X: Pixels = px(2.);
 
 /// The send square's (fill, glyph): `button-primary` / `text-on-color`,
 /// disabled `button-disabled` / `text-on-color-disabled`
@@ -198,7 +203,7 @@ impl RenderOnce for ComposerCompact {
         let placeholder = text.is_empty().then(|| {
             sans(div(), 14., 400)
                 .absolute()
-                .left_0()
+                .left(INPUT_PAD_X)
                 .top_0()
                 .bottom_0()
                 .flex()
@@ -232,7 +237,8 @@ impl RenderOnce for ComposerCompact {
                     .into_any_element()
             }))
             .child(
-                // `.g-ccompact-input { flex: 1; font-size: 0.875rem }`.
+                // `.g-ccompact-input { flex: 1; font-size: 0.875rem }`, with the
+                // `<input>`'s user-agent `padding: 1px 2px` (it sets none).
                 div()
                     .relative()
                     .flex()
@@ -240,6 +246,7 @@ impl RenderOnce for ComposerCompact {
                     .flex_1()
                     .min_w_0()
                     .h_full()
+                    .px(INPUT_PAD_X)
                     .children(placeholder)
                     .child(editor(&input).disabled(disabled)),
             )
