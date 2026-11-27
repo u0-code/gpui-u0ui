@@ -9,6 +9,8 @@
 //!   outline when focused; the current item in `text-primary` without hover;
 //!   `/` separators in `text-primary` 0.5rem (sm 0.25rem) on each side; no
 //!   trailing slash by default; the row wraps.
+//! - **Custom items**: [`BreadcrumbItem::custom`] holds the caller's element
+//!   (an overflow menu of folded levels) in place of a link.
 //! - **Motion**: `.cds--link { transition: color 70ms cubic-bezier(0.2, 0, 0.38, 0.9) }`.
 use super::overlay::{Callback, rem};
 use crate::{
@@ -18,8 +20,9 @@ use crate::{
     typography::TypeStyled as _,
 };
 use gpui_kit::{
-    App, CursorStyle, ElementId, Hsla, IntoElement, ParentElement, RenderOnce, SharedString,
-    StatefulInteractiveElement as _, Styled, Window, div, prelude::FluentBuilder as _,
+    AnyElement, App, CursorStyle, ElementId, Hsla, IntoElement, ParentElement, RenderOnce,
+    SharedString, StatefulInteractiveElement as _, Styled, Window, div,
+    prelude::FluentBuilder as _,
 };
 use std::rc::Rc;
 
@@ -75,6 +78,7 @@ pub struct BreadcrumbItem {
     label: SharedString,
     current: bool,
     on_click: Option<Callback>,
+    content: Option<AnyElement>,
 }
 
 impl BreadcrumbItem {
@@ -84,6 +88,18 @@ impl BreadcrumbItem {
             label: label.into(),
             current: false,
             on_click: None,
+            content: None,
+        }
+    }
+
+    /// An item holding the caller's element instead of a link (a
+    /// `BreadcrumbItem` whose child is an `OverflowMenu`, the folded middle
+    /// levels of the overflow-content pattern). The caller's element brings
+    /// its own behavior and focus; the separator follows it as usual.
+    pub fn custom(content: impl IntoElement) -> Self {
+        Self {
+            content: Some(content.into_any_element()),
+            ..Self::new(SharedString::default())
         }
     }
 
@@ -182,7 +198,9 @@ impl RenderOnce for Breadcrumb {
                 .read(cx)
                 .clone();
             let focused = focus.is_focused(window);
-            let label = if item.current {
+            let label = if let Some(content) = item.content {
+                content
+            } else if item.current {
                 div()
                     .whitespace_nowrap()
                     // Same 1px box as the links' focus outline, so text lines up.
@@ -277,5 +295,12 @@ mod tests {
             (8., 4.)
         );
         assert!(Breadcrumb::new("b").no_trailing_slash);
+    }
+
+    #[test]
+    fn a_custom_item_holds_the_callers_element() {
+        let item = BreadcrumbItem::custom(div());
+        assert!(item.content.is_some() && !item.current && item.on_click.is_none());
+        assert!(BreadcrumbItem::new("Servers").content.is_none());
     }
 }
