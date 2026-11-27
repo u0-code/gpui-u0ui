@@ -30,6 +30,7 @@ pub mod drawer;
 pub mod dropdown_menu;
 pub mod empty;
 pub mod field;
+pub mod ghost_composer;
 pub mod ghost_foundations;
 pub mod ghost_panels;
 pub mod ghost_primitives;
