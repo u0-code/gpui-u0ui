@@ -927,14 +927,26 @@ impl RenderOnce for Button {
                     })
                 }
             })
-            .when_some(on_click, |this, handler| {
+            // Always a click listener, even without a handler: GPUI exposes
+            // the accessibility Press action only on elements that have one.
+            // A trigger Button (a Dialog's, a Popover's, a menu's) carries no
+            // handler of its own: its wrapper opens the surface on the
+            // pointer press. Without the action, VoiceOver, Voice Control and
+            // other accessibility clients could not press it (design review
+            // FG3C: "Open live dialog" never opened); with it, GPUI turns the
+            // Press into a pointer press at the button's centre, which the
+            // wrapper sees.
+            .on_click({
                 let focus = focus.clone();
-                this.on_click(move |event, window, cx| {
+                move |event, window, cx| {
+                    let Some(handler) = &on_click else {
+                        return;
+                    };
                     // A press that removes the button (a dialog's Cancel, an
                     // attachment's Remove) keeps the Tab starting point there.
                     crate::u0::primitives::parts::vacate_focus(&focus, window, cx);
                     handler(event, window, cx)
-                })
+                }
             });
 
         if kind == ButtonKind::Link {
