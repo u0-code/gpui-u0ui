@@ -1129,7 +1129,7 @@ impl Component {
             Component::GuideRail => "PR 导读的路线：按站点分步带读者看改动。",
             Component::HighlightedText => "模糊匹配高亮。",
             Component::HoverCard => "悬停时预览链接背后的内容。",
-            Component::Icon => "图标统一用 **Material Symbols Sharp**（Google，Apache-2.0，字重 400，opsz 24）。",
+            Component::Icon => "图标统一用 Material Symbols Sharp（Google，Apache-2.0，字重 400，opsz 24）。",
             Component::ImageViewer => "图片查看器：适应 / 实际大小、缩放、背景切换（棋盘格 / 深 / 浅，看透明图）。",
             Component::Input => "单行文本输入。",
             Component::InputGroup => "在输入框或多行输入前后加附加内容（图标、文字、按钮）。",

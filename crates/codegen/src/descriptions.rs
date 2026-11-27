@@ -2,7 +2,9 @@
 //! `crates/gallery/src/generated/descriptions.rs`.
 //!
 //! The gallery shows the first sentence of each card's README under the page
-//! title, so only that sentence is embedded. Every component directory gets a
+//! title, so only that sentence is embedded. The gallery renders its
+//! `` `code` `` spans; other inline Markdown (`**strong**`, `__strong__`,
+//! `[text](url)`) is reduced to its text here. Every component directory gets a
 //! `Component` variant, including cards without a gallery page yet.
 use std::{fmt::Write as _, path::Path};
 
@@ -24,7 +26,7 @@ pub fn descriptions(components: &Path) -> Result<String, String> {
         }
         let readme = entry.path().join("README.md");
         let summary = match std::fs::read_to_string(&readme) {
-            Ok(text) => first_sentence(&text),
+            Ok(text) => plain_markdown(&first_sentence(&text)),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
             Err(e) => return Err(format!("read {}: {e}", readme.display())),
         };
@@ -93,9 +95,78 @@ pub fn first_sentence(readme: &str) -> String {
     body[..end].trim().to_string()
 }
 
+/// Inline Markdown other than code spans reduced to plain text: `**x**` and
+/// `__x__` lose their markers, `[text](url)` keeps its text. Code spans are
+/// left as they are (the gallery draws them as inline code).
+pub fn plain_markdown(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for (i, part) in text.split('`').enumerate() {
+        if i > 0 {
+            out.push('`');
+        }
+        // Odd parts sit between backticks: code, verbatim. An unpaired
+        // trailing backtick leaves a last odd part, also verbatim.
+        if i % 2 == 1 {
+            out.push_str(part);
+        } else {
+            out.push_str(&plain_prose(part));
+        }
+    }
+    out
+}
+
+fn plain_prose(text: &str) -> String {
+    let mut s = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(open) = rest.find('[') {
+        let tail = &rest[open + 1..];
+        let link = tail.find("](").and_then(|close| {
+            let url = &tail[close + 2..];
+            url.find(')').map(|end| (close, close + 2 + end + 1))
+        });
+        match link {
+            Some((close, after)) if !tail[..close].contains('[') => {
+                s.push_str(&rest[..open]);
+                s.push_str(&tail[..close]);
+                rest = &tail[after..];
+            }
+            _ => {
+                s.push_str(&rest[..=open]);
+                rest = tail;
+            }
+        }
+    }
+    s.push_str(rest);
+    for marker in ["**", "__"] {
+        // Only paired markers are emphasis; an odd one out stays literal.
+        if s.matches(marker).count() % 2 == 0 {
+            s = s.replace(marker, "");
+        }
+    }
+    s
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inline_markdown_becomes_plain_text() {
+        assert_eq!(
+            plain_markdown("图标统一用 **Material Symbols Sharp**（Google）。"),
+            "图标统一用 Material Symbols Sharp（Google）。"
+        );
+        assert_eq!(
+            plain_markdown("See [Carbon](https://carbondesignsystem.com)."),
+            "See Carbon."
+        );
+        assert_eq!(
+            plain_markdown("__Bold__ and `**code**`"),
+            "Bold and `**code**`"
+        );
+        assert_eq!(plain_markdown("a ** b"), "a ** b");
+        assert_eq!(plain_markdown("`<select>` [x] y"), "`<select>` [x] y");
+    }
 
     #[test]
     fn readme_first_sentence() {
