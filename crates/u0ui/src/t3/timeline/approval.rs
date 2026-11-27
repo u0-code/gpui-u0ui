@@ -11,20 +11,29 @@
 //! - **Keyboard**: a pending card is a tab stop with a 2px `focus` ring;
 //!   with `shortcuts` (and not destructive) ⇧⌘↵ approves and ⇧⌘⌫ declines
 //!   while focus is inside the card, and the buttons show the keys.
+//! - **Options** ([`ApprovalCard::options`]): the asker's own options as
+//!   buttons (u0 board `PermissionCard`); see [`options`](self::options).
+mod options;
+
+pub use options::{
+    ApprovalOption, PermissionOptionKind, approval_head_icon, default_option, escape_option,
+    option_tooltip,
+};
+
 use super::card;
 use crate::components::badge::{Badge, BadgeSize, BadgeVariant};
 use crate::components::button::{Button, ButtonKind, ButtonSize, ButtonVariant};
 use crate::t3::action::{ActionButton, ActionKind, KeyCap, Part};
 use crate::t3::press::{self, Handler, rem};
 use crate::{
-    icons::CarbonIcon,
+    icons::{CarbonIcon, Icon},
     theme::color,
     tokens::{ColorRole, FontFamilyKey},
     typography::font,
 };
 use gpui_kit::{
-    App, ElementId, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement,
-    RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
+    AnyElement, App, ElementId, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent,
+    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
     prelude::FluentBuilder as _,
 };
 use std::rc::Rc;
@@ -158,6 +167,10 @@ pub struct ApprovalTexts {
     pub approve: SharedString,
     /// Always allow (`alwaysLabel` overrides it).
     pub always: SharedString,
+    /// The Return key's name in an option's tooltip (options variant).
+    pub return_key: SharedString,
+    /// The Escape key's name in an option's tooltip (options variant).
+    pub escape_key: SharedString,
 }
 
 impl Default for ApprovalTexts {
@@ -168,6 +181,8 @@ impl Default for ApprovalTexts {
             decline: "Decline".into(),
             approve: "Approve".into(),
             always: "Always allow this session".into(),
+            return_key: "Return".into(),
+            escape_key: "Esc".into(),
         }
     }
 }
@@ -204,6 +219,16 @@ pub struct ApprovalCard {
     on_approve: Option<Handler>,
     on_decline: Option<Handler>,
     on_always: Option<Handler>,
+    options: Option<Vec<ApprovalOption>>,
+    tool: bool,
+    facts: Vec<(SharedString, SharedString)>,
+    plan: Option<AnyElement>,
+    extras: Vec<options::Extra>,
+    note: Option<SharedString>,
+    editor: Option<AnyElement>,
+    answer: Option<options::Answer>,
+    show_kinds: bool,
+    on_pick: Option<options::PickHandler>,
 }
 
 impl ApprovalCard {
@@ -231,7 +256,124 @@ impl ApprovalCard {
             on_approve: None,
             on_decline: None,
             on_always: None,
+            options: None,
+            tool: false,
+            facts: Vec::new(),
+            plan: None,
+            extras: Vec::new(),
+            note: None,
+            editor: None,
+            answer: None,
+            show_kinds: false,
+            on_pick: None,
         }
+    }
+
+    /// The options variant: a permission question whose buttons are
+    /// `options`, as the asker sent them (u0 board `PermissionCard`). Its
+    /// kind is `Command` and it has no detail until set.
+    pub fn options(id: impl Into<ElementId>, options: Vec<ApprovalOption>) -> Self {
+        let mut card = Self::new(id, ApprovalKind::Command, "");
+        card.options = Some(options);
+        card
+    }
+
+    /// The kind (options variant: picks the head icon).
+    pub fn kind(mut self, kind: ApprovalKind) -> Self {
+        self.kind = kind;
+        self
+    }
+
+    /// The mono detail (options variant: optional, none when empty).
+    pub fn detail(mut self, detail: impl Into<SharedString>) -> Self {
+        self.detail = detail.into();
+        self
+    }
+
+    /// Options variant: one of u0's own tools asks (the
+    /// `home_repair_service` head icon).
+    pub fn tool(mut self, tool: bool) -> Self {
+        self.tool = tool;
+        self
+    }
+
+    /// Options variant: label / value rows under the detail.
+    pub fn facts<L: Into<SharedString>, V: Into<SharedString>>(
+        mut self,
+        facts: impl IntoIterator<Item = (L, V)>,
+    ) -> Self {
+        self.facts = facts
+            .into_iter()
+            .map(|(l, v)| (l.into(), v.into()))
+            .collect();
+        self
+    }
+
+    /// Options variant: a plan (or other content) above the options, at
+    /// most 320px tall, scrolling beyond.
+    pub fn plan(mut self, plan: impl IntoElement) -> Self {
+        self.plan = Some(plan.into_any_element());
+        self
+    }
+
+    /// Options variant: a ghost action after the options, e.g. "No, and
+    /// tell it…" with `CarbonIcon::Chat`.
+    pub fn extra_action(
+        mut self,
+        label: impl Into<SharedString>,
+        icon: impl Into<Icon>,
+        f: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.extras.push(options::Extra {
+            label: label.into(),
+            icon: icon.into(),
+            on_click: Rc::new(f),
+        });
+        self
+    }
+
+    /// Options variant: the info note at the foot of a pending card.
+    pub fn note(mut self, note: impl Into<SharedString>) -> Self {
+        self.note = Some(note.into());
+        self
+    }
+
+    /// Options variant: the caller's inline editor (a textarea and its
+    /// buttons), drawn in place of the options and extra actions; while it
+    /// is set, Return and Escape are the editor's.
+    pub fn editor(mut self, editor: impl IntoElement) -> Self {
+        self.editor = Some(editor.into_any_element());
+        self
+    }
+
+    /// Options variant: answered. One row: a check (`allowed`) or cancel
+    /// icon, the bold `spoken` words (e.g. "You allowed it once") and a
+    /// secondary `tail` (e.g. "“Allow once” · 10:22"; none when empty).
+    pub fn answered(
+        mut self,
+        allowed: bool,
+        spoken: impl Into<SharedString>,
+        tail: impl Into<SharedString>,
+    ) -> Self {
+        self.answer = Some(options::Answer {
+            allowed,
+            spoken: spoken.into(),
+            tail: tail.into(),
+        });
+        self
+    }
+
+    /// Options variant: each option's kind under its button (`showKinds`).
+    pub fn show_kinds(mut self, show: bool) -> Self {
+        self.show_kinds = show;
+        self
+    }
+
+    /// Options variant: an option was picked (by its index), by a click,
+    /// Return (the default) or Escape.
+    pub fn on_pick(mut self, f: impl Fn(usize, &mut Window, &mut App) + 'static) -> Self {
+        self.on_pick = Some(Rc::new(f));
+        self
     }
 
     /// `title` (default per kind).
@@ -321,6 +463,9 @@ impl ApprovalCard {
 
 impl RenderOnce for ApprovalCard {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        if self.options.is_some() {
+            return self.render_options(window, cx);
+        }
         let id = self.id.clone();
         let pending = self.state == ApprovalState::Pending;
         let shortcuts = self.shortcuts && !self.destructive && pending;
@@ -495,6 +640,7 @@ impl RenderOnce for ApprovalCard {
             .children(body)
             // `.t3-approval:focus-visible { outline: 2px solid focus; outline-offset: -2px }`.
             .when(ring && pending, |this| this.child(press::ring()))
+            .into_any_element()
     }
 }
 
