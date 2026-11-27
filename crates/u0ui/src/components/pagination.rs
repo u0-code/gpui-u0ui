@@ -9,13 +9,19 @@
 //!   controlled or uncontrolled. Kit's `pagination` renders its own rounded
 //!   buttons, so only its idea (page items + ellipses) is reused, as the pure
 //!   [`nav_slots`].
+//!   The pickers are focusable; when their menu closes (a pick or Escape)
+//!   focus returns to them, so Tab goes on along the bar.
 //! - **Appearance**: the bar is `size-md` on `layer` with a 1px
-//!   `border-subtle` top line; texts body-compact-01 (`text-primary`, the item
-//!   range `text-secondary`); pickers are `size-md` with a caret, hover
-//!   `layer-hover`; arrow buttons are square with a 1px `border-subtle` start
-//!   line, hover `layer-hover`, disabled `icon-disabled`, focus a 2px inset
-//!   outline. Nav pages are 3rem squares, hover `background-hover`, the active
-//!   page 600 weight with a 1rem × 4px `border-interactive` bar.
+//!   `border-subtle` (`border-subtle-00`) top line; texts body-compact-01
+//!   (`text-primary`, the item range `text-secondary`); pickers are 2rem tall
+//!   with a caret, hover `layer-hover`; 1px `border-subtle` dividers after the
+//!   items-per-page picker and before the page picker; arrow buttons are
+//!   `density-field-md` squares (32px compact, 40px comfortable) with a 1px
+//!   `border-subtle` start line, hover `layer-hover`, disabled
+//!   `icon-disabled`, focus a 2px inset outline. Nav pages are 3rem squares,
+//!   hover `background-hover`, the active page 600 weight with a 1rem × 4px
+//!   `border-interactive` bar; the nav arrows are `density-field-md` (compact)
+//!   or 3rem squares and the overflow item is the `…` icon alone.
 //! - **Motion**: background 110ms productive standard; the active bar grows
 //!   from the center (`transition: width 110ms`), a cut under reduced motion.
 use super::floating::Align;
@@ -23,16 +29,17 @@ use super::menu::{self, MenuItem, MenuSize};
 use super::overlay::{self, rem};
 use super::tooltip::Tooltip;
 use crate::{
+    density::{self, Density},
     icons::{CarbonIcon, Icon, IconSize},
     motion::{self, Curve, Motion, Speed},
     theme::color,
-    tokens::{ColorRole, SIZE_LG, SIZE_MD, TypeStyle},
+    tokens::{ColorRole, SIZE_LG, SIZE_MD, TokenLength, TypeStyle},
     typography::TypeStyled as _,
 };
 use gpui_kit::{
     AnyElement, App, Bounds, CursorStyle, ElementId, FontWeight, Hsla, InteractiveElement,
     IntoElement, ParentElement, Pixels, RenderOnce, SharedString, StatefulInteractiveElement as _,
-    Styled, Window, canvas, div, prelude::FluentBuilder as _, px,
+    Styled, TestSupportExt as _, Window, canvas, div, prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -107,6 +114,32 @@ pub fn nav_slots(total: usize, page: usize, shown: usize) -> Vec<NavSlot> {
 
 type PageChange = Rc<dyn Fn(usize, &mut Window, &mut App)>;
 
+/// The pickers' height in every density
+/// (`.cds--pagination .cds--select-input { block-size: 2rem }`, `t3.css`).
+pub const PICKER_HEIGHT: f32 = 32.;
+
+/// The bar's previous/next squares: `density-field-md`
+/// (`[data-density="compact"] .cds--btn--icon-only { inline-size: var(--density-field-md) }`;
+/// `block-size: var(--layout-size-height-local)`, 2.5rem, when comfortable).
+pub fn arrow_size(density: Density) -> TokenLength {
+    density.field()
+}
+
+/// PaginationNav's previous/next squares: `density-field-md` when compact,
+/// else the 3rem nav item (`.cds--pagination-nav__page` sizes the `IconButton`).
+pub fn nav_arrow_size(density: Density) -> TokenLength {
+    match density {
+        Density::Compact => density.field(),
+        Density::Comfortable => SIZE_LG,
+    }
+}
+
+/// The bar's dividers and the arrows' start line: `var(--border-subtle)`,
+/// which outside a layer context is `border-subtle-00`.
+fn divider() -> Hsla {
+    color(ColorRole::BorderSubtle00)
+}
+
 /// Texts of the bar (Carbon's English defaults; override per locale).
 #[derive(Clone)]
 pub struct PaginationText {
@@ -120,6 +153,18 @@ pub struct PaginationText {
     pub backward: SharedString,
     /// `forwardText`.
     pub forward: SharedString,
+}
+
+impl PaginationText {
+    /// PaginationNav's defaults: its `backwardText` / `forwardText` are
+    /// "Previous" / "Next" (Pagination's are "Previous page" / "Next page").
+    pub fn nav() -> Self {
+        Self {
+            backward: "Previous".into(),
+            forward: "Next".into(),
+            ..Self::default()
+        }
+    }
 }
 
 impl Default for PaginationText {
@@ -210,8 +255,8 @@ fn square(
         .justify_center()
         .bg(bg)
         .when(border_start && !focused, |this| {
-            this.border_l_1()
-                .border_color(color(ColorRole::BorderSubtle01))
+            // `.cds--pagination__button:focus { border-inline-start: 0 }`.
+            this.border_l_1().border_color(divider())
         })
         .cursor(if disabled {
             CursorStyle::OperationNotAllowed
@@ -240,8 +285,22 @@ fn square(
         .into_any_element()
 }
 
+/// How a picker's trigger looks.
+#[derive(Clone, Copy, PartialEq)]
+enum PickerLook {
+    /// The bar's inline select: value + caret, 1rem / 2.25rem padding.
+    Select {
+        /// A 1px `border-subtle` line at its end
+        /// (`.cds--select__item-count .cds--select-input { border-inline-end }`).
+        divider_end: bool,
+    },
+    /// PaginationNav's overflow item: the `…` icon centered in its square.
+    Overflow(f32),
+}
+
 /// A Carbon inline select in the bar: value + caret, opening a menu of
-/// options.
+/// options. The trigger is a tab stop; the menu hands focus back to it on
+/// close (see [`overlay::surface_focus`]).
 #[allow(clippy::too_many_arguments)]
 fn picker(
     id: ElementId,
@@ -250,12 +309,18 @@ fn picker(
     selected: usize,
     on_pick: PageChange,
     label: SharedString,
+    look: PickerLook,
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
     let openness = overlay::openness(&id, None, false, None, window, cx);
     let open = openness.open;
     let set_open = openness.setter();
+    let focus = window
+        .use_keyed_state((id.clone(), "focus"), cx, |_, cx| cx.focus_handle())
+        .read(cx)
+        .clone();
+    let focused = focus.is_focused(window);
     let hover = window.use_keyed_state((id.clone(), "hover"), cx, |_, _| false);
     let bg = motion::animate_color(
         (id.clone(), "bg"),
@@ -268,13 +333,11 @@ fn picker(
         window,
         cx,
     );
-    // `.cds--pagination .cds--select-input { padding: 0 2.25rem 0 1rem; line-height: 2.5rem }`.
     let trigger = div()
         .id((id.clone(), "value"))
+        .test_support()
+        .track_focus(&focus.clone().tab_stop(true))
         .relative()
-        .h(SIZE_MD.rems())
-        .pl(rem(16.))
-        .pr(rem(36.))
         .flex()
         .items_center()
         .bg(bg)
@@ -285,21 +348,56 @@ fn picker(
                 cx.notify();
             })
         })
-        .child(value)
-        .child(
-            div()
-                .absolute()
-                .right(rem(12.))
-                .top_0()
-                .bottom_0()
-                .flex()
-                .items_center()
+        // Focus the trigger before the press opens the menu, so the menu
+        // returns focus here when it closes.
+        .on_mouse_down(gpui_kit::MouseButton::Left, {
+            let focus = focus.clone();
+            move |_, window, cx| focus.focus(window, cx)
+        })
+        .map(|this| match look {
+            // `.cds--pagination .cds--select--inline .cds--select-input { padding-inline: 1rem 2.25rem }`.
+            PickerLook::Select { divider_end } => this
+                .h(rem(PICKER_HEIGHT))
+                .pl(rem(16.))
+                .pr(rem(36.))
+                .when(divider_end, |this| {
+                    this.border_r_1().border_color(divider())
+                })
+                .child(value)
                 .child(
-                    Icon::carbon(CarbonIcon::ChevronDown)
-                        .size(IconSize::S16)
-                        .color(color(ColorRole::IconPrimary)),
+                    div()
+                        .absolute()
+                        .right(rem(12.))
+                        .top_0()
+                        .bottom_0()
+                        .flex()
+                        .items_center()
+                        .child(
+                            Icon::carbon(CarbonIcon::ChevronDown)
+                                .size(IconSize::S16)
+                                .color(color(ColorRole::IconPrimary)),
+                        ),
                 ),
-        )
+            // `.cds--pagination-nav__select-icon`: the overflow icon over a
+            // transparent `<select>`, no caret.
+            PickerLook::Overflow(size) => this.size(rem(size)).justify_center().child(
+                Icon::carbon(CarbonIcon::OverflowMenuHorizontal)
+                    .size(IconSize::S16)
+                    .color(color(ColorRole::IconPrimary)),
+            ),
+        })
+        .when(focused, |this| {
+            // `.cds--select-input:focus { outline: 2px solid var(--focus); outline-offset: -2px }`.
+            this.child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full()
+                    .border_2()
+                    .border_color(color(ColorRole::Focus)),
+            )
+        })
         .into_any_element();
     let trigger = overlay::trigger_wrapper((id.clone(), "trigger"), trigger, {
         let set_open = set_open.clone();
@@ -443,12 +541,23 @@ impl RenderOnce for Pagination {
         let narrow =
             is_narrow(f32::from(bounds.read(cx).size.width) / f32::from(window.rem_size()));
         let measure = canvas(
-            move |b, _, cx| {
-                if *bounds.read(cx) != b {
+            move |b, window, cx| {
+                let old = *bounds.read(cx);
+                if old != b {
                     bounds.update(cx, |v, cx| {
                         *v = b;
                         cx.notify();
                     });
+                    // A notify while painting does not redraw: without the
+                    // extra frame the bar kept the layout of its last width
+                    // until the next input event, so a press re-rendered it
+                    // narrow↔wide under the pointer and the click (down and
+                    // up on different elements) was lost.
+                    let rem = f32::from(window.rem_size());
+                    let narrow_at = |w: Pixels| is_narrow(f32::from(w) / rem);
+                    if narrow_at(old.size.width) != narrow_at(b.size.width) {
+                        window.request_animation_frame();
+                    }
                 }
             },
             |_, _, _, _| {},
@@ -481,6 +590,7 @@ impl RenderOnce for Pagination {
                 })
             },
             self.text.items_per_page.clone(),
+            PickerLook::Select { divider_end: true },
             window,
             cx,
         );
@@ -494,9 +604,11 @@ impl RenderOnce for Pagination {
                 Rc::new(move |i, window, cx| go(i + 1, window, cx))
             },
             (self.text.page_range)(page, pages).into(),
+            PickerLook::Select { divider_end: false },
             window,
             cx,
         );
+        let arrow_px = arrow_size(density::current()).px_value();
         let arrow = |name: &'static str,
                      icon: CarbonIcon,
                      label: SharedString,
@@ -509,7 +621,7 @@ impl RenderOnce for Pagination {
             let button = square(
                 button_id.clone(),
                 label.clone(),
-                SIZE_MD.px_value(),
+                arrow_px,
                 true,
                 target.is_none(),
                 Icon::carbon(icon)
@@ -525,9 +637,9 @@ impl RenderOnce for Pagination {
                 window,
                 cx,
             );
-            // Carbon `Pagination` renders these as `IconButton`s
-            // (`align="top-end"`) with the backward/forward text as tooltip.
-            icon_tooltip(button_id, button, label, Align::TopRight)
+            // Carbon `Pagination` renders these as `IconButton`s with the
+            // backward/forward text as tooltip (`.cds--popover--top`).
+            icon_tooltip(button_id, button, label, Align::Top)
         };
         let back = arrow(
             "back",
@@ -557,7 +669,7 @@ impl RenderOnce for Pagination {
             .justify_between()
             .bg(color(ColorRole::Layer01))
             .border_t_1()
-            .border_color(color(ColorRole::BorderSubtle01))
+            .border_color(divider())
             .type_style(TypeStyle::BodyCompact01)
             .text_color(text_primary)
             .child(measure)
@@ -587,18 +699,23 @@ impl RenderOnce for Pagination {
                     ),
             )
             .child(
+                // `.cds--pagination__right { border-inline-start: 1px solid var(--border-subtle) }`
+                // (none below 42rem).
                 div()
                     .flex()
                     .flex_row()
                     .items_center()
                     .when(!narrow, |this| {
-                        this.child(page_picker).child(
-                            div()
-                                .ml(px(1.))
-                                .mr(rem(16.))
-                                .whitespace_nowrap()
-                                .child((self.text.page_range)(page, pages)),
-                        )
+                        this.border_l_1()
+                            .border_color(divider())
+                            .child(page_picker)
+                            .child(
+                                div()
+                                    .ml(px(1.))
+                                    .mr(rem(16.))
+                                    .whitespace_nowrap()
+                                    .child((self.text.page_range)(page, pages)),
+                            )
                     })
                     .child(back)
                     .child(forward),
@@ -626,7 +743,7 @@ impl PaginationNav {
             page: None,
             items_shown: 7,
             on_page_change: None,
-            text: PaginationText::default(),
+            text: PaginationText::nav(),
         }
     }
 
@@ -683,6 +800,7 @@ impl RenderOnce for PaginationNav {
             })
         };
         let size = SIZE_LG.px_value();
+        let arrow_px = nav_arrow_size(density::current()).px_value();
         let child_id =
             |name: String| ElementId::NamedChild(std::sync::Arc::new(id.clone()), name.into());
         let mut row = div()
@@ -703,7 +821,7 @@ impl RenderOnce for PaginationNav {
             let button = square(
                 button_id.clone(),
                 label.clone(),
-                size,
+                arrow_px,
                 false,
                 target.is_none(),
                 Icon::carbon(icon)
@@ -790,16 +908,17 @@ impl RenderOnce for PaginationNav {
                     let go = go.clone();
                     let options: Vec<String> = hidden.iter().map(|p| (p + 1).to_string()).collect();
                     let hidden_pages = hidden.clone();
-                    row = row.child(div().w(rem(size)).flex().justify_center().child(picker(
+                    row = row.child(picker(
                         picker_id,
-                        "…".into(),
+                        String::new(),
                         options,
                         usize::MAX,
                         Rc::new(move |i, window, cx| go(hidden_pages[i], window, cx)),
                         SharedString::default(),
+                        PickerLook::Overflow(size),
                         window,
                         cx,
-                    )));
+                    ));
                 }
             }
         }
@@ -881,6 +1000,35 @@ mod tests {
         for page in 0..12 {
             assert_eq!(nav_slots(12, page, 7).len(), 7);
         }
+    }
+
+    #[test]
+    fn sizes_follow_density() {
+        assert_eq!(arrow_size(Density::Compact).px_value(), 32.);
+        assert_eq!(arrow_size(Density::Comfortable).px_value(), 40.);
+        assert_eq!(nav_arrow_size(Density::Compact).px_value(), 32.);
+        assert_eq!(nav_arrow_size(Density::Comfortable).px_value(), 48.);
+        assert_eq!(PICKER_HEIGHT, 32.);
+    }
+
+    #[test]
+    fn nav_and_bar_arrow_texts_differ() {
+        let text = PaginationText::default();
+        assert_eq!(
+            (text.backward.as_ref(), text.forward.as_ref()),
+            ("Previous page", "Next page")
+        );
+        let nav = PaginationText::nav();
+        assert_eq!(
+            (nav.backward.as_ref(), nav.forward.as_ref()),
+            ("Previous", "Next")
+        );
+    }
+
+    #[test]
+    fn dividers_are_border_subtle_00() {
+        crate::theme::tests_set(crate::tokens::CarbonTheme::White);
+        assert_eq!(divider(), color(ColorRole::BorderSubtle00));
     }
 
     #[test]
