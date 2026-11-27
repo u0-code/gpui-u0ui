@@ -12,6 +12,7 @@
 //!   the figure.
 use crate::{
     components::{Button, ButtonSize, ButtonVariant},
+    ghost::primitives::parts::{focus_ring, focus_visible, keyed_focus},
     icons::{CarbonIcon, Icon},
     motion::{self, Motion},
     t3::{
@@ -24,7 +25,7 @@ use crate::{
 use gpui_kit::{
     AnyElement, App, CursorStyle, Div, ElementId, Hsla, InteractiveElement as _, IntoElement,
     ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
-    px, relative,
+    prelude::FluentBuilder as _, px, relative,
 };
 use std::{collections::HashSet, rc::Rc};
 
@@ -309,10 +310,20 @@ impl RenderOnce for ProcessTree {
                     cx,
                 );
                 let open = open.clone();
+                let focus = keyed_focus(
+                    (id.clone(), SharedString::from(format!("tog-focus-{pid}"))),
+                    window,
+                    cx,
+                );
+                // `.g-ttable-tog:focus-visible { outline: 2px solid var(--focus);
+                // outline-offset: -2px }`.
+                let ring = focus_visible(&focus, window);
                 // `.g-ttable-tog { width/height: 1.25rem }` with the 14px
                 // `.t3-chev` (`icon-secondary`, rotate 90° open).
                 gpui_kit::base::Button::new((id.clone(), SharedString::from(format!("tog-{pid}"))))
+                    .track_focus(&focus)
                     .accessibility_label((texts.toggle)(is_open, &p.name))
+                    .relative()
                     .flex()
                     .flex_none()
                     .items_center()
@@ -325,6 +336,7 @@ impl RenderOnce for ProcessTree {
                             .color(color(ColorRole::IconSecondary))
                             .rotate(gpui_kit::radians(chevron)),
                     )
+                    .when(ring, |b| b.child(focus_ring()))
                     .on_click(move |_, _, cx| {
                         open.update(cx, |s, cx| {
                             if !s.remove(&pid) {
@@ -370,6 +382,8 @@ impl RenderOnce for ProcessTree {
                 .variant(ButtonVariant::Ghost)
                 .size(ButtonSize::Sm)
                 .icon(CarbonIcon::StopFilled)
+                // `.g-ptree-row .cds--btn--ghost svg { fill: var(--icon-secondary) }`.
+                .icon_color(color(ColorRole::IconSecondary))
                 .icon_only(true)
                 .on_click(move |_, w, cx| {
                     if let Some(f) = &f {
