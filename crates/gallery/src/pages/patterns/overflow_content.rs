@@ -144,6 +144,7 @@ fn breadcrumb(
                 .overflow_label("More levels")
                 .overflow_icon(CarbonIcon::OverflowMenuHorizontal)
                 .size(DropdownMenuSize::Sm)
+                .in_breadcrumb(true)
                 .item(menu_item("build-box"))
                 .item(menu_item("carbon-ui")),
         ));

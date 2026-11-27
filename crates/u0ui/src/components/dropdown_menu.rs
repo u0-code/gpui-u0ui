@@ -19,14 +19,16 @@ use super::button::{Button, ButtonSize, ButtonVariant};
 use super::menu::{self, MenuItem, MenuSize};
 use super::overlay::{self, OpenChange};
 use crate::{
-    icons::{CarbonIcon, Icon},
+    icons::{CarbonIcon, Icon, IconSize},
     motion,
     theme::color,
     tokens::ColorRole,
 };
 use gpui_kit::{
-    App, Bounds, ElementId, IntoElement, ParentElement, Pixels, RenderOnce, SharedString, Styled,
-    TestSupportExt as _, Window, canvas, div, prelude::FluentBuilder as _,
+    AnyElement, App, Bounds, CursorStyle, ElementId, FocusHandle, InteractiveElement as _,
+    IntoElement, MouseButton, ParentElement, Pixels, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled, TestSupportExt as _, Window, canvas, div,
+    prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -130,6 +132,8 @@ pub struct DropdownMenu {
     default_open: bool,
     on_open_change: Option<OpenChange>,
     items: Vec<MenuItem>,
+    in_breadcrumb: bool,
+    focus_handle: Option<FocusHandle>,
 }
 
 impl DropdownMenu {
@@ -147,7 +151,27 @@ impl DropdownMenu {
             default_open: false,
             on_open_change: None,
             items: Vec::new(),
+            in_breadcrumb: false,
+            focus_handle: None,
         }
+    }
+
+    /// Use a caller-owned focus handle for the trigger button (to move
+    /// focus to it, as a toolbar's arrow keys do).
+    pub fn track_focus(mut self, handle: &FocusHandle) -> Self {
+        self.focus_handle = Some(handle.clone());
+        self
+    }
+
+    /// Draw the overflow trigger as a breadcrumb item's (`.cds--breadcrumb-item
+    /// .cds--overflow-menu`): a 16×18 box whose icon is `link-primary`
+    /// (`link-primary-hover` on hover, `icon-primary` pressed) moved 4px down
+    /// (`transform: translateY(4px)`), a 12px underline on hover and focus,
+    /// a 1px focus outline, and no lifted surface while open. Unlabeled menus
+    /// only.
+    pub fn in_breadcrumb(mut self, on: bool) -> Self {
+        self.in_breadcrumb = on;
+        self
     }
 
     /// The button label; without one the trigger is an overflow icon button.
@@ -243,8 +267,16 @@ impl RenderOnce for DropdownMenu {
                     .size(size.button())
                     .icon(Icon::carbon(CarbonIcon::ChevronDown).rotate(gpui_kit::radians(rotation)))
                     .full_width(true)
+                    .when_some(self.focus_handle.as_ref(), |b, h| b.track_focus(h))
                     .into_any_element()
             }
+            None if self.in_breadcrumb => breadcrumb_trigger(
+                &id,
+                self.overflow_label.clone(),
+                self.overflow_icon,
+                window,
+                cx,
+            ),
             None => Button::new((id.clone(), "button"), self.overflow_label.clone())
                 .variant(ButtonVariant::Ghost)
                 .size(size.button())
@@ -252,6 +284,7 @@ impl RenderOnce for DropdownMenu {
                 .icon_only(true)
                 .tooltip(!open)
                 .selected(open)
+                .when_some(self.focus_handle.as_ref(), |b, h| b.track_focus(h))
                 .into_any_element(),
         };
         let measure = canvas(
@@ -273,7 +306,7 @@ impl RenderOnce for DropdownMenu {
                 .when(labeled && kind != DropdownMenuKind::Ghost, |this| {
                     this.min_w(overlay::rem(TRIGGER_MIN_WIDTH))
                 })
-                .when(!labeled && open, |this| {
+                .when(!labeled && open && !self.in_breadcrumb, |this| {
                     // `.cu-overflow-trigger--open { background: var(--layer-01);
                     // box-shadow: 0 2px 6px var(--shadow) }`.
                     this.bg(color(ColorRole::Layer01))
@@ -309,6 +342,109 @@ impl RenderOnce for DropdownMenu {
             menu::anchored_menu(&id, trigger, spec, window, cx)
         }
     }
+}
+
+/// The breadcrumb's overflow trigger (see [`DropdownMenu::in_breadcrumb`]).
+fn breadcrumb_trigger(
+    id: &ElementId,
+    label: SharedString,
+    icon: CarbonIcon,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
+    let pointer = window.use_keyed_state((id.clone(), "crumb-pointer"), cx, |_, _| (false, false));
+    let focus = window
+        .use_keyed_state((id.clone(), "crumb-focus"), cx, |_, cx| cx.focus_handle())
+        .read(cx)
+        .clone();
+    let (hovered, pressed) = *pointer.read(cx);
+    let focused = focus.is_focused(window);
+    let ink = color(if pressed {
+        ColorRole::IconPrimary
+    } else if hovered {
+        ColorRole::LinkPrimaryHover
+    } else {
+        ColorRole::LinkPrimary
+    });
+    // `::after { inline-size: 0.75rem; block-size: 1px; inset-block-end: 2px;
+    // background: focus }`, `link-primary-hover` on hover, `text-primary`
+    // pressed; shown on hover and focus.
+    let underline = (hovered || focused).then(|| {
+        div()
+            .absolute()
+            .left_0()
+            .bottom(px(2.))
+            .w(px(12.))
+            .h(px(1.))
+            .bg(color(if pressed {
+                ColorRole::TextPrimary
+            } else if hovered {
+                ColorRole::LinkPrimaryHover
+            } else {
+                ColorRole::Focus
+            }))
+    });
+    gpui_kit::base::Button::new((id.clone(), "button"))
+        .track_focus(&focus)
+        .tab_index(0)
+        .accessibility_label(label)
+        .relative()
+        // `block-size: 1.125rem; inline-size: 1rem`.
+        .w(px(16.))
+        .h(px(18.))
+        .cursor(CursorStyle::PointingHand)
+        .on_hover({
+            let pointer = pointer.clone();
+            move |h, _, cx| {
+                pointer.update(cx, |p, cx| {
+                    p.0 = *h;
+                    if !h {
+                        p.1 = false;
+                    }
+                    cx.notify();
+                })
+            }
+        })
+        .on_mouse_down(MouseButton::Left, {
+            let pointer = pointer.clone();
+            move |_, _, cx| {
+                pointer.update(cx, |p, cx| {
+                    p.1 = true;
+                    cx.notify();
+                })
+            }
+        })
+        .on_mouse_up(MouseButton::Left, move |_, _, cx| {
+            pointer.update(cx, |p, cx| {
+                p.1 = false;
+                cx.notify();
+            })
+        })
+        .child(
+            // Centred in the 18px box (1px above and below), then
+            // `translateY(4px)`: the dots sit 5px from the top.
+            div()
+                .absolute()
+                .left_0()
+                .top(px(5.))
+                .size(px(16.))
+                .child(Icon::carbon(icon).size(IconSize::S16).color(ink)),
+        )
+        .children(underline)
+        // `:focus { outline: 1px solid var(--focus); outline-offset: 0 }`.
+        .when(focused, |this| {
+            this.child(
+                div()
+                    .absolute()
+                    .top(px(-1.))
+                    .left(px(-1.))
+                    .right(px(-1.))
+                    .bottom(px(-1.))
+                    .border_1()
+                    .border_color(color(ColorRole::Focus)),
+            )
+        })
+        .into_any_element()
 }
 
 #[cfg(test)]
