@@ -267,6 +267,48 @@ contextual! {
     layer_background => LayerBackground01, LayerBackground02, LayerBackground03;
 }
 
+/// The three desktop selection states (Ghost foundations, "三种选中态"),
+/// which can stack and stay distinguishable:
+///
+/// - **focus**: `state-focus` (= `focus`), a 2px inset outline on
+///   `:focus-visible` only, always drawn on top;
+/// - **current** (the open item, `aria-current`): `state-current-background`
+///   plus a 3px `state-current-indicator` start bar and 600 weight;
+/// - **selected** (multi-select): `state-selected-background`.
+///
+/// Current + selected shows the selected fill with the current bar
+/// (`.g-staterow--selected` comes after `--current` in `ghost.css`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Selection {
+    /// The row fill, or `None` to keep the surface (hover may apply).
+    pub background: Option<Hsla>,
+    /// The 3px start bar (`box-shadow: inset 3px 0 0 state-current-indicator`).
+    pub indicator: Option<Hsla>,
+    /// 600 weight (current).
+    pub semibold: bool,
+    /// The outline color when focus-visible (`state-focus`).
+    pub focus: Hsla,
+}
+
+impl Selection {
+    /// The look of an item that is `current` and/or `selected`.
+    pub fn of(current: bool, selected: bool) -> Self {
+        let background = if selected {
+            Some(color(ColorRole::StateSelectedBackground))
+        } else if current {
+            Some(color(ColorRole::StateCurrentBackground))
+        } else {
+            None
+        };
+        Self {
+            background,
+            indicator: current.then(|| color(ColorRole::StateCurrentIndicator)),
+            semibold: current,
+            focus: color(ColorRole::StateFocus),
+        }
+    }
+}
+
 impl LayerLevel {
     /// The level of controls placed on a surface painted at this level
     /// (Three stays Three, as in Carbon).
