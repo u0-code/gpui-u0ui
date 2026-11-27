@@ -526,6 +526,8 @@ pub struct Button {
     loading: bool,
     selected: bool,
     full_width: bool,
+    wrap_label: bool,
+    icon_size: IconSize,
     tooltip: bool,
     tooltip_align: super::floating::Align,
     tab_index: isize,
@@ -550,6 +552,8 @@ impl Button {
             loading: false,
             selected: false,
             full_width: false,
+            wrap_label: false,
+            icon_size: IconSize::S16,
             tooltip: true,
             tooltip_align: super::floating::Align::Top,
             tab_index: 0,
@@ -559,12 +563,11 @@ impl Button {
         }
     }
 
-    /// Deprecated, does nothing: text-only, non-ghost buttons end at
-    /// [`TEXT_ONLY_END_PADDING`] by default now. Kept only for its last
-    /// caller, `patterns/frame.rs`; remove it once that call is dropped.
-    /// (Not `#[deprecated]` so that caller still passes `clippy -D warnings`
-    /// meanwhile.)
+    /// Does nothing: text-only, non-ghost buttons end at
+    /// [`TEXT_ONLY_END_PADDING`] by default. Kept one cycle for downstream
+    /// callers; drop the call.
     #[doc(hidden)]
+    #[deprecated(note = "no-op: text-only buttons end at TEXT_ONLY_END_PADDING by default")]
     pub fn balanced(self, _balanced: bool) -> Self {
         self
     }
@@ -631,6 +634,23 @@ impl Button {
     /// none`, as in `.cds--modal-footer .cds--btn`).
     pub fn full_width(mut self, full_width: bool) -> Self {
         self.full_width = full_width;
+        self
+    }
+
+    /// The icon's size (default 16px). Carbon sizes an `IconButton`'s icon
+    /// by the child the caller passes, such as `<Search size={20} />` in
+    /// the UI shell header.
+    pub fn icon_size(mut self, size: IconSize) -> Self {
+        self.icon_size = size;
+        self
+    }
+
+    /// Let a label that does not fit wrap onto more lines, the button growing
+    /// from its size's height (`.cds--btn` sets `min-block-size` and no
+    /// `white-space: nowrap`; a narrow `flex: 1` button in Carbon wraps).
+    /// Off by default: one line, as wide as the label.
+    pub fn wrap_label(mut self, wrap: bool) -> Self {
+        self.wrap_label = wrap;
         self
     }
 
@@ -757,7 +777,7 @@ impl RenderOnce for Button {
             )
         } else {
             self.icon.map(|icon| {
-                icon.size(IconSize::S16)
+                icon.size(self.icon_size)
                     .color(icon_color)
                     .into_any_element()
             })
@@ -851,7 +871,17 @@ impl RenderOnce for Button {
                 .into_any_element();
         }
 
-        button = button.h(rem(geometry.height));
+        let wrap_label = self.wrap_label && geometry.width.is_none();
+        button = if wrap_label {
+            // `min-block-size` with the block padding on both sides: one line
+            // is exactly `height`, each further line adds its line height.
+            button
+                .min_h(rem(geometry.height))
+                .pb(rem(geometry.padding_top))
+                .whitespace_normal()
+        } else {
+            button.h(rem(geometry.height))
+        };
         if let Some(width) = geometry.width {
             button = button
                 .w(rem(width))
@@ -873,7 +903,14 @@ impl RenderOnce for Button {
                 .pt(rem(geometry.padding_top))
                 .pl(rem(geometry.padding_left))
                 .pr(rem(geometry.padding_right))
-                .child(label.clone())
+                .map(|this| {
+                    if wrap_label {
+                        this.min_w_0()
+                            .child(div().flex_1().min_w_0().child(label.clone()))
+                    } else {
+                        this.child(label.clone())
+                    }
+                })
                 .children(std::mem::take(&mut self.trailing));
             button = match (icon, geometry.icon_top) {
                 // `.cds--btn .cds--btn__icon { position: absolute; inset-inline-end: 16px }`.
@@ -936,6 +973,29 @@ impl RenderOnce for Button {
 mod tests {
     use super::*;
     use crate::tokens::CarbonTheme;
+
+    #[test]
+    fn wrapping_and_icon_size_are_opt_in() {
+        let b = Button::new("b", "Apply filters");
+        assert!(!b.wrap_label);
+        assert_eq!(b.icon_size, IconSize::S16);
+        let b = b.wrap_label(true).icon_size(IconSize::S20);
+        assert!(b.wrap_label);
+        assert_eq!(b.icon_size, IconSize::S20);
+        // A wrapping `sm` button: one line is exactly the size's height (the
+        // block padding on both sides), two lines add one line height:
+        // Carbon's 50px "Apply filters" in a 94px `flex: 1` slot.
+        let g = Geometry::for_content(
+            ButtonSize::Sm,
+            Density::Compact,
+            ButtonKind::Primary,
+            false,
+            false,
+        );
+        assert_eq!(g.height, 32.);
+        assert_eq!(2. * g.padding_top + LINE + 2., g.height);
+        assert_eq!(2. * g.padding_top + 2. * LINE + 2., 50.);
+    }
 
     #[test]
     fn the_loading_spinner_pulses_under_reduced_motion() {

@@ -301,7 +301,6 @@ impl RenderOnce for PatternFrame {
                     let mut button = Button::new((id.clone(), format!("b{i}")), b.label)
                         .variant(b.variant)
                         .size(ButtonSize::Xl)
-                        .balanced(b.icon.is_none())
                         .full_width(true)
                         .disabled(b.disabled)
                         .on_click(move |_, window, cx| {
