@@ -8,7 +8,7 @@ use gpui_kit::{
     Styled as _, TestAppContext, Window, WindowBounds, WindowOptions, div, px, size,
 };
 use std::time::Duration;
-use u0ui::ghost::shell::{FilterItem, FilterMenu};
+use u0ui::u0::shell::{FilterItem, FilterMenu};
 
 struct Page {
     changes: Vec<Vec<SharedString>>,

@@ -16,7 +16,7 @@ thread_local! {
     /// The slider's bounds from the last paint.
     static SLIDER: Cell<Option<Bounds<Pixels>>> = const { Cell::new(None) };
 }
-use u0ui::ghost::primitives::{SteppedSlider, TimeField};
+use u0ui::u0::primitives::{SteppedSlider, TimeField};
 
 struct Page {
     before: FocusHandle,

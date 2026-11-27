@@ -12,11 +12,11 @@ use gpui_kit::{
 use u0ui::components::{
     Breadcrumb, BreadcrumbItem, DropdownMenu, DropdownMenuSize, FieldSize, Input, MenuItem,
 };
-use u0ui::ghost::foundations::{Truncate, TruncateMode};
 use u0ui::patterns::{Caption, PatternGrid};
 use u0ui::prelude::*;
 use u0ui::t3::review::StartTruncatedPath;
 use u0ui::typography::paragraph;
+use u0ui::u0::foundations::{Truncate, TruncateMode};
 
 /// Build the page.
 pub fn build(window: &mut Window, cx: &mut App) -> AnyView {

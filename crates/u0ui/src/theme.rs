@@ -267,7 +267,7 @@ contextual! {
     layer_background => LayerBackground01, LayerBackground02, LayerBackground03;
 }
 
-/// The three desktop selection states (Ghost foundations, "三种选中态"),
+/// The three desktop selection states (u0 foundations, "三种选中态"),
 /// which can stack and stay distinguishable:
 ///
 /// - **focus**: `state-focus` (= `focus`), a 2px inset outline on

@@ -1,6 +1,6 @@
 //! `NumberInput`: Carbon's number field as the pattern cards draw it
 //! (`K.NumberInput`, `.cds--number`), full width with its − / + buttons at
-//! the right edge. (Ghost's [`crate::ghost::primitives::Stepper`] is the
+//! the right edge. (u0's [`crate::u0::primitives::Stepper`] is the
 //! compact fixed-width variant.)
 //!
 //! - **Behavior**: Kit's [`InputState`] owns editing; the draft is parsed
@@ -25,10 +25,10 @@ use crate::{
         input::{FieldLook, FieldState},
     },
     density::{self, Density},
-    ghost::primitives::stepper::{clamp, format_number, parse_float, stepped},
     icons::{CarbonIcon, Icon},
     theme::{LayerLevel, color},
     tokens::{self, ColorRole},
+    u0::primitives::stepper::{clamp, format_number, parse_float, stepped},
 };
 use gpui_kit::{
     App, AppContext as _, Context, CursorStyle, ElementId, Entity, Focusable as _,

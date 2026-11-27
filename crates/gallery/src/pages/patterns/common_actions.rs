@@ -128,7 +128,7 @@ fn copy(p: &str, k: Knobs) -> AnyElement {
     CodeSnippet::new(
         id(p, "snippet"),
         SnippetType::Single,
-        "npx ghost pair --link 7f3a-9c2e",
+        "npx u0 pair --link 7f3a-9c2e",
     )
     .copy_texts("Copy to clipboard", "Copied")
     .layer(k.level)

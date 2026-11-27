@@ -85,7 +85,7 @@ fn inline(id: impl Into<SharedString>, kind: NotificationKind, low: bool) -> Ale
 fn banner(id: impl Into<SharedString>, kind: NotificationKind, low: bool) -> Alert {
     Alert::new(id.into())
         .variant(variant(kind))
-        .title("Ghost 1.5 is ready.")
+        .title("u0 1.5 is ready.")
         .description("Restart to update; your threads keep running.")
         .action(AlertAction::new("Restart now"))
         // `style: { maxWidth: 'none' }`: across the whole content width.
