@@ -291,6 +291,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("diff-view", "DiffView", "T3 · Diff & review", Component::DiffView.summary(), pages::t3_review::diff_view::build).thumbnail(pages::t3_review::diff_view::thumbnail),
     PageDef::new("review-thread-card", "ReviewThreadCard", "T3 · Diff & review", Component::ReviewThreadCard.summary(), pages::t3_review::review_thread_card::build).thumbnail(pages::t3_review::review_thread_card::thumbnail),
     // T3 · Composer (src/t3/composer.jsx)
+    PageDef::new("composer", "Composer", "T3 · Composer", Component::Composer.summary(), pages::t3_composer::composer::build).thumbnail(pages::t3_composer::composer::thumbnail),
     PageDef::new("composer-attachment-strip", "ComposerAttachmentStrip", "T3 · Composer", Component::ComposerAttachmentStrip.summary(), pages::t3_composer::composer_attachment_strip::build).thumbnail(pages::t3_composer::composer_attachment_strip::thumbnail),
     PageDef::new("composer-banner-stack", "ComposerBannerStack", "T3 · Composer", Component::ComposerBannerStack.summary(), pages::t3_composer::composer_banner_stack::build).thumbnail(pages::t3_composer::composer_banner_stack::thumbnail),
     PageDef::new("composer-command-menu", "ComposerCommandMenu", "T3 · Composer", Component::ComposerCommandMenu.summary(), pages::t3_composer::composer_command_menu::build).thumbnail(pages::t3_composer::composer_command_menu::thumbnail),

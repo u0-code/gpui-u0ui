@@ -1,4 +1,5 @@
 //! T3 · Composer pages (`src/t3/composer.jsx`).
+pub mod composer;
 pub mod composer_attachment_strip;
 pub mod composer_banner_stack;
 pub mod composer_command_menu;

@@ -3,6 +3,7 @@
 //!
 //! | Card | Types |
 //! | --- | --- |
+//! | Composer | [`Composer`] |
 //! | ComposerAttachmentStrip | [`ComposerAttachmentStrip`] |
 //! | ComposerBannerStack | [`ComposerBannerStack`], [`ComposerBanner`] |
 //! | ComposerCommandMenu | [`ComposerCommandMenu`] |
@@ -19,6 +20,7 @@ mod chip;
 mod controls;
 mod menu;
 mod queue;
+mod surface;
 mod voice;
 
 pub use actions::{ComposerPrimaryActions, ComposerState, PrimaryActionTexts};
@@ -36,4 +38,5 @@ pub use controls::{
 };
 pub use menu::{COMMAND_MENU_SIZE, CommandMenuItem, CommandMenuSection, ComposerCommandMenu};
 pub use queue::{QueuedRun, QueuedRunsControl, QueuedRunsTexts};
+pub use surface::{Composer, ComposerMenu, ComposerTexts, enter_action};
 pub use voice::{VoiceInputPill, VoiceState, VoiceTexts, WAVE_PERIOD, wave_delay, wave_scale};
