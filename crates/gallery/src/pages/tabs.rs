@@ -17,6 +17,7 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
         full_width: false,
         disabled: true,
         icons: false,
+        flush: false,
         value: "ov".into(),
     })
     .into()
@@ -28,6 +29,7 @@ struct TabsPage {
     full_width: bool,
     disabled: bool,
     icons: bool,
+    flush: bool,
     value: SharedString,
 }
 
@@ -90,6 +92,7 @@ impl Render for TabsPage {
                     .variant(TabsVariant::ALL[self.variant])
                     .activation(TabsActivation::ALL[self.activation])
                     .full_width(self.full_width)
+                    .flush_panel(self.flush)
                     .value(self.value.clone())
                     .on_value_change({
                         let entity = entity.clone();
@@ -180,6 +183,12 @@ impl Render for TabsPage {
                 "icons",
                 self.icons,
                 toggle(|this, on| this.icons = on),
+            ))
+            .child(controls::toggle(
+                "tabs-flush",
+                "flush panel (in a padded card)",
+                self.flush,
+                toggle(|this, on| this.flush = on),
             ));
 
         Body::new()
