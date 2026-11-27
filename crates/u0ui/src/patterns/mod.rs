@@ -3,6 +3,7 @@
 //! compositions themselves live in the gallery; only the reusable parts are
 //! here.
 //!
+//! - [`badge`]: count and dot badges on icon buttons (`.cds--badge-indicator`, `.cu-pdot`).
 //! - [`caption`]: the examples' caption line (`.cu-pcap`).
 //! - [`frame`]: [`PatternFrame`], the static modal anatomy (`Frame`,
 //!   `.cu-pframe`) the dialog and form examples compare side by side.
@@ -15,6 +16,7 @@
 //! - [`row`]: [`PatternRow`] (`.cu-prow`), a list row with trailing actions.
 //! - [`search`]: [`PatternSearch`] (`.cds--search`), the search field.
 //! - [`text_toolbar`]: the rich-text formatting toolbar (`.cu-ptbar`).
+pub mod badge;
 pub mod caption;
 pub mod frame;
 pub mod grid;
@@ -25,6 +27,7 @@ pub mod row;
 pub mod search;
 pub mod text_toolbar;
 
+pub use badge::{BadgeIndicator, Badged};
 pub use caption::Caption;
 pub use frame::{FrameButton, FrameGeometry, PatternFrame};
 pub use grid::PatternGrid;
