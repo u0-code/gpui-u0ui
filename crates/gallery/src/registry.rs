@@ -441,6 +441,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("transcript-view-switch", "TranscriptViewSwitch", GHOST_THREAD, Component::TranscriptViewSwitch.summary(), pages::ghost_thread::transcript_view_switch::build).thumbnail(pages::ghost_thread::transcript_view_switch::thumbnail),
     PageDef::new("turn-footer", "TurnFooter", GHOST_THREAD, Component::TurnFooter.summary(), pages::ghost_thread::turn_footer::build).thumbnail(pages::ghost_thread::turn_footer::thumbnail),
     // Ghost · Settings (src/ghost/admin.jsx)
+    PageDef::new("script-row", "ScriptRow", GHOST_SETTINGS, Component::ScriptRow.summary(), pages::ghost_settings::script_row::build).thumbnail(pages::ghost_settings::script_row::thumbnail),
     PageDef::new("settings-list-row", "SettingsListRow", GHOST_SETTINGS, Component::SettingsListRow.summary(), pages::ghost_settings::settings_list_row::build).thumbnail(pages::ghost_settings::settings_list_row::thumbnail),
     PageDef::new("theme-editor", "ThemeEditor", GHOST_SETTINGS, Component::ThemeEditor.summary(), pages::ghost_settings::theme_editor::build).thumbnail(pages::ghost_settings::theme_editor::thumbnail),
 ];
