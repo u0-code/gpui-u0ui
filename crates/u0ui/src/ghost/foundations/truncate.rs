@@ -42,8 +42,14 @@ impl TruncateMode {
     }
 }
 
-/// The (head, tail) split: `path` after the last `/`, `middle` at
-/// `floor(len / 2)` characters; `End` puts everything in the head.
+/// Maximum trailing characters kept whole in [`TruncateMode::Middle`] so the
+/// tail fits inside narrow chips (≤70% width) without a second ellipsis while
+/// `head` shrinks cleanly up to it.
+const MIDDLE_TAIL_MAX: usize = 12;
+
+/// The (head, tail) split: `path` after the last `/`, `middle` keeping up to
+/// [`MIDDLE_TAIL_MAX`] characters (or `ceil(len / 2)` for shorter text) in the
+/// tail so the suffix stays whole; `End` puts everything in the head.
 pub fn split(text: &str, mode: TruncateMode) -> (String, String) {
     match mode {
         TruncateMode::End => (text.to_string(), String::new()),
@@ -52,8 +58,13 @@ pub fn split(text: &str, mode: TruncateMode) -> (String, String) {
             None => (String::new(), text.to_string()),
         },
         TruncateMode::Middle => {
-            let n = text.chars().count() / 2;
-            let i = text.char_indices().nth(n).map_or(text.len(), |(i, _)| i);
+            let total = text.chars().count();
+            let tail_n = total.div_ceil(2).min(MIDDLE_TAIL_MAX);
+            let head_n = total.saturating_sub(tail_n);
+            let i = text
+                .char_indices()
+                .nth(head_n)
+                .map_or(text.len(), |(i, _)| i);
             (text[..i].to_string(), text[i..].to_string())
         }
     }
@@ -117,6 +128,7 @@ impl RenderOnce for Truncate {
                     .flex_shrink_1()
                     .min_w(rems(1.5 * 0.875))
                     .overflow_hidden()
+                    .whitespace_nowrap()
                     .text_ellipsis()
                     .child(head),
             )
@@ -125,6 +137,7 @@ impl RenderOnce for Truncate {
                     .flex_none()
                     .max_w(relative(0.7))
                     .overflow_hidden()
+                    .whitespace_nowrap()
                     .text_ellipsis()
                     .child(tail),
             )
@@ -150,6 +163,16 @@ mod tests {
         assert_eq!(
             split("feature/dark", TruncateMode::Middle),
             ("featur".to_string(), "e/dark".to_string())
+        );
+        assert_eq!(
+            split(
+                "feat/onboarding-banner-for-long-languages-ENG-1142",
+                TruncateMode::Middle
+            ),
+            (
+                "feat/onboarding-banner-for-long-langua".to_string(),
+                "ges-ENG-1142".to_string()
+            )
         );
         assert_eq!(split("README.md", TruncateMode::Path).0, "");
         assert_eq!(split("设置通用", TruncateMode::Middle).1, "通用");
