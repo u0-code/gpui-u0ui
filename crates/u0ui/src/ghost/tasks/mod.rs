@@ -6,6 +6,7 @@ pub(crate) mod row;
 mod schedule_editor;
 mod task_row;
 mod workflow_row;
+mod workflow_step_editor;
 
 pub use schedule_editor::{
     DailySummary, IntervalSummary, IntervalUnit, Schedule, ScheduleEditor, ScheduleKind,
@@ -13,3 +14,6 @@ pub use schedule_editor::{
 };
 pub use task_row::{EnabledState, TaskRow, TaskRowTexts, TaskStatus};
 pub use workflow_row::{WorkflowRow, WorkflowRowTexts};
+pub use workflow_step_editor::{
+    StepType, WorkflowStep, WorkflowStepEditor, WorkflowStepEditorTexts, move_step,
+};

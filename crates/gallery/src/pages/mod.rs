@@ -31,6 +31,8 @@ pub mod dropdown_menu;
 pub mod empty;
 pub mod field;
 pub mod ghost_composer;
+pub mod ghost_devices;
+pub mod ghost_diagnostics;
 pub mod ghost_foundations;
 pub mod ghost_palette;
 pub mod ghost_panels;

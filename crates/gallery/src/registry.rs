@@ -409,6 +409,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("schedule-editor", "ScheduleEditor", "Ghost · Tasks & workflows", Component::ScheduleEditor.summary(), pages::ghost_tasks::schedule_editor::build).thumbnail(pages::ghost_tasks::schedule_editor::thumbnail),
     PageDef::new("task-row", "TaskRow", "Ghost · Tasks & workflows", Component::TaskRow.summary(), pages::ghost_tasks::task_row::build).thumbnail(pages::ghost_tasks::task_row::thumbnail),
     PageDef::new("workflow-row", "WorkflowRow", "Ghost · Tasks & workflows", Component::WorkflowRow.summary(), pages::ghost_tasks::workflow_row::build).thumbnail(pages::ghost_tasks::workflow_row::thumbnail),
+    PageDef::new("workflow-step-editor", "WorkflowStepEditor", "Ghost · Tasks & workflows", Component::WorkflowStepEditor.summary(), pages::ghost_tasks::workflow_step_editor::build).thumbnail(pages::ghost_tasks::workflow_step_editor::thumbnail),
     PageDef::new("app-shell", "AppShell", "T3 · Shell", Component::AppShell.summary(), pages::t3_shell::app_shell::build).thumbnail(pages::t3_shell::app_shell::thumbnail),
     PageDef::new("swipe-row", "SwipeRow", "T3 · Mobile", Component::SwipeRow.summary(), pages::t3_mobile::swipe_row::build).thumbnail(pages::t3_mobile::swipe_row::thumbnail),
     // Ghost · Shell (src/ghost/workspace.jsx)
@@ -459,6 +460,23 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("settings-list-row", "SettingsListRow", GHOST_SETTINGS, Component::SettingsListRow.summary(), pages::ghost_settings::settings_list_row::build).thumbnail(pages::ghost_settings::settings_list_row::thumbnail),
     PageDef::new("telemetry-preview", "TelemetryPreview", GHOST_SETTINGS, Component::TelemetryPreview.summary(), pages::ghost_settings::telemetry_preview::build).thumbnail(pages::ghost_settings::telemetry_preview::thumbnail),
     PageDef::new("theme-editor", "ThemeEditor", GHOST_SETTINGS, Component::ThemeEditor.summary(), pages::ghost_settings::theme_editor::build).thumbnail(pages::ghost_settings::theme_editor::thumbnail),
+    PageDef::new("account-row", "AccountRow", "Ghost · Settings", Component::AccountRow.summary(), pages::ghost_settings::account_row::build).thumbnail(pages::ghost_settings::account_row::thumbnail),
+    PageDef::new("agent-row", "AgentRow", "Ghost · Settings", Component::AgentRow.summary(), pages::ghost_settings::agent_row::build).thumbnail(pages::ghost_settings::agent_row::thumbnail),
+    PageDef::new("consent-sheet", "ConsentSheet", "Ghost · Settings", Component::ConsentSheet.summary(), pages::ghost_settings::consent_sheet::build).thumbnail(pages::ghost_settings::consent_sheet::thumbnail),
+    PageDef::new("dictionary-editor", "DictionaryEditor", "Ghost · Settings", Component::DictionaryEditor.summary(), pages::ghost_settings::dictionary_editor::build).thumbnail(pages::ghost_settings::dictionary_editor::thumbnail),
+    PageDef::new("read-aloud-control", "ReadAloudControl", "Ghost · Settings", Component::ReadAloudControl.summary(), pages::ghost_settings::read_aloud_control::build).thumbnail(pages::ghost_settings::read_aloud_control::thumbnail),
+    PageDef::new("scope-header", "ScopeHeader", "Ghost · Settings", Component::ScopeHeader.summary(), pages::ghost_settings::scope_header::build).thumbnail(pages::ghost_settings::scope_header::thumbnail),
+    PageDef::new("settings-dialog", "SettingsDialog", "Ghost · Settings", Component::SettingsDialog.summary(), pages::ghost_settings::settings_dialog::build).thumbnail(pages::ghost_settings::settings_dialog::thumbnail),
+    // Ghost · Devices (src/ghost/admin.jsx)
+    PageDef::new("device-row", "DeviceRow", "Ghost · Devices", Component::DeviceRow.summary(), pages::ghost_devices::device_row::build).thumbnail(pages::ghost_devices::device_row::thumbnail),
+    PageDef::new("mac-row", "MacRow", "Ghost · Devices", Component::MacRow.summary(), pages::ghost_devices::mac_row::build).thumbnail(pages::ghost_devices::mac_row::thumbnail),
+    PageDef::new("pair-confirm-sheet", "PairConfirmSheet", "Ghost · Devices", Component::PairConfirmSheet.summary(), pages::ghost_devices::pair_confirm_sheet::build).thumbnail(pages::ghost_devices::pair_confirm_sheet::thumbnail),
+    PageDef::new("pairing-card", "PairingCard", "Ghost · Devices", Component::PairingCard.summary(), pages::ghost_devices::pairing_card::build).thumbnail(pages::ghost_devices::pairing_card::thumbnail),
+    PageDef::new("tunnel-row", "TunnelRow", "Ghost · Devices", Component::TunnelRow.summary(), pages::ghost_devices::tunnel_row::build).thumbnail(pages::ghost_devices::tunnel_row::thumbnail),
+    // Ghost · Diagnostics (src/ghost/admin.jsx)
+    PageDef::new("log-trouble-row", "LogTroubleRow", "Ghost · Diagnostics", Component::LogTroubleRow.summary(), pages::ghost_diagnostics::log_trouble_row::build).thumbnail(pages::ghost_diagnostics::log_trouble_row::thumbnail),
+    PageDef::new("process-tree", "ProcessTree", "Ghost · Diagnostics", Component::ProcessTree.summary(), pages::ghost_diagnostics::process_tree::build).thumbnail(pages::ghost_diagnostics::process_tree::thumbnail),
+    PageDef::new("storage-breakdown", "StorageBreakdown", "Ghost · Diagnostics", Component::StorageBreakdown.summary(), pages::ghost_diagnostics::storage_breakdown::build).thumbnail(pages::ghost_diagnostics::storage_breakdown::thumbnail),
 ];
 
 /// Look a page up by id.

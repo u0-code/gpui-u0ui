@@ -2,10 +2,14 @@
 //! (a macOS coding-agent console) needed on top of Carbon UI. Each module
 //! mirrors one reference file, `src/ghost/<name>.jsx`.
 pub mod composer;
+pub mod devices;
+pub mod diagnostics;
+pub mod fields;
 pub mod foundations;
 pub mod palette;
 pub mod panels;
 pub mod primitives;
+pub mod rows;
 pub mod settings;
 pub mod shell;
 pub mod tasks;

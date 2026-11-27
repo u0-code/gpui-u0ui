@@ -121,6 +121,7 @@ pub struct TagInput {
     suggestions: Vec<SharedString>,
     placeholder: SharedString,
     max: Option<usize>,
+    fill: Option<gpui_kit::Hsla>,
     on_value_change: Option<Handler>,
 }
 
@@ -136,6 +137,7 @@ impl TagInput {
             // The reference's default; override per locale.
             placeholder: "Add tag…".into(),
             max: None,
+            fill: None,
             on_value_change: None,
         }
     }
@@ -176,6 +178,13 @@ impl TagInput {
     /// At most this many tags (shows "Up to N tags" when reached).
     pub fn max(mut self, max: usize) -> Self {
         self.max = Some(max);
+        self
+    }
+
+    /// The field fill (default `field-01`; a workflow step card uses
+    /// `field-02`: `.g-wfe-card .g-tags { background: var(--field-02) }`).
+    pub fn fill(mut self, fill: gpui_kit::Hsla) -> Self {
+        self.fill = Some(fill);
         self
     }
 
@@ -393,7 +402,7 @@ impl RenderOnce for TagInput {
             .py(rem(4.))
             .px(rem(8.))
             .min_h(rem(field_h))
-            .bg(color(ColorRole::Field01))
+            .bg(self.fill.unwrap_or_else(|| color(ColorRole::Field01)))
             .cursor(CursorStyle::IBeam)
             .type_style(TypeStyle::BodyCompact01)
             .on_mouse_down(MouseButton::Left, {

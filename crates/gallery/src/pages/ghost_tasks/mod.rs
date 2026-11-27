@@ -3,3 +3,4 @@
 pub mod schedule_editor;
 pub mod task_row;
 pub mod workflow_row;
+pub mod workflow_step_editor;
