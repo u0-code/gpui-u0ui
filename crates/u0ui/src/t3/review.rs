@@ -2,7 +2,7 @@
 //! (`src/t3/review.jsx`). Split by card group; everything is re-exported here.
 pub mod diff;
 
-pub use crate::t3::craft::{Tone, actor_tone};
+pub use crate::t3::craft::{AvatarTone, actor_tone};
 
 pub use diff::{
     DiffFileHeader, DiffFileHeaderTexts, DiffFileStatus, DiffFileTree, DiffHunk, DiffLine,

@@ -6,7 +6,7 @@ use crate::{
         Input, InputState,
     },
     icons::CarbonIcon,
-    t3::craft::{self, Tone, rem, sans},
+    t3::craft::{self, AvatarTone, rem, sans},
     theme::{LayerLevel, color},
     tokens::ColorRole,
 };
@@ -160,7 +160,7 @@ fn comment(c: &ReviewComment, pending_tag: Option<SharedString>) -> AnyElement {
         .border_color(color(ColorRole::BorderSubtle01))
         .child(craft::initials(
             craft::two_letters(&c.author),
-            Tone::Avatar(c.color),
+            AvatarTone::Avatar(c.color),
             24.,
         ))
         .child(

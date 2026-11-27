@@ -303,7 +303,7 @@ impl RenderOnce for IssueRow {
                 // `.t3-issue .cu-avatar--sm { 1.25rem }`; the fallback text stays 12px.
                 this.child(craft::initials(
                     a,
-                    craft::Tone::Avatar(AvatarColor::Blue),
+                    craft::AvatarTone::Avatar(AvatarColor::Blue),
                     20.,
                 ))
             })

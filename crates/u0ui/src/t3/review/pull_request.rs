@@ -7,7 +7,7 @@ use super::diff::DiffStat;
 use crate::{
     components::{AvatarColor, Badge, BadgeSize, BadgeVariant, Button, ButtonSize, ButtonVariant},
     icons::{CarbonIcon, Icon},
-    t3::craft::{self, Tone, focus_handle, focus_visible, mono, press, rem, sans},
+    t3::craft::{self, AvatarTone, focus_handle, focus_visible, mono, press, rem, sans},
     theme::color,
     tokens::ColorRole,
 };
@@ -528,7 +528,7 @@ fn meta_item() -> gpui_kit::Div {
 /// shrinks the disc (`.t3-prrow-meta .cu-avatar--sm { 1rem }`, `.t3-issue
 /// .cu-avatar--sm { 1.25rem }`); the fallback text stays 12px.
 pub(crate) fn small_avatar(name: &str, c: AvatarColor, diameter: f32) -> gpui_kit::Div {
-    craft::initials(craft::two_letters(name), Tone::Avatar(c), diameter)
+    craft::initials(craft::two_letters(name), AvatarTone::Avatar(c), diameter)
 }
 
 impl RenderOnce for PullRequestRow {

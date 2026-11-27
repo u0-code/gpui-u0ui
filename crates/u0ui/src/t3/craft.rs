@@ -98,14 +98,14 @@ pub(crate) fn press(id: impl Into<ElementId>, focus: &FocusHandle) -> gpui_kit::
 /// (`AVATAR_TONES` includes `cyan` and `green`, which have no
 /// `.cu-avatar--<c>` rule: no fill, inherited ink).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Tone {
+pub enum AvatarTone {
     /// A `.cu-avatar--<c>` pair.
     Avatar(AvatarColor),
     /// No fill (`cyan`, `green`).
     Plain,
 }
 
-impl Tone {
+impl AvatarTone {
     /// (fill, ink) for the tone; `Plain` paints `ink` on nothing.
     pub fn colors(self, ink: Hsla) -> (Hsla, Hsla) {
         match self {
@@ -118,7 +118,7 @@ impl Tone {
 /// An initials disc `diameter` px wide (`.cu-avatar` + `.cu-avatar-fallback`
 /// `{ font-size: 0.75rem; font-weight: 600 }`; the fallback keeps 12px even
 /// where a parent rule shrinks the disc, and clips).
-pub(crate) fn initials(text: impl Into<SharedString>, tone: Tone, diameter: f32) -> Div {
+pub(crate) fn initials(text: impl Into<SharedString>, tone: AvatarTone, diameter: f32) -> Div {
     let (bg, fg) = tone.colors(color(ColorRole::TextPrimary));
     sans(div(), 12., 600)
         .flex()
@@ -136,14 +136,14 @@ pub(crate) fn initials(text: impl Into<SharedString>, tone: Tone, diameter: f32)
 
 /// The stable tone of an actor (`AVATAR_TONES[hash % 6]` in
 /// `PullRequestTimeline`: `h = h * 33 + code` from 17, over UTF-16 units).
-pub fn actor_tone(actor: &str) -> Tone {
-    const TONES: [Tone; 6] = [
-        Tone::Avatar(AvatarColor::Purple),
-        Tone::Plain, // cyan
-        Tone::Avatar(AvatarColor::Teal),
-        Tone::Avatar(AvatarColor::Magenta),
-        Tone::Avatar(AvatarColor::Blue),
-        Tone::Plain, // green
+pub fn actor_tone(actor: &str) -> AvatarTone {
+    const TONES: [AvatarTone; 6] = [
+        AvatarTone::Avatar(AvatarColor::Purple),
+        AvatarTone::Plain, // cyan
+        AvatarTone::Avatar(AvatarColor::Teal),
+        AvatarTone::Avatar(AvatarColor::Magenta),
+        AvatarTone::Avatar(AvatarColor::Blue),
+        AvatarTone::Plain, // green
     ];
     let h = actor
         .encode_utf16()
@@ -163,11 +163,11 @@ mod tests {
     #[test]
     fn actor_tones_hash_like_the_reference() {
         // ((17·33 + 106)·33 + 100) % 6 = 1 → cyan (no fill) for "jd".
-        assert_eq!(actor_tone("jd"), Tone::Plain);
-        assert_eq!(actor_tone("ak"), Tone::Plain);
-        assert_eq!(actor_tone("mr"), Tone::Avatar(AvatarColor::Purple));
+        assert_eq!(actor_tone("jd"), AvatarTone::Plain);
+        assert_eq!(actor_tone("ak"), AvatarTone::Plain);
+        assert_eq!(actor_tone("mr"), AvatarTone::Avatar(AvatarColor::Purple));
         // 17 % 6 = 5 → green (no fill).
-        assert_eq!(actor_tone(""), Tone::Plain);
+        assert_eq!(actor_tone(""), AvatarTone::Plain);
     }
 
     #[test]

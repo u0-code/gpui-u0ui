@@ -4,7 +4,7 @@ use super::pull_request::{ReviewDecision, ReviewDecisionBadge, icon_button};
 use crate::{
     components::{AvatarColor, Button, ButtonSize, ButtonVariant, Textarea, TextareaState},
     icons::{CarbonIcon, Icon},
-    t3::craft::{self, Tone, focus_handle, focus_visible, press, rem, sans},
+    t3::craft::{self, AvatarTone, focus_handle, focus_visible, press, rem, sans},
     theme::{LayerLevel, color},
     tokens::ColorRole,
 };
@@ -380,7 +380,7 @@ impl RenderOnce for PullRequestTimeline {
                 e.marker.unwrap_or_else(|| {
                     let tone = e
                         .color
-                        .map(Tone::Avatar)
+                        .map(AvatarTone::Avatar)
                         .unwrap_or_else(|| craft::actor_tone(&e.actor));
                     craft::initials(craft::two_letters(&e.actor), tone, 24.).into_any_element()
                 })
@@ -562,21 +562,6 @@ impl Default for ReviewFormTexts {
 
 type VerdictHandler = Rc<dyn Fn(ReviewVerdict, &mut Window, &mut App)>;
 
-/// The next option index for an arrow key in a radio group (wraps; Home and
-/// End jump), or `None` for other keys (`radioKeys` in `base.jsx`).
-pub fn radio_step(key: &str, current: usize, len: usize) -> Option<usize> {
-    if len == 0 {
-        return None;
-    }
-    Some(match key {
-        "right" | "down" => (current + 1) % len,
-        "left" | "up" => (current + len - 1) % len,
-        "home" => 0,
-        "end" => len - 1,
-        _ => return None,
-    })
-}
-
 /// Submit a review (`.t3-reviewform`, `layer-01`, 30rem): the summary text
 /// area on `field-02`, three radio cards (Comment / Approve / Request
 /// changes, each with a description) and the submit button.
@@ -731,7 +716,9 @@ impl RenderOnce for ReviewForm {
                     .iter()
                     .position(|v| *v == *verdict.read(cx))
                     .unwrap_or(0);
-                if let Some(next) = radio_step(e.keystroke.key.as_str(), current, 3) {
+                if let Some(next) =
+                    crate::t3::base::radio_step(e.keystroke.key.as_str(), 3, Some(current))
+                {
                     cx.stop_propagation();
                     verdict.update(cx, |x, cx| {
                         *x = ReviewVerdict::ALL[next];
@@ -789,14 +776,6 @@ impl RenderOnce for ReviewForm {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn radio_keys_wrap() {
-        assert_eq!(radio_step("down", 2, 3), Some(0));
-        assert_eq!(radio_step("up", 0, 3), Some(2));
-        assert_eq!(radio_step("end", 0, 3), Some(2));
-        assert_eq!(radio_step("tab", 0, 3), None);
-    }
 
     #[test]
     fn reaction_and_event_colors() {
