@@ -1009,7 +1009,6 @@ impl RenderOnce for CommitComposer {
                 Button::new((id.clone(), key), label)
                     .variant(variant)
                     .size(ButtonSize::Sm)
-                    .balanced(true)
                     .disabled(!enabled)
                     .on_click(move |_, w, cx| {
                         let text: SharedString = message.read(cx).value().to_string().into();
