@@ -2,4 +2,5 @@
 //! design reference).
 pub mod script_row;
 pub mod settings_list_row;
+pub mod telemetry_preview;
 pub mod theme_editor;

@@ -443,6 +443,7 @@ pub static PAGES: &[PageDef] = &[
     // Ghost · Settings (src/ghost/admin.jsx)
     PageDef::new("script-row", "ScriptRow", GHOST_SETTINGS, Component::ScriptRow.summary(), pages::ghost_settings::script_row::build).thumbnail(pages::ghost_settings::script_row::thumbnail),
     PageDef::new("settings-list-row", "SettingsListRow", GHOST_SETTINGS, Component::SettingsListRow.summary(), pages::ghost_settings::settings_list_row::build).thumbnail(pages::ghost_settings::settings_list_row::thumbnail),
+    PageDef::new("telemetry-preview", "TelemetryPreview", GHOST_SETTINGS, Component::TelemetryPreview.summary(), pages::ghost_settings::telemetry_preview::build).thumbnail(pages::ghost_settings::telemetry_preview::thumbnail),
     PageDef::new("theme-editor", "ThemeEditor", GHOST_SETTINGS, Component::ThemeEditor.summary(), pages::ghost_settings::theme_editor::build).thumbnail(pages::ghost_settings::theme_editor::thumbnail),
 ];
 
