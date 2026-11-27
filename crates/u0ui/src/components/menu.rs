@@ -981,16 +981,24 @@ impl RenderOnce for Menu {
                         .text_color(label_color)
                         .child(label.clone()),
                 )
-                .when_some(shortcut.clone(), |this, shortcut| {
-                    this.child(div().flex_shrink_0().child(shortcut))
-                })
-                .when(is_submenu, |this| {
-                    this.child(
-                        Icon::carbon(CarbonIcon::CaretRight)
-                            .size(IconSize::S16)
-                            .color(icon_color),
-                    )
-                })
+                // The trailing `max-content` column (`grid-template-columns:
+                // … 1fr max-content; column-gap: 0.5rem`) is there even when
+                // empty, so its 8px gap always counts toward the menu's
+                // width: the shortcut, or a submenu's caret.
+                .child(
+                    div()
+                        .flex_shrink_0()
+                        .flex()
+                        .items_center()
+                        .when(!is_submenu, |this| this.children(shortcut.clone()))
+                        .when(is_submenu, |this| {
+                            this.child(
+                                Icon::carbon(CarbonIcon::CaretRight)
+                                    .size(IconSize::S16)
+                                    .color(icon_color),
+                            )
+                        }),
+                )
                 .when_some(outline, |this, outline| {
                     // `.cds--menu-item:focus { outline: 2px solid var(--focus); outline-offset: -2px }`;
                     // danger adds `box-shadow: inset 0 0 0 0.1875rem var(--background)`.
