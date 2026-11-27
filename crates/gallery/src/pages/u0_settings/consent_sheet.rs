@@ -7,8 +7,9 @@ use gpui_kit::{
     AnyElement, AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render,
     SharedString, Styled, Window, div, rems,
 };
+use std::rc::Rc;
 use u0ui::prelude::*;
-use u0ui::u0::settings::ConsentSheet;
+use u0ui::u0::settings::{ConsentActions, ConsentSheet, ConsentTexts};
 
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
@@ -74,6 +75,18 @@ impl Render for Page {
             .example(controls::block(
                 "Reference preview",
                 ConsentSheet::new("consent-ref").app_name("u0"),
+            ))
+            .example(controls::block(
+                "Dialog: u0's Dialogs board (footer at the right, Off by its button)",
+                ConsentSheet::new("consent-dialog")
+                    .app_name("u0")
+                    .actions(ConsentActions::Dialog)
+                    .default_level(1)
+                    .texts(ConsentTexts {
+                        share_nothing: "Keep telemetry off".into(),
+                        proceed: Rc::new(|level| format!("Continue with {level}").into()),
+                        ..ConsentTexts::default()
+                    }),
             ))
     }
 }

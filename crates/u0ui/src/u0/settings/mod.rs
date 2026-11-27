@@ -17,7 +17,7 @@ mod theme_editor;
 
 pub use account_row::{AccountRow, AccountRowTexts, TokenState};
 pub use agent_row::{AgentButton, AgentRow, AgentRowTexts, AgentState, progress_bar};
-pub use consent_sheet::{ConsentSheet, ConsentTexts, sample_payload};
+pub use consent_sheet::{ConsentActions, ConsentSheet, ConsentTexts, sample_payload};
 pub use dialog::{
     SettingsDialog, SettingsDialogTexts, SettingsNavItem, SettingsSection, filter_sections,
     settings_heading,
