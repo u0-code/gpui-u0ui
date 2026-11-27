@@ -205,10 +205,13 @@ pub fn build_server_chip(_: &mut Window, cx: &mut App) -> AnyView {
 }
 
 /// `components/ServerChip/preview.html`: five chips in a wrapping row, 8px
-/// apart.
+/// apart (`{ display: flex; gap: 8; flexWrap: wrap }`). The row's default
+/// `align-items: stretch` leaves the 16px small chip (fixed height) at the
+/// top of the 20px line, not centred.
 fn chip_reference(prefix: &str) -> impl IntoElement {
     let id = |n: &str| eid(prefix, n);
     row()
+        .items_start()
         .gap(tokens::SPACING_03)
         .child(ServerChip::new(id("a"), "MacBook Pro"))
         .child(
