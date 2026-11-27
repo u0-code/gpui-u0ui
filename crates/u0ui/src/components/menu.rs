@@ -1285,7 +1285,7 @@ pub(crate) fn anchored_menu_aligned(
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
-    anchored_menu_impl(id, trigger, spec, end, false, None, window, cx)
+    anchored_menu_impl(id, trigger, spec, end, false, None, None, window, cx)
 }
 
 /// [`anchored_menu`] whose trigger fills its parent's height (a menubar
@@ -1306,9 +1306,53 @@ pub(crate) fn anchored_menu_full_height(
         false,
         true,
         Some(trigger_focus),
+        None,
         window,
         cx,
     )
+}
+
+/// Carbon `MenuButton`'s menu (`MenuButton` in `bundle.js`): centred under
+/// its trigger (`menuAlignment="bottom"`), and as wide as the trigger
+/// (floating-ui's `size` middleware sets the menu's `width` to the
+/// trigger's) held to `.cds--menu`'s `min-inline-size` / `max-inline-size`
+/// ([`button_menu_width`]), so a long label ellipsizes instead of widening
+/// the menu. `trigger_width` is in px at the 16px root size.
+pub(crate) fn anchored_button_menu(
+    id: &ElementId,
+    trigger: AnyElement,
+    spec: MenuSpec,
+    trigger_width: f32,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
+    let width = button_menu_width(&spec.items, trigger_width);
+    anchored_menu_impl(
+        id,
+        trigger,
+        spec,
+        false,
+        false,
+        None,
+        Some(width),
+        window,
+        cx,
+    )
+}
+
+/// The width (px at the 16px root size) of a `MenuButton` menu of `items`
+/// under a `trigger_width` trigger: the trigger's width between `10rem` (or
+/// `12rem` with icons) and `18rem`.
+pub fn button_menu_width(items: &[MenuItem], trigger_width: f32) -> f32 {
+    let mut rows = Vec::new();
+    flatten(items, "", &HashMap::new(), &mut rows);
+    let with_icons = rows
+        .iter()
+        .any(|r| matches!(r, Row::Entry { icon: Some(_), .. }));
+    let geometry = MenuGeometry::of(with_icons);
+    trigger_width
+        .min(geometry.max_width)
+        .max(geometry.min_width)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1319,6 +1363,7 @@ fn anchored_menu_impl(
     end: bool,
     full_height: bool,
     return_to: Option<FocusHandle>,
+    centered_width: Option<f32>,
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
@@ -1332,13 +1377,23 @@ fn anchored_menu_impl(
         .child(anchor.measure_trigger());
     let side = anchor.place_measured(window);
     let popup = gpui_kit::base::Popup::new((id.clone(), "popup"), trigger)
-        .anchor(if end {
+        .anchor(if centered_width.is_some() {
+            side.anchor_center()
+        } else if end {
             side.anchor_end()
         } else {
             side.anchor()
         })
         .when(full_height, |this| this.h_full());
-    match menu_surface_returning(id, spec, return_to, window, cx) {
+    let surface =
+        menu_surface_returning(id, spec, return_to, window, cx).map(
+            |surface| match centered_width {
+                // The menu stretches to the fixed width (its own min/max agree).
+                Some(width) => div().w(rem(width)).child(surface).into_any_element(),
+                None => surface,
+            },
+        );
+    match surface {
         // Not painted until measured on the side it fits (no first-open
         // frame below the trigger before the flip).
         Some(surface) => popup.content(anchor.surface(surface)).into_any_element(),

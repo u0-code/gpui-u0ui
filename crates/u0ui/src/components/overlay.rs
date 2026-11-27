@@ -319,6 +319,15 @@ impl DropSide {
         }
     }
 
+    /// The Base anchor for a surface centred on the trigger (Carbon
+    /// `menuAlignment="bottom"`).
+    pub fn anchor_center(self) -> Anchor {
+        match self {
+            Self::Below => Anchor::TopCenter,
+            Self::Above => Anchor::BottomCenter,
+        }
+    }
+
     /// The Base anchor for a surface aligned with the trigger's end edge
     /// (Carbon `menuAlignment="bottom-end"`).
     pub fn anchor_end(self) -> Anchor {

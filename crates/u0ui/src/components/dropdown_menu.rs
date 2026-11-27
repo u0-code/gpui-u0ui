@@ -3,8 +3,10 @@
 //! 180° in 110ms while open); without, a ghost overflow icon button
 //! (`OverflowMenuVertical`) whose trigger lifts onto `layer-01` with the
 //! floating shadow while open (`.cu-overflow-trigger--open`). The menu itself
-//! is [`super::menu`]'s Carbon `Menu`, anchored under the trigger's start
-//! edge by Base's `Popup`.
+//! is [`super::menu`]'s Carbon `Menu`, placed by Base's `Popup`: a
+//! `MenuButton`'s is centred under the trigger and as wide as it (10rem, or
+//! 12rem with icons, to 18rem); an overflow menu hangs from the trigger's
+//! start edge.
 //!
 //! ```ignore
 //! DropdownMenu::new("actions")
@@ -288,21 +290,24 @@ impl RenderOnce for DropdownMenu {
         .test_support()
         .into_any_element();
 
-        menu::anchored_menu(
-            &id,
-            trigger,
-            menu::MenuSpec {
-                items: self.items,
-                size: size.menu(labeled),
-                label: self.label.clone().unwrap_or(self.overflow_label.clone()),
-                open,
-                set_open,
-                min_width: labeled.then_some(trigger_width),
-                on_unhandled_key: None,
-            },
-            window,
-            cx,
-        )
+        let spec = menu::MenuSpec {
+            items: self.items,
+            size: size.menu(labeled),
+            label: self.label.clone().unwrap_or(self.overflow_label.clone()),
+            open,
+            set_open,
+            min_width: None,
+            on_unhandled_key: None,
+        };
+        if labeled {
+            // Carbon `MenuButton`: centred under the trigger, as wide as it
+            // within the menu's 10rem (12rem with icons) to 18rem.
+            menu::anchored_button_menu(&id, trigger, spec, trigger_width, window, cx)
+        } else {
+            // `OverflowMenu`: hangs from the trigger's start edge, sized by
+            // its items.
+            menu::anchored_menu(&id, trigger, spec, window, cx)
+        }
     }
 }
 
@@ -320,5 +325,21 @@ mod tests {
             ButtonVariant::Tertiary
         );
         assert_eq!(TRIGGER_MIN_WIDTH, 192.);
+    }
+
+    #[test]
+    fn menu_button_menu_is_as_wide_as_its_trigger_within_carbon_bounds() {
+        let with_icons = [
+            MenuItem::item("MacBook Pro").icon(CarbonIcon::Laptop),
+            MenuItem::divider(),
+            MenuItem::item("Add to another machine").icon(CarbonIcon::Add),
+        ];
+        // The BranchToolbar "MacBook Pro" trigger (140px): 12rem, so
+        // "Add to another machine" ellipsizes rather than widening it.
+        assert_eq!(menu::button_menu_width(&with_icons, 140.4), 192.);
+        let plain = [MenuItem::item("main"), MenuItem::item("develop")];
+        assert_eq!(menu::button_menu_width(&plain, 88.), 160.);
+        assert_eq!(menu::button_menu_width(&plain, 220.), 220.);
+        assert_eq!(menu::button_menu_width(&plain, 400.), 288.);
     }
 }
