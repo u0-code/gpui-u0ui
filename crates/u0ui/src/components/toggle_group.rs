@@ -1,13 +1,21 @@
 //! ToggleGroup: shadcn `ToggleGroup`.
 //!
 //! - `type="single"` → Carbon `ContentSwitcher` (`.cds--content-switcher`): one
-//!   selected option, pill-ended track with a 1px `border-inverse` outline;
+//!   selected option, a square track (`t3.css` global craft pass:
+//!   `.cds--content-switcher, .cds--content-switcher-btn,
+//!   .cds--content-switcher-btn::after { border-radius: 0 !important }`) with a
+//!   1px `border-inverse` outline and centered labels
+//!   (`.cds--content-switcher-btn { justify-content: center; text-align: center }`);
 //!   the selected button fills `layer-selected-inverse` with `text-inverse`;
 //!   others are `text-secondary`, hover `layer-hover`, split by 1×16px
 //!   `border-subtle` dividers that hide next to the selected/hovered/focused
 //!   button. Focus: inset 2px `focus` + 1px `focus-inset`.
 //!   Keyboard: roving focus, ←/→ (and Home/End) move and select (Carbon's
 //!   automatic selection), wrapping; Enter/Space select.
+//! - [`ToggleGroupFrame::Toolbar`]: a single-select group in a toolbar reads
+//!   like a field (`bundle.css` `u0: a toggle group in a toolbar reads like a
+//!   field: border-strong-01 frame (not the black border-inverse), square,
+//!   inverse fill for the selected segment`).
 //! - `type="multiple"` → a row of outline [`Toggle`]s 4px apart
 //!   (`.cu-toggle-group { gap: var(--spacing-02) }`).
 //!
@@ -53,6 +61,39 @@ impl ToggleGroupType {
         match self {
             Self::Single => "single",
             Self::Multiple => "multiple",
+        }
+    }
+}
+
+/// The frame of a single-select group: the context it sits in.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ToggleGroupFrame {
+    /// Carbon's content switcher: `border-inverse` outline.
+    #[default]
+    Default,
+    /// In a toolbar: a `border-strong-01` frame like a field, the selected
+    /// segment still filled `layer-selected-inverse` (`bundle.css` `u0: a
+    /// toggle group in a toolbar`).
+    Toolbar,
+}
+
+impl ToggleGroupFrame {
+    /// Both frames.
+    pub const ALL: [Self; 2] = [Self::Default, Self::Toolbar];
+
+    /// A short name for controls.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Default => "default",
+            Self::Toolbar => "toolbar",
+        }
+    }
+
+    /// The enabled frame color.
+    fn border(self) -> ColorRole {
+        match self {
+            Self::Default => ColorRole::BorderInverse,
+            Self::Toolbar => ColorRole::BorderStrong01,
         }
     }
 }
@@ -107,7 +148,8 @@ pub struct SegmentLook {
     pub background: Hsla,
     /// Label color.
     pub text: Hsla,
-    /// Top/bottom 1px border (`border-block-*: 1px solid var(--border-inverse)`).
+    /// Top/bottom 1px border (`border-block-*: 1px solid var(--border-inverse)`;
+    /// `border-strong-01` in a toolbar).
     pub border: Hsla,
     /// Focus ring (`inset 0 0 0 2px var(--focus)`).
     pub focus: Option<Hsla>,
@@ -118,6 +160,11 @@ pub struct SegmentLook {
 impl SegmentLook {
     /// The look of a segment (`.cds--content-switcher-btn*` rules).
     pub fn of(state: SegmentState) -> Self {
+        Self::framed(state, ToggleGroupFrame::Default)
+    }
+
+    /// The look of a segment in `frame`.
+    pub fn framed(state: SegmentState, frame: ToggleGroupFrame) -> Self {
         let clear = Hsla::transparent_black();
         if state.disabled {
             // `.cds--content-switcher-btn:disabled { border-color: var(--border-disabled);
@@ -134,7 +181,7 @@ impl SegmentLook {
                 focus_inset: None,
             };
         }
-        let border = color(ColorRole::BorderInverse);
+        let border = color(frame.border());
         if state.selected {
             // `.cds--content-switcher--selected { color: var(--text-inverse) }`,
             // `::after { background: var(--layer-selected-inverse); transform: scaleY(1) }`;
@@ -181,12 +228,12 @@ impl SegmentLook {
 /// The track outline (`.cds--content-switcher { outline: 0.0625rem solid
 /// var(--border-inverse) }`), dimmed for the whole track when any segment is
 /// disabled (`:has(.cds--content-switcher-btn:disabled) { outline-color:
-/// var(--border-disabled) }`).
-pub fn track_outline(any_disabled: bool) -> Hsla {
+/// var(--border-disabled) }`); `border-strong-01` in a toolbar.
+pub fn track_outline(any_disabled: bool, frame: ToggleGroupFrame) -> Hsla {
     color(if any_disabled {
         ColorRole::BorderDisabled
     } else {
-        ColorRole::BorderInverse
+        frame.border()
     })
 }
 
@@ -230,6 +277,7 @@ pub struct ToggleGroup {
     value: Option<Vec<SharedString>>,
     default_value: Option<Vec<SharedString>>,
     size: ToggleSize,
+    frame: ToggleGroupFrame,
     items: Vec<ToggleGroupItem>,
     on_value_change: Option<ChangeHandler>,
 }
@@ -243,6 +291,7 @@ impl ToggleGroup {
             value: None,
             default_value: None,
             size: ToggleSize::Md,
+            frame: ToggleGroupFrame::Default,
             items: Vec::new(),
             on_value_change: None,
         }
@@ -281,6 +330,13 @@ impl ToggleGroup {
     /// `size` (default `md`).
     pub fn size(mut self, size: ToggleSize) -> Self {
         self.size = size;
+        self
+    }
+
+    /// The frame of a single-select group (default Carbon's; `Toolbar` in a
+    /// toolbar). No effect on `type="multiple"`.
+    pub fn frame(mut self, frame: ToggleGroupFrame) -> Self {
+        self.frame = frame;
         self
     }
 
@@ -388,7 +444,8 @@ impl RenderOnce for ToggleGroup {
             (s.hovered, s.focus.clone())
         };
         let disabled: Vec<bool> = self.items.iter().map(|i| i.disabled).collect();
-        let outline = track_outline(disabled.iter().any(|d| *d));
+        let frame = self.frame;
+        let outline = track_outline(disabled.iter().any(|d| *d), frame);
         let states: Vec<SegmentState> = (0..count)
             .map(|i| SegmentState {
                 selected: i == selected,
@@ -435,16 +492,14 @@ impl RenderOnce for ToggleGroup {
             .flex_row()
             .w_full()
             .h(rem(height))
-            .rounded(tokens::BORDER_RADIUS_04)
             .on_key_down(on_key)
             .children(self.items.into_iter().enumerate().map(|(i, item)| {
                 let state = states[i];
                 // No transition: `.cds--content-switcher-btn` has none in `bundle.css`.
-                let look = SegmentLook::of(state);
+                let look = SegmentLook::framed(state, frame);
                 let (bg, text) = (look.background, look.text);
                 let first = i == 0;
                 let last = i + 1 == count;
-                let radius = tokens::BORDER_RADIUS_04;
                 let commit = commit.clone();
                 let value = item.value.clone();
                 let segments = segments.clone();
@@ -459,7 +514,9 @@ impl RenderOnce for ToggleGroup {
                     .h_full()
                     .flex()
                     .items_center()
-                    .justify_start()
+                    // `t3.css` craft pass: `.cds--content-switcher-btn
+                    // { justify-content: center; text-align: center }`.
+                    .justify_center()
                     .px(rem(pad_x))
                     .border_t_1()
                     .border_b_1()
@@ -467,8 +524,8 @@ impl RenderOnce for ToggleGroup {
                     // painted over each segment's own border edge, so the edge takes the
                     // outline's color.
                     .border_color(outline)
-                    .when(first, |this| this.border_l_1().rounded_l(radius))
-                    .when(last, |this| this.border_r_1().rounded_r(radius))
+                    .when(first, |this| this.border_l_1())
+                    .when(last, |this| this.border_r_1())
                     .type_style(TypeStyle::BodyCompact01)
                     .text_color(text)
                     .cursor(if state.disabled {
@@ -496,7 +553,8 @@ impl RenderOnce for ToggleGroup {
                             commit(vec![value.clone()], window, cx);
                         }
                     })
-                    // The selected/focus fill (`::after`, 4px radius, over the borders).
+                    // The selected/focus fill (`::after`, square per the craft pass,
+                    // over the borders).
                     .child(
                         div()
                             .absolute()
@@ -504,13 +562,11 @@ impl RenderOnce for ToggleGroup {
                             .bottom(px(-1.))
                             .left(px(if first { -1. } else { 0. }))
                             .right(px(if last { -1. } else { 0. }))
-                            .when(state.selected || state.focused, |this| this.rounded(radius))
                             .bg(bg)
                             .when_some(look.focus, |this, ring| {
                                 this.border_2().border_color(ring).child(
                                     div()
                                         .size_full()
-                                        .rounded(radius)
                                         .when_some(look.focus_inset, |this, inset| {
                                             this.border_1().border_color(inset)
                                         }),
@@ -594,10 +650,45 @@ mod tests {
     #[test]
     fn track_outline_dims_when_any_segment_is_disabled() {
         crate::theme::tests_set(CarbonTheme::White);
-        assert_eq!(hex(track_outline(false)), "#161616");
-        assert_eq!(hex(track_outline(true)), "#c6c6c6");
+        assert_eq!(
+            hex(track_outline(false, ToggleGroupFrame::Default)),
+            "#161616"
+        );
+        assert_eq!(
+            hex(track_outline(true, ToggleGroupFrame::Default)),
+            "#c6c6c6"
+        );
+        // `u0: a toggle group in a toolbar`: border-strong-01 frame.
+        assert_eq!(
+            hex(track_outline(false, ToggleGroupFrame::Toolbar)),
+            "#8d8d8d"
+        );
+        assert_eq!(
+            hex(track_outline(true, ToggleGroupFrame::Toolbar)),
+            "#c6c6c6"
+        );
         // `--layout-size-height-local`: 32/40/48 by size, whatever the density.
         assert_eq!(ToggleSize::ALL.map(toggle_height), [32., 40., 48.]);
+    }
+
+    #[test]
+    fn toolbar_frame_keeps_the_inverse_selection() {
+        crate::theme::tests_set(CarbonTheme::G100);
+        let selected = SegmentState {
+            selected: true,
+            ..Default::default()
+        };
+        let toolbar = SegmentLook::framed(selected, ToggleGroupFrame::Toolbar);
+        // G100 border-strong-01, layer-selected-inverse, text-inverse.
+        assert_eq!(hex(toolbar.border), "#6f6f6f");
+        assert_eq!(hex(toolbar.background), "#f4f4f4");
+        assert_eq!(hex(toolbar.text), "#161616");
+        let rest = SegmentLook::framed(SegmentState::default(), ToggleGroupFrame::Toolbar);
+        assert_eq!(hex(rest.border), "#6f6f6f");
+        assert_eq!(
+            hex(SegmentLook::of(SegmentState::default()).border),
+            "#f4f4f4"
+        );
     }
 
     #[test]

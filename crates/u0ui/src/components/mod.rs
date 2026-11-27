@@ -150,7 +150,7 @@ pub use switch::{Switch, SwitchSize};
 pub use tabs::{Tabs, TabsActivation, TabsTrigger, TabsVariant};
 pub use textarea::{Textarea, TextareaState};
 pub use toggle::{Toggle, ToggleVariant};
-pub use toggle_group::{ToggleGroup, ToggleGroupItem, ToggleGroupType};
+pub use toggle_group::{ToggleGroup, ToggleGroupFrame, ToggleGroupItem, ToggleGroupType};
 pub use tooltip::Tooltip;
 pub use trace::{Trace, TraceLine, TraceStatus};
 pub use typography::{Inline, TypeBlock, Typography};
