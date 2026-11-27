@@ -185,6 +185,7 @@ pub struct CopyButton {
     size: f32,
     level: LayerLevel,
     disabled: bool,
+    quiet: bool,
 }
 
 impl CopyButton {
@@ -198,7 +199,16 @@ impl CopyButton {
             size: 40.,
             level: LayerLevel::One,
             disabled: false,
+            quiet: false,
         }
+    }
+
+    /// No fill at rest, `background-hover` under the pointer, for a copy
+    /// button set into a pattern's own surface (`.t3-copy.cds--copy-btn {
+    /// background: transparent }`, `:hover { background: background-hover }`).
+    pub fn quiet(mut self, quiet: bool) -> Self {
+        self.quiet = quiet;
+        self
     }
 
     /// Accessible name (`iconDescription`, e.g. "Copy to clipboard").
@@ -245,7 +255,13 @@ impl RenderOnce for CopyButton {
             let s = state.read(cx);
             (s.hovered && !self.disabled, s.pressed && !self.disabled)
         };
-        let bg = if self.disabled {
+        let bg = if self.quiet && !pressed {
+            if hovered && !self.disabled {
+                color(ColorRole::BackgroundHover)
+            } else {
+                gpui_kit::transparent_black()
+            }
+        } else if self.disabled {
             color(self.level.layer())
         } else {
             button_background(self.level, hovered, pressed)
