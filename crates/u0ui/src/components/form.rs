@@ -308,6 +308,21 @@ pub fn form_item() -> Div {
     }
 }
 
+/// `content` in a `.cds--form-item` that sits in a flex row: Carbon gives
+/// the form item `flex: 1 1 auto`, so a checkbox (`.cds--form-item
+/// .cds--checkbox-wrapper`) grows into the row's free space and pushes what
+/// follows it to the end. Use it where the reference puts a form-item
+/// control in a `display: flex` row; components keep their own width
+/// elsewhere.
+pub fn flex_form_item(content: impl IntoElement) -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .items_start()
+        .flex_auto()
+        .child(content)
+}
+
 /// A `.cds--form-item` with an optional label above `control` and the message
 /// row under it.
 pub fn labeled(
@@ -333,6 +348,19 @@ mod tests {
         let c = c.to_rgb();
         let b = |v: f32| (v * 255.).round() as u8;
         format!("#{:02x}{:02x}{:02x}", b(c.r), b(c.g), b(c.b))
+    }
+
+    #[test]
+    fn flex_form_item_grows_like_cds_form_item() {
+        // `.cds--form-item { display: flex; flex: 1 1 auto; flex-direction:
+        // column; align-items: flex-start }`.
+        let mut item = flex_form_item(div());
+        let style = item.style();
+        assert_eq!(style.flex_grow, Some(1.));
+        assert_eq!(style.flex_shrink, Some(1.));
+        assert_eq!(style.flex_basis, Some(gpui_kit::Length::Auto));
+        assert_eq!(style.flex_direction, Some(gpui_kit::FlexDirection::Column));
+        assert_eq!(style.align_items, Some(gpui_kit::AlignItems::FlexStart));
     }
 
     #[test]

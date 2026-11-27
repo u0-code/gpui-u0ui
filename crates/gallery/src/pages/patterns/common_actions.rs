@@ -8,7 +8,7 @@ use gpui_kit::{
     AnyElement, AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render,
     SharedString, Styled, Window, component::input::InputState, div, rems,
 };
-use u0ui::components::form::FieldSize;
+use u0ui::components::form::{self, FieldSize};
 use u0ui::components::{
     Checkbox, CodeSnippet, DropdownMenu, DropdownMenuKind, DropdownMenuSize, MenuItem, SnippetType,
 };
@@ -194,12 +194,14 @@ fn remove(p: &str, page: &Page, entity: &Entity<Page>, k: Knobs) -> AnyElement {
 /// Reset: a link beside the filters.
 fn reset(p: &str, page: &Page, entity: &Entity<Page>, k: Knobs) -> AnyElement {
     let restore = entity.clone();
+    // `display: flex; gap: 16; align-items: center`. Each checkbox is a
+    // `.cds--form-item` (`flex: 1 1 auto`): the two share the free space and
+    // the link ends the row.
     div()
         .flex()
-        .flex_wrap()
         .items_center()
         .gap(tokens::SPACING_05)
-        .child(
+        .child(form::flex_form_item(
             Checkbox::new(id(p, "running"))
                 .label("Running")
                 .checked(page.running)
@@ -207,8 +209,8 @@ fn reset(p: &str, page: &Page, entity: &Entity<Page>, k: Knobs) -> AnyElement {
                 .on_checked_change(controls::setter(entity, |this: &mut Page, v| {
                     this.running = v
                 })),
-        )
-        .child(
+        ))
+        .child(form::flex_form_item(
             Checkbox::new(id(p, "stopped"))
                 .label("Stopped")
                 .checked(page.stopped)
@@ -216,7 +218,7 @@ fn reset(p: &str, page: &Page, entity: &Entity<Page>, k: Knobs) -> AnyElement {
                 .on_checked_change(controls::setter(entity, |this: &mut Page, v| {
                     this.stopped = v
                 })),
-        )
+        ))
         .child(
             Button::new(id(p, "reset"), "Reset filters")
                 .variant(ButtonVariant::Link)
