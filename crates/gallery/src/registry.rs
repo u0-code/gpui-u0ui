@@ -104,6 +104,9 @@ pub const CHAT_AI: &str = "Chat & AI";
 /// `Ghost · Primitives`: desktop-density building blocks.
 pub const GHOST_PRIMITIVES: &str = "Ghost · Primitives";
 
+/// `Ghost · Shell`: the sidebar pieces Ghost adds to the T3 shell.
+pub const GHOST_SHELL: &str = "Ghost · Shell";
+
 /// The reference artifact's group order (`components/index.d.ts` sections).
 /// Other groups (`T3 · …`, `Ghost · …`, `Carbon · Patterns`) follow in
 /// first-use order.
@@ -344,6 +347,9 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("workflow-row", "WorkflowRow", "Ghost · Tasks & workflows", Component::WorkflowRow.summary(), pages::ghost_tasks::workflow_row::build).thumbnail(pages::ghost_tasks::workflow_row::thumbnail),
     PageDef::new("app-shell", "AppShell", "T3 · Shell", Component::AppShell.summary(), pages::t3_shell::app_shell::build).thumbnail(pages::t3_shell::app_shell::thumbnail),
     PageDef::new("swipe-row", "SwipeRow", "T3 · Mobile", Component::SwipeRow.summary(), pages::t3_mobile::swipe_row::build).thumbnail(pages::t3_mobile::swipe_row::thumbnail),
+    // Ghost · Shell (src/ghost/workspace.jsx)
+    PageDef::new("server-chip", "ServerChip", GHOST_SHELL, Component::ServerChip.summary(), pages::ghost_shell::server::build_server_chip).thumbnail(pages::ghost_shell::server::chip_thumbnail),
+    PageDef::new("server-header", "ServerHeader", GHOST_SHELL, Component::ServerHeader.summary(), pages::ghost_shell::server::build_server_header).thumbnail(pages::ghost_shell::server::header_thumbnail),
 ];
 
 /// Look a page up by id.
