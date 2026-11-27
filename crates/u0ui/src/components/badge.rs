@@ -460,6 +460,7 @@ pub struct Badge {
     dismiss_label: SharedString,
     on_click: Option<Handler>,
     selectable: Option<(bool, Option<SelectHandler>)>,
+    colors: Option<(Hsla, Hsla)>,
 }
 
 impl Badge {
@@ -477,7 +478,16 @@ impl Badge {
             dismiss_label: SharedString::default(),
             on_click: None,
             selectable: None,
+            colors: None,
         }
+    }
+
+    /// Paint a read-only tag in a pattern library's own pair (fill, text),
+    /// e.g. `.t3-provcard .cds--tag--warm-gray { background:
+    /// var(--tag-background-yellow, #fcf4d6); color: var(--text-primary) }`.
+    pub fn colors(mut self, background: Hsla, text: Hsla) -> Self {
+        self.colors = Some((background, text));
+        self
     }
 
     /// A stable id (needed when several interactive tags share a label).
@@ -630,6 +640,11 @@ impl RenderOnce for Badge {
             },
             self.level,
         );
+        let mut look = look;
+        if let (Some((bg, fg)), TagMode::Static) = (self.colors, mode) {
+            look.background = bg;
+            look.text = fg;
+        }
         let geometry = Geometry::of(self.size, mode == TagMode::Dismissible, self.icon.is_some());
         let background = motion::animate_color(
             (id.clone(), "bg"),
