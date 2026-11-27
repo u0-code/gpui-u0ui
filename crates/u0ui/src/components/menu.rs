@@ -9,7 +9,8 @@
 //!   entity, so its rendering cannot be made Carbon. The menu is drawn here;
 //!   anchoring, window-edge snapping and the deferred top layer stay Base's
 //!   (`Popup` / `Positioner`), and focus moves use [`super::overlay`].
-//! - **Keyboard** (Carbon `Menu`): ↓/↑ move (wrapping, skipping disabled
+//! - **Keyboard** (Carbon `Menu`): opening (pointer or keyboard) focuses the
+//!   first enabled item, with its focus ring; ↓/↑ move (wrapping, skipping disabled
 //!   items), Home/End, Enter/Space activate, → or Enter opens a submenu and
 //!   enters it, ←/Escape leaves a submenu, Escape closes the menu (focus
 //!   returns to the trigger), Tab closes, typing jumps to the next item that
@@ -544,6 +545,37 @@ fn step(rows: &[Row], from: Option<usize>, direction: isize) -> Option<usize> {
     None
 }
 
+/// The row a menu focuses when it opens. Carbon `Menu` focuses its first
+/// enabled item (`focusItem()` on open, from the pointer or the keyboard).
+/// A menu that is only one radio group is a select (the Pagination pickers):
+/// it starts on the picked option, as a native `<select>` does.
+fn initial_row(rows: &[Row]) -> Option<usize> {
+    let only_picks = rows.iter().all(|r| {
+        matches!(
+            r,
+            Row::Entry {
+                action: Action::Pick { .. },
+                ..
+            }
+        )
+    });
+    let picked = only_picks
+        .then(|| {
+            rows.iter().position(|r| {
+                r.enabled()
+                    && matches!(
+                        r,
+                        Row::Entry {
+                            checked: Some(true),
+                            ..
+                        }
+                    )
+            })
+        })
+        .flatten();
+    picked.or_else(|| step(rows, None, 1))
+}
+
 /// The next enabled row (after `from`) whose label starts with `typed`.
 fn find_typed(rows: &[Row], from: Option<usize>, typed: &str) -> Option<usize> {
     let typed = typed.to_lowercase();
@@ -571,6 +603,8 @@ pub(crate) struct Menu {
     /// A submenu opened from the keyboard highlights its first enabled item
     /// (Carbon focuses it), then clears the request on its parent level.
     focus_first: Option<Entity<LevelState>>,
+    /// The root menu opened this frame: start over on [`initial_row`].
+    opening: bool,
 }
 
 impl Menu {
@@ -592,6 +626,7 @@ impl Menu {
             path: String::new(),
             on_key: None,
             focus_first: None,
+            opening: false,
         }
     }
 
@@ -693,6 +728,17 @@ impl RenderOnce for Menu {
             Rc::new(rows)
         };
         let state = window.use_keyed_state((id.clone(), "level"), cx, |_, _| LevelState::default());
+        if self.opening {
+            // A fresh open forgets the last one (highlight, open submenu,
+            // type-ahead) and focuses the first item, keyboard ring included.
+            let first = initial_row(&rows);
+            state.update(cx, |s, _| {
+                *s = LevelState {
+                    active: first,
+                    ..LevelState::default()
+                }
+            });
+        }
         if let Some(parent) = &self.focus_first {
             let first = step(&rows, None, 1);
             state.update(cx, |s, _| {
@@ -1061,6 +1107,11 @@ pub(crate) fn menu_surface(
         })
         .read(cx)
         .clone();
+    let was_open = window.use_keyed_state((id.clone(), "was-open"), cx, |_, _| false);
+    let opening = open && !*was_open.read(cx);
+    if open != *was_open.read(cx) {
+        was_open.update(cx, |v, _| *v = open);
+    }
     if !open {
         return None;
     }
@@ -1088,6 +1139,7 @@ pub(crate) fn menu_surface(
         .label(spec.label)
         .min_width(spec.min_width);
     menu.on_key = spec.on_unhandled_key;
+    menu.opening = opening;
     Some(
         div()
             .id((id.clone(), "surface"))
@@ -1282,5 +1334,29 @@ mod tests {
             })
             .collect();
         assert_eq!(checked, [Some(true), None, Some(false), Some(true)]);
+    }
+
+    #[test]
+    fn opening_focuses_the_first_enabled_item_or_the_picked_option() {
+        // Carbon `Menu`: the first enabled item ("Restart", then ↓ is "Resize").
+        let actions = rows(&[
+            MenuItem::item("Restart").disabled(true),
+            MenuItem::item("Resize"),
+            MenuItem::divider(),
+            MenuItem::item("Delete").danger(true),
+        ]);
+        assert_eq!(initial_row(&actions), Some(1));
+        // A mixed menu ignores its radio group's pick.
+        let mixed = rows(&[
+            MenuItem::checkbox("Show archived"),
+            MenuItem::divider(),
+            MenuItem::radio_group("Sort", ["Name", "Date"]).default_selected_item(1),
+        ]);
+        assert_eq!(initial_row(&mixed), Some(0));
+        // A lone radio group is a select: it starts on the picked option.
+        let select = rows(&[MenuItem::radio_group("Page", ["1", "2", "3"]).selected_item(Some(2))]);
+        assert_eq!(initial_row(&select), Some(2));
+        let none = rows(&[MenuItem::radio_group("Page", ["1", "2"]).selected_item(None)]);
+        assert_eq!(initial_row(&none), Some(0));
     }
 }

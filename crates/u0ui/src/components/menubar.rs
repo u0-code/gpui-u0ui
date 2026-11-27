@@ -28,7 +28,8 @@ use crate::{
 use gpui_kit::{
     App, CursorStyle, ElementId, Entity, FocusHandle, Hsla, InteractiveElement, IntoElement,
     KeyDownEvent, MouseButton, ParentElement, RenderOnce, SharedString,
-    StatefulInteractiveElement as _, Styled, Window, div, prelude::FluentBuilder as _,
+    StatefulInteractiveElement as _, Styled, TestSupportExt as _, Window, div,
+    prelude::FluentBuilder as _,
 };
 use std::rc::Rc;
 
@@ -157,6 +158,7 @@ impl RenderOnce for Menubar {
             let focused = focus[index].is_focused(window);
             let trigger = div()
                 .id((menu_id.clone(), "trigger"))
+                .test_support()
                 .relative()
                 .h_full()
                 .px(rem(16.))

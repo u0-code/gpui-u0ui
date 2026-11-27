@@ -24,7 +24,7 @@ use crate::{
 };
 use gpui_kit::{
     App, Bounds, ElementId, IntoElement, ParentElement, Pixels, RenderOnce, SharedString, Styled,
-    Window, canvas, div, prelude::FluentBuilder as _,
+    TestSupportExt as _, Window, canvas, div, prelude::FluentBuilder as _,
 };
 use std::rc::Rc;
 
@@ -285,6 +285,7 @@ impl RenderOnce for DropdownMenu {
                 Rc::new(move |window, cx| set_open(!open, window, cx))
             },
         )
+        .test_support()
         .into_any_element();
 
         menu::anchored_menu(

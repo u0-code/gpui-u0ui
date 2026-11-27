@@ -21,8 +21,8 @@ use super::menu::{self, MenuItem, MenuSize};
 use super::overlay;
 use gpui_kit::{
     Anchor, AnyElement, App, Bounds, ElementId, InteractiveElement, IntoElement, KeyDownEvent,
-    MouseButton, ParentElement, Pixels, Point, RenderOnce, SharedString, Styled, Window, canvas,
-    deferred, div, point, px,
+    MouseButton, ParentElement, Pixels, Point, RenderOnce, SharedString, Styled,
+    TestSupportExt as _, Window, canvas, deferred, div, point, px,
 };
 use std::rc::Rc;
 
@@ -164,6 +164,7 @@ impl RenderOnce for ContextMenu {
         };
         div()
             .id((id.clone(), "area"))
+            .test_support()
             // The area is a tab stop so Shift+F10 / the Menu key can reach it.
             .track_focus(&area_focus.tab_stop(true))
             .relative()
