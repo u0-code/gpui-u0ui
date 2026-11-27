@@ -134,7 +134,10 @@ impl Render for Page {
             self.servers,
             controls::setter(&entity, |p: &mut Page, v| p.servers = v),
         );
+        // The dialog at the reference card's width (a 960px card less its
+        // 16px padding): the configuration panel wraps below the stage.
         Body::new()
+            .stage_min_width(62.)
             .playground(live)
             .hint("Type in Search settings to filter; press an item to open it")
             .config(config)

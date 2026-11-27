@@ -365,8 +365,11 @@ impl RenderOnce for AgentRow {
 
         // `.g-agent-sub { display: flex; align-items: center; gap:
         // var(--spacing-02); font-size: 0.75rem; color: var(--text-secondary) }`.
+        // In a narrow column the runs wrap (as the reference's inline runs
+        // do) instead of running under the buttons.
         let sub = sans(div(), 12., 400)
             .flex()
+            .flex_wrap()
             .items_center()
             .gap(tokens::SPACING_02)
             .min_w_0()
@@ -382,11 +385,16 @@ impl RenderOnce for AgentRow {
             sub.child(
                 div()
                     .flex()
+                    .flex_wrap()
                     .items_center()
                     .gap(tokens::SPACING_03)
-                    .whitespace_nowrap()
+                    .min_w_0()
                     .child(progress_bar(id.clone(), self.progress, window, cx))
-                    .child(format!("{word} {}%", self.progress.round() as i64)),
+                    .child(
+                        div()
+                            .whitespace_nowrap()
+                            .child(format!("{word} {}%", self.progress.round() as i64)),
+                    ),
             )
         } else if self.state == AgentState::Missing {
             sub.child(self.texts.not_installed.clone())
@@ -413,11 +421,14 @@ impl RenderOnce for AgentRow {
                     .accent(self.accent),
             )
             .child(
+                // The text column takes what the buttons leave and never
+                // paints under them.
                 div()
                     .flex()
                     .flex_col()
                     .flex_1()
                     .min_w_0()
+                    .overflow_hidden()
                     .gap(px(2.))
                     .child(title)
                     .child(sub),
