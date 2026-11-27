@@ -171,6 +171,7 @@ fn diffs() -> impl IntoElement {
         .flex()
         .flex_col()
         .items_start()
+        .min_w_0()
         .gap(tokens::SPACING_03)
         .child(DiffIndicator::new(Trend::Up, "+12.5% threads this week"))
         .child(DiffIndicator::new(Trend::Down, "−3.1% success rate"))

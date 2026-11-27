@@ -170,8 +170,11 @@ fn row(
         .type_style(style)
         // `color: var(--text-secondary)`.
         .text_color(color(ColorRole::TextSecondary))
+        // An `inline-flex` box never grows past its container: the label
+        // wraps instead of running out of a narrow column.
+        .max_w_full()
         .child(div().flex_none().flex().child(icon))
-        .child(label)
+        .child(div().min_w_0().child(label))
 }
 
 /// An icon indicator. The caller passes the label.
