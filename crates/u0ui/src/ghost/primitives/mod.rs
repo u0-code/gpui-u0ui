@@ -8,6 +8,7 @@ mod highlighted_text;
 pub mod key_recorder;
 pub mod key_value_editor;
 pub mod parts;
+pub mod qr_code;
 pub mod secret_field;
 pub mod stepped_slider;
 pub mod stepper;
@@ -21,6 +22,7 @@ pub use highlighted_text::{HighlightedText, fuzzy_match, highlight_runs, highlig
 pub use key_recorder::KeyRecorder;
 pub use key_value_editor::{EnvVar, KeyValueEditor};
 pub use parts::IconButton;
+pub use qr_code::{QrCode, QrLevel};
 pub use secret_field::{SecretField, SecretSource};
 pub use stepped_slider::SteppedSlider;
 pub use stepper::Stepper;

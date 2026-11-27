@@ -5,6 +5,7 @@ pub mod editable_text;
 pub mod highlighted_text;
 pub mod key_recorder;
 pub mod key_value_editor;
+pub mod qr_code;
 pub mod secret_field;
 pub mod stepped_slider;
 pub mod stepper;

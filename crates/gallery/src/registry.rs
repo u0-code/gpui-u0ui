@@ -308,6 +308,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("highlighted-text", "HighlightedText", GHOST_PRIMITIVES, Component::HighlightedText.summary(), pages::ghost_primitives::highlighted_text::build).thumbnail(pages::ghost_primitives::highlighted_text::thumbnail),
     PageDef::new("key-recorder", "KeyRecorder", GHOST_PRIMITIVES, Component::KeyRecorder.summary(), pages::ghost_primitives::key_recorder::build).thumbnail(pages::ghost_primitives::key_recorder::thumbnail),
     PageDef::new("key-value-editor", "KeyValueEditor", GHOST_PRIMITIVES, Component::KeyValueEditor.summary(), pages::ghost_primitives::key_value_editor::build).thumbnail(pages::ghost_primitives::key_value_editor::thumbnail),
+    PageDef::new("qr-code", "QRCode", GHOST_PRIMITIVES, Component::QRCode.summary(), pages::ghost_primitives::qr_code::build).thumbnail(pages::ghost_primitives::qr_code::thumbnail),
     PageDef::new("secret-field", "SecretField", GHOST_PRIMITIVES, Component::SecretField.summary(), pages::ghost_primitives::secret_field::build).thumbnail(pages::ghost_primitives::secret_field::thumbnail),
     PageDef::new("stepped-slider", "SteppedSlider", GHOST_PRIMITIVES, Component::SteppedSlider.summary(), pages::ghost_primitives::stepped_slider::build).thumbnail(pages::ghost_primitives::stepped_slider::thumbnail),
     PageDef::new("stepper", "Stepper", GHOST_PRIMITIVES, Component::Stepper.summary(), pages::ghost_primitives::stepper::build).thumbnail(pages::ghost_primitives::stepper::thumbnail),
