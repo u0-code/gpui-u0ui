@@ -325,6 +325,8 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("mobile-sheet", "MobileSheet", "T3 · Mobile", Component::MobileSheet.summary(), pages::t3_mobile::mobile_sheet::build).thumbnail(pages::t3_mobile::mobile_sheet::thumbnail),
     PageDef::new("mobile-tab-dock", "MobileTabDock", "T3 · Mobile", Component::MobileTabDock.summary(), pages::t3_mobile::mobile_tab_dock::build).thumbnail(pages::t3_mobile::mobile_tab_dock::thumbnail),
     PageDef::new("split-button", "SplitButton", "T3 · Mobile", Component::SplitButton.summary(), pages::t3_mobile::split_button::build).thumbnail(pages::t3_mobile::split_button::thumbnail),
+    PageDef::new("command-palette", "CommandPalette", "T3 · Shell", Component::CommandPalette.summary(), pages::t3_shell::palette::build_command_palette).thumbnail(pages::t3_shell::palette::palette_thumbnail),
+    PageDef::new("list-toolbar", "ListToolbar", "T3 · Shell", Component::ListToolbar.summary(), pages::t3_shell::palette::build_list_toolbar).thumbnail(pages::t3_shell::palette::toolbar_thumbnail),
 ];
 
 /// Look a page up by id.
