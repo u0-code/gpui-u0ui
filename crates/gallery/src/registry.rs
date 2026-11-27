@@ -283,6 +283,9 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("effort-glyph", "EffortGlyph", "T3 · Composer", Component::EffortGlyph.summary(), pages::t3_composer::effort_glyph::build).thumbnail(pages::t3_composer::effort_glyph::thumbnail),
     PageDef::new("queued-runs-control", "QueuedRunsControl", "T3 · Composer", Component::QueuedRunsControl.summary(), pages::t3_composer::queued_runs_control::build).thumbnail(pages::t3_composer::queued_runs_control::thumbnail),
     PageDef::new("read-only-composer-bar", "ReadOnlyComposerBar", "T3 · Composer", Component::ReadOnlyComposerBar.summary(), pages::t3_composer::read_only_composer_bar::build).thumbnail(pages::t3_composer::read_only_composer_bar::thumbnail),
+    PageDef::new("provider-icon", "ProviderIcon", "T3 · Identity & status", Component::ProviderIcon.summary(), pages::t3_shell::identity::build_provider_icon).thumbnail(pages::t3_shell::identity::provider_thumbnail),
+    PageDef::new("project-identity", "ProjectIdentity", "T3 · Identity & status", Component::ProjectIdentity.summary(), pages::t3_shell::identity::build_project_identity).thumbnail(pages::t3_shell::identity::identity_thumbnail),
+    PageDef::new("status-indicators", "StatusIndicators", "T3 · Identity & status", Component::StatusIndicators.summary(), pages::t3_shell::identity::build_status_indicators).thumbnail(pages::t3_shell::identity::status_thumbnail),
 ];
 
 /// Look a page up by id.

@@ -64,6 +64,7 @@ pub mod spinner;
 pub mod switch;
 pub mod t3_composer;
 pub mod t3_review;
+pub mod t3_shell;
 pub mod table;
 pub mod tabs;
 pub mod textarea;
