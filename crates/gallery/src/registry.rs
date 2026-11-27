@@ -398,6 +398,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("stash-row", "StashRow", GHOST_RIGHT, Component::StashRow.summary(), pages::ghost_panels::git::build_stash_row).thumbnail(pages::ghost_panels::git::stash_thumbnail),
     PageDef::new("terminal-view", "TerminalView", GHOST_RIGHT, Component::TerminalView.summary(), pages::ghost_panels::terminal_view::build).thumbnail(pages::ghost_panels::terminal_view::thumbnail),
     // Ghost · Tasks & workflows (src/ghost/admin.jsx)
+    PageDef::new("schedule-editor", "ScheduleEditor", "Ghost · Tasks & workflows", Component::ScheduleEditor.summary(), pages::ghost_tasks::schedule_editor::build).thumbnail(pages::ghost_tasks::schedule_editor::thumbnail),
     PageDef::new("task-row", "TaskRow", "Ghost · Tasks & workflows", Component::TaskRow.summary(), pages::ghost_tasks::task_row::build).thumbnail(pages::ghost_tasks::task_row::thumbnail),
     PageDef::new("workflow-row", "WorkflowRow", "Ghost · Tasks & workflows", Component::WorkflowRow.summary(), pages::ghost_tasks::workflow_row::build).thumbnail(pages::ghost_tasks::workflow_row::thumbnail),
     PageDef::new("app-shell", "AppShell", "T3 · Shell", Component::AppShell.summary(), pages::t3_shell::app_shell::build).thumbnail(pages::t3_shell::app_shell::thumbnail),
