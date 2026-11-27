@@ -19,6 +19,15 @@
 //!   [`Switch::hide_label`] is `cu-switch--bare`: no label above and no state
 //!   text (`.cu-switch--bare .cds--toggle__text { display: none }`), only the
 //!   track, with the label kept as the accessible name.
+//! - **Box** ([`box_width`]): a switch with no label and no state text (the
+//!   reference passes `hideLabel={!label}`) still takes the 8px column gap
+//!   after the track: Carbon's computed `.cds--toggle` is 56px wide around
+//!   the 48px switch (40 around `sm`), so such a switch in a row sits 8px
+//!   further in than its track alone (`SettingsRow`: 28px from the row's
+//!   right edge). [`Switch::hide_label`] drops the gap
+//!   (`.cu-switch--bare .cds--toggle__appearance { column-gap: 0 }`): it
+//!   stands in for the reference's `g-switch` (`SwitchCompact`), a bare
+//!   32px track.
 //! - **Motion**: `transition: background-color 70ms, transform 70ms
 //!   cubic-bezier(0.2, 0, 1, 0.9)`; the knob slide is spatial, so reduced
 //!   motion snaps it.
@@ -109,6 +118,24 @@ impl SwitchGeometry {
                 travel: 16.,
             },
         }
+    }
+}
+
+impl SwitchGeometry {
+    /// `.cds--toggle__appearance { column-gap: 0.5rem }`: the gap after the
+    /// track.
+    pub const TEXT_GAP: f32 = 8.;
+}
+
+/// The width of a switch with no state text: the track plus the column
+/// gap (computed `.cds--toggle`: 56px for `md`, 40px for `sm`), or the
+/// track alone when `hide_label` (`.cu-switch--bare`).
+pub const fn box_width(size: SwitchSize, hide_label: bool) -> f32 {
+    let track = SwitchGeometry::of(size, false).width;
+    if hide_label {
+        track
+    } else {
+        track + SwitchGeometry::TEXT_GAP
     }
 }
 
@@ -401,11 +428,17 @@ impl RenderOnce for Switch {
             });
 
         // `.cds--toggle__appearance { display: inline-grid; column-gap: 0.5rem }`.
+        // Without state text the gap stays (`hideLabel={!label}`: the
+        // computed `.cds--toggle` is 56px around the 48px switch), unless
+        // `hide_label` (`.cu-switch--bare .cds--toggle__appearance {
+        // column-gap: 0 }`).
+        let keep_gap = text.is_none() && !self.hide_label;
         let appearance = div()
             .flex()
             .flex_row()
             .items_center()
             .gap(tokens::SPACING_03)
+            .when(keep_gap, |this| this.pr(rem(SwitchGeometry::TEXT_GAP)))
             .child(track_el)
             .when_some(text, |this, text| {
                 this.child(
@@ -555,5 +588,11 @@ mod tests {
         // Knob ends 3px from the right edge when checked.
         assert_eq!(md.inset + md.travel + md.knob, md.width - 3.);
         assert_eq!(SwitchGeometry::of(SwitchSize::Md, true).inset, 2.);
+        // A label-less `.cds--toggle` is 56px (computed), 40px when `sm`;
+        // `.cu-switch--bare` drops the gap.
+        assert_eq!(box_width(SwitchSize::Md, false), 56.);
+        assert_eq!(box_width(SwitchSize::Sm, false), 40.);
+        assert_eq!(box_width(SwitchSize::Md, true), 48.);
+        assert_eq!(box_width(SwitchSize::Sm, true), 32.);
     }
 }
