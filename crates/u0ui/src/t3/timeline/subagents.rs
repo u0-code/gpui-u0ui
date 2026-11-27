@@ -225,9 +225,10 @@ impl SubagentRow {
     }
 }
 
-/// `.t3-subagent-state { width: 4.25rem }`, `.t3-subagent-time { width: 3rem }`
-/// and the reserved Stop slot `2rem + spacing-03`, in px.
-pub const SUBAGENT_COLUMNS: (f32, f32, f32) = (68., 48., 40.);
+/// `.t3-subagent-state { width: 4rem }`, `.t3-subagent-time { width: 2.75rem }`
+/// (the later d-fix rule over `4.25rem` / `3rem`) and the reserved Stop slot
+/// `2rem + spacing-03`, in px.
+pub const SUBAGENT_COLUMNS: (f32, f32, f32) = (64., 44., 40.);
 
 impl RenderOnce for SubagentRow {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
@@ -274,15 +275,17 @@ impl RenderOnce for SubagentRow {
             .when_some(self.provider.clone(), |this, p| {
                 this.child(ProviderIcon::new(p).size(IdentitySize::Xs))
             })
-            // `.t3-subagent-main { display: flex; flex: 1; min-width: 0; gap: spacing-03; align-items: baseline }`.
+            // `.t3-subagent-main { display: flex; flex: 1; min-width: 0 }` and the d-fix
+            // `{ flex-direction: column; align-items: flex-start; gap: 0; padding-block: spacing-02 }`:
+            // the task sits under the name.
             .child(
                 div()
                     .flex()
-                    .flex_row()
+                    .flex_col()
                     .flex_1()
                     .min_w_0()
-                    .gap(rem(8.))
-                    .items_baseline()
+                    .items_start()
+                    .py(rem(4.))
                     .child(
                         div()
                             .flex_none()
@@ -290,12 +293,16 @@ impl RenderOnce for SubagentRow {
                             .font_weight(FontWeight::SEMIBOLD)
                             .child(self.name.clone()),
                     )
+                    // `.t3-subagent-main span { max-width: 100%; font-size: 0.75rem; ellipsis;
+                    // color: text-secondary }`, keeping the row's 1.28572 line height.
                     .child(
                         div()
-                            .min_w_0()
+                            .max_w_full()
                             .overflow_hidden()
                             .whitespace_nowrap()
                             .text_ellipsis()
+                            .text_size(rem(12.))
+                            .line_height(gpui_kit::relative(18. / 14.))
                             .text_color(color(ColorRole::TextSecondary))
                             .child(self.task.clone()),
                     ),
@@ -441,11 +448,8 @@ impl RenderOnce for SubagentBar {
                     SubagentStatusDot::new((id.clone(), SharedString::from(format!("dot-{i}"))), *s)
                 }),
             ))
-            .child(
-                div()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child((self.count)(self.agents.len())),
-            )
+            // `<b>` with no weight rule of its own: the render draws it regular.
+            .child(div().child((self.count)(self.agents.len())))
             .child(
                 div()
                     .text_size(rem(12.))
