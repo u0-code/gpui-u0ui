@@ -4,26 +4,29 @@
 //! Three columns on a `layer-01` surface with the floating shadow, 22rem
 //! tall and at most 46rem wide:
 //! - **Providers** (11rem): vertical tabs (provider glyph, name, a "Needs
-//!   setup" note), the selected one on `layer-selected-01` with a 3px
+//!   setup" note, and a starting provider's ring at the row's right edge,
+//!   per the d-fix rule), the selected one on `layer-selected-01` with a 3px
 //!   `border-interactive` start rail, and Agent settings at the bottom.
 //! - **Models**: a search field, the provider's warning notice, and rows
 //!   (name, badge, description, a check when chosen); hover
 //!   `layer-hover-01`, chosen `layer-selected-01`; Enter / Space choose.
 //! - **Effort** (10rem): the five effort rows with glyphs and a check, then
-//!   Speed as its own group with the small Standard / Fast switch.
+//!   Speed as its own group with the small switch labelled "Fast mode"
+//!   (Carbon's `hideLabel` puts `labelText` beside the track).
 use super::controls::{EffortGlyph, EffortLevel};
 use crate::components::InputState;
 use crate::components::badge::{Badge, BadgeSize, BadgeVariant};
 use crate::components::overlay::floating_shadow;
 use crate::components::switch::{Switch, SwitchSize};
 use crate::t3::press::{self, Handler, rem};
-use crate::t3::shell::{IdentitySize, ProviderIcon};
+use crate::t3::shell::{IdentitySize, PROVIDER_SPIN_PERIOD, ProviderIcon};
 use crate::{icons::CarbonIcon, theme::color, tokens::ColorRole};
+use crate::{motion, t3::base};
 use gpui_kit::component::Sizable as _;
 use gpui_kit::{
-    AnyElement, App, AppContext as _, ElementId, InteractiveElement as _, IntoElement,
-    KeyDownEvent, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
-    Window, div, prelude::FluentBuilder as _, px,
+    AnyElement, App, AppContext as _, Bounds, ElementId, InteractiveElement as _, IntoElement,
+    KeyDownEvent, ParentElement, Pixels, RenderOnce, SharedString, StatefulInteractiveElement as _,
+    Styled, Window, canvas, div, prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -128,11 +131,13 @@ pub struct ModelPickerTexts {
     pub effort: SharedString,
     /// Speed.
     pub speed: SharedString,
+    /// The speed switch's label, shown beside it ("Fast mode").
+    pub fast_mode: SharedString,
     /// The effort level names.
     pub level: Rc<dyn Fn(EffortLevel) -> SharedString>,
-    /// Standard (switch off).
+    /// Standard (`labelA`; not drawn, since `hideLabel` shows `fast_mode`).
     pub standard: SharedString,
-    /// Fast (switch on).
+    /// Fast (`labelB`; not drawn, since `hideLabel` shows `fast_mode`).
     pub fast: SharedString,
 }
 
@@ -144,6 +149,7 @@ impl Default for ModelPickerTexts {
             search: Rc::new(|p| format!("Search {p} models").into()),
             effort: "Effort".into(),
             speed: "Speed".into(),
+            fast_mode: "Fast mode".into(),
             level: Rc::new(|l| {
                 let n = l.name();
                 format!("{}{}", n[..1].to_uppercase(), &n[1..]).into()
@@ -257,6 +263,45 @@ impl ModelPicker {
     }
 }
 
+/// Paint `.t3-provider-spin`: a 10px disc in `background` with a 2px
+/// `layer-accent-01` border whose top quarter is `interactive`, turning.
+fn paint_spin(bounds: Bounds<Pixels>, turn: f32, window: &mut Window) {
+    use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, TAU};
+    let center = bounds.center();
+    let edge = f32::from(bounds.size.width);
+    let border = edge / 5.;
+    window.paint_quad(
+        gpui_kit::fill(bounds, color(ColorRole::Background)).corner_radii(px(edge / 2.)),
+    );
+    let r = (edge - border) / 2.;
+    let accent = color(ColorRole::LayerAccent01);
+    base::stroke_arc(window, center, r, border, 0., TAU, accent);
+    let start = -FRAC_PI_2 - FRAC_PI_4 + turn * TAU;
+    let ink = color(ColorRole::Interactive);
+    base::stroke_arc(window, center, r, border, start, FRAC_PI_2, ink);
+}
+
+/// The starting ring in a provider tab. d-fix: `.t3-mpick-prov .t3-provider
+/// { position: static }` and `.t3-mpick-prov .t3-provider-spin { right:
+/// spacing-04; bottom: auto; top: calc(50% - 7px) }` move it off the glyph
+/// to the 40px row's right edge.
+fn provider_spin(window: &mut Window, cx: &App) -> impl IntoElement {
+    let frame = base::spin_frame_now(PROVIDER_SPIN_PERIOD, motion::reduced_motion(cx), window);
+    div()
+        .absolute()
+        .right(rem(12.))
+        .top(rem(40. / 2. - 7.))
+        .size(rem(10.))
+        .opacity(frame.opacity)
+        .child(
+            canvas(
+                |_, _, _| {},
+                move |b, _, window, _| paint_spin(b, frame.turn, window),
+            )
+            .size_full(),
+        )
+}
+
 /// A selectable row's fill: chosen `layer-selected-01`, hovered `layer-hover-01`.
 fn row_fill(on: bool, hovered: bool) -> Option<gpui_kit::Hsla> {
     if on {
@@ -360,15 +405,16 @@ impl RenderOnce for ModelPicker {
                     .child(
                         ProviderIcon::new(p.name.clone())
                             .id(key("prov-icon"))
-                            .size(IdentitySize::Sm)
-                            .starting(p.starting),
+                            .size(IdentitySize::Sm),
                     )
-                    .child(p.name.clone())
+                    .child(div().flex_none().whitespace_nowrap().child(p.name.clone()))
+                    .when(p.starting, |this| this.child(provider_spin(window, cx)))
                     // `.t3-mpick-provnote { margin-left: auto; font-size: 0.75rem; color: text-helper }`.
                     .when_some(note, |this, n| {
                         this.child(
                             div()
                                 .ml_auto()
+                                .whitespace_nowrap()
                                 .text_size(rem(12.))
                                 .text_color(color(ColorRole::TextHelper))
                                 .child(n),
@@ -565,10 +611,15 @@ impl RenderOnce for ModelPicker {
                             .line_height(rem(18.))
                             .text_color(color(ColorRole::TextPrimary))
                             .when(query.is_empty(), |this| {
+                                // A placeholder stays on one line and clips at the
+                                // field's edge, as an `<input>`'s does.
                                 this.child(
                                     div()
                                         .absolute()
                                         .left_0()
+                                        .right_0()
+                                        .overflow_hidden()
+                                        .whitespace_nowrap()
                                         .text_color(color(ColorRole::TextPlaceholder))
                                         .child((texts.search)(&provider_name)),
                                 )
@@ -605,7 +656,8 @@ impl RenderOnce for ModelPicker {
                                 16.,
                                 color(ColorRole::SupportWarning),
                             )))
-                            .child(n),
+                            // The message wraps within the column.
+                            .child(div().flex_1().min_w_0().child(n)),
                     )
                 },
             )
@@ -702,13 +754,14 @@ impl RenderOnce for ModelPicker {
             // `.t3-mpick-effort .cds--toggle { padding: 0 spacing-04 }`, `size="sm"`, labels Standard / Fast.
             .child(
                 div().px(rem(12.)).child(
+                    // `<Cb.Toggle labelText="Fast mode" hideLabel labelA="Standard"
+                    // labelB="Fast">`: with `hideLabel` Carbon shows `labelText`
+                    // beside the track in both states (the reference render).
                     Switch::new((id.clone(), "fast"))
                         .size(SwitchSize::Sm)
                         .checked(self.fast)
-                        .label(texts.fast.clone())
-                        .hide_label(true)
-                        .label_off(texts.standard.clone())
-                        .label_on(texts.fast.clone())
+                        .label_off(texts.fast_mode.clone())
+                        .label_on(texts.fast_mode.clone())
                         .on_checked_change(move |on, w, cx| {
                             if let Some(f) = fast_change.as_ref() {
                                 f(on, w, cx)
