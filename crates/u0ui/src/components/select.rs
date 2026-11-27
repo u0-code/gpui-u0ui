@@ -30,8 +30,9 @@ use crate::{
     typography::TypeStyled as _,
 };
 use gpui_kit::{
-    App, CursorStyle, ElementId, Entity, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent,
-    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window,
+    App, CursorStyle, ElementId, Entity, FocusHandle, Hsla, InteractiveElement as _, IntoElement,
+    KeyDownEvent, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
+    Window,
     base::actions::{SelectDown, SelectUp},
     div,
     prelude::FluentBuilder as _,
@@ -168,6 +169,7 @@ pub struct Select {
     level: LayerLevel,
     native: bool,
     on_value_change: Option<ChangeHandler>,
+    focus_handle: Option<FocusHandle>,
 }
 
 impl Select {
@@ -193,7 +195,26 @@ impl Select {
             level: LayerLevel::One,
             native: false,
             on_value_change: None,
+            focus_handle: None,
         }
+    }
+
+    /// Use a caller-owned focus handle for the trigger (to move focus to
+    /// it, as a toolbar's arrow keys do).
+    pub fn track_focus(mut self, handle: &FocusHandle) -> Self {
+        self.focus_handle = Some(handle.clone());
+        self
+    }
+
+    /// The trigger's focus handle: the caller's ([`Self::track_focus`]),
+    /// else one kept under the dropdown's id.
+    pub fn focus_handle(&self, window: &mut Window, cx: &mut App) -> FocusHandle {
+        self.focus_handle.clone().unwrap_or_else(|| {
+            window
+                .use_keyed_state((self.id.clone(), "focus"), cx, |_, cx| cx.focus_handle())
+                .read(cx)
+                .clone()
+        })
     }
 
     /// `label` (Carbon `titleText`).
@@ -342,10 +363,7 @@ impl RenderOnce for Select {
         );
         let state = window.use_keyed_state((id.clone(), "list"), cx, |_, _| ListState::default());
         let hovered = window.use_keyed_state((id.clone(), "hover"), cx, |_, _| false);
-        let focus = window
-            .use_keyed_state((id.clone(), "focus"), cx, |_, cx| cx.focus_handle())
-            .read(cx)
-            .clone();
+        let focus = self.focus_handle(window, cx);
         let inert = self.disabled || self.readonly;
         let items = Rc::new(self.items.clone());
         let selected = value
@@ -427,14 +445,18 @@ impl RenderOnce for Select {
             .map(|i| items[i].label.clone())
             .or(self.placeholder.clone())
             .unwrap_or_default();
-        // `.cds--list-box__field { padding-inline: 1rem 3rem }` (+1rem for the status icon).
+        // `.cds--list-box__field { padding-inline: 1rem 3rem }` (+1rem for the
+        // status icon), inline too: v11's inline `Dropdown` is a `ListBox`,
+        // and the legacy `.cds--dropdown--inline .cds--dropdown-text` (12 /
+        // 32px) never applies (computed in PatternTextToolbar: 16 / 48, the
+        // chevron 12px from the end).
         let pad_end = if validation.has_icon() { 64. } else { 48. };
         let status = form::status_icon(&validation).map(|icon| {
             div()
                 .absolute()
                 .top_0()
                 .bottom_0()
-                .right(rem(if inline { 32. } else { 40. }))
+                .right(rem(40.))
                 .flex()
                 .items_center()
                 .child(icon)
@@ -466,8 +488,8 @@ impl RenderOnce for Select {
             .items_center()
             .w_full()
             .h(rem(height))
-            .pl(rem(if inline { 12. } else { 16. }))
-            .pr(rem(if inline { pad_end - 16. } else { pad_end }))
+            .pl(rem(16.))
+            .pr(rem(pad_end))
             .bg(background)
             .pb(gpui_kit::px(form::FIELD_RULE))
             .type_style(TypeStyle::BodyCompact01)
@@ -481,9 +503,13 @@ impl RenderOnce for Select {
             })
             .child(anchor.measure_trigger())
             .child(
+                // `.cds--dropdown--inline { inline-size: auto }`: an inline
+                // field is as wide as its label (up to 30rem) and may run
+                // past a narrower wrapper, as the toolbar's 140px font
+                // dropdown does in the reference (156px).
                 div()
-                    .flex_1()
-                    .min_w_0()
+                    .when(inline, |d| d.flex_none().max_w(rem(30. * 16. - 64.)))
+                    .when(!inline, |d| d.flex_1().min_w_0())
                     .overflow_hidden()
                     .whitespace_nowrap()
                     .child(shown_label),
@@ -495,7 +521,7 @@ impl RenderOnce for Select {
                     .absolute()
                     .top_0()
                     .bottom_0()
-                    .right(rem(if inline { 8. } else { 12. }))
+                    .right(rem(12.))
                     .w(rem(24.))
                     .flex()
                     .items_center()

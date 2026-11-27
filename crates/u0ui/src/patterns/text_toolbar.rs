@@ -6,8 +6,9 @@
 //! - Toggles (bold, italic…) are icon buttons in their selected state; each
 //!   button's label is its tooltip and accessible name, so callers include
 //!   the shortcut (`"Bold (⌘B)"`).
-//! - `role="toolbar"`: ←/→ move focus between the buttons (wrapping),
-//!   Home/End jump to the ends.
+//! - `role="toolbar"`: ←/→ move focus between the buttons, the inline
+//!   dropdowns ([`ToolbarItem::dropdown`]) and the overflow button
+//!   (wrapping), skipping disabled buttons; Home/End jump to the ends.
 //! - When the row is too narrow, items leave from the right into the
 //!   overflow menu (`"More"`), as the reference README asks. Buttons become
 //!   menu items; inline controls that do not fit are hidden (a menu cannot
@@ -23,7 +24,7 @@
 //! ```
 use crate::components::{
     Align, Button, ButtonKind, ButtonSize, ButtonVariant, DropdownMenu, DropdownMenuSize, MenuItem,
-    button::Geometry,
+    Select, button::Geometry,
 };
 use crate::{
     density::{self, Density},
@@ -112,6 +113,15 @@ pub enum ToolbarItem {
     },
     /// Free space that pushes what follows to the end (`flex: 1`).
     Spacer,
+    /// An inline dropdown `width` px wide that the arrow keys reach
+    /// (`<div style={{width:140}}><Dropdown type="inline"/></div>`).
+    Dropdown {
+        /// Its slot's width in px (the dropdown itself may run past it,
+        /// as an inline `Dropdown` is as wide as its label).
+        width: f32,
+        /// The dropdown.
+        select: Box<Select>,
+    },
 }
 
 impl ToolbarItem {
@@ -125,6 +135,14 @@ impl ToolbarItem {
         Self::Control {
             width,
             element: element.into_any_element(),
+        }
+    }
+
+    /// An inline dropdown in a `width` px slot, a stop of the arrow keys.
+    pub fn dropdown(width: f32, select: Select) -> Self {
+        Self::Dropdown {
+            width,
+            select: Box::new(select),
         }
     }
 }
@@ -287,7 +305,9 @@ impl RenderOnce for TextToolbar {
             .map(|item| match item {
                 ToolbarItem::Action(_) => Slot::Fixed(button_w),
                 ToolbarItem::Separator => Slot::Rule(separator_width()),
-                ToolbarItem::Control { width, .. } => Slot::Fixed(*width),
+                ToolbarItem::Control { width, .. } | ToolbarItem::Dropdown { width, .. } => {
+                    Slot::Fixed(*width)
+                }
                 ToolbarItem::Spacer => Slot::Spacer,
             })
             .collect();
@@ -307,6 +327,14 @@ impl RenderOnce for TextToolbar {
             }
         });
         let focus: Vec<FocusHandle> = handles.read(cx)[..action_count].to_vec();
+        let more_focus = window
+            .use_keyed_state((id.clone(), "more-focus"), cx, |_, cx| cx.focus_handle())
+            .read(cx)
+            .clone();
+        // The arrow keys' stops in row order: enabled buttons, the inline
+        // dropdowns, then the overflow button (a disabled button never takes
+        // focus, as it shows none).
+        let mut stops: Vec<FocusHandle> = Vec::new();
 
         let mut row: Vec<AnyElement> = Vec::new();
         let mut menu: Vec<MenuItem> = Vec::new();
@@ -316,6 +344,9 @@ impl RenderOnce for TextToolbar {
             match item {
                 ToolbarItem::Action(action) => {
                     if keep {
+                        if !action.disabled {
+                            stops.push(focus[slot].clone());
+                        }
                         let handler = action.on_click.clone();
                         row.push(
                             Button::new((id.clone(), action.id.clone()), action.label.clone())
@@ -359,6 +390,16 @@ impl RenderOnce for TextToolbar {
                         .child(element)
                         .into_any_element(),
                 ),
+                ToolbarItem::Dropdown { width, select } if keep => {
+                    stops.push(select.focus_handle(window, cx));
+                    row.push(
+                        div()
+                            .flex_none()
+                            .w(rem_px(width))
+                            .child(*select)
+                            .into_any_element(),
+                    )
+                }
                 ToolbarItem::Spacer if keep => {
                     row.push(div().flex_1().min_w_0().into_any_element())
                 }
@@ -366,6 +407,7 @@ impl RenderOnce for TextToolbar {
             }
         }
         if more {
+            stops.push(more_focus.clone());
             menu.extend(self.overflow_items);
             // The overflow button sits at the end even when the spacer left.
             if !kept.iter().any(|&i| matches!(slots[i], Slot::Spacer)) {
@@ -379,6 +421,7 @@ impl RenderOnce for TextToolbar {
                             .overflow_label(self.overflow_label.clone())
                             .overflow_icon(CarbonIcon::OverflowMenuHorizontal)
                             .size(DropdownMenuSize::Md)
+                            .track_focus(&more_focus)
                             .items(menu),
                     )
                     .into_any_element(),
@@ -403,7 +446,7 @@ impl RenderOnce for TextToolbar {
         .left_0()
         .size_full();
 
-        let buttons = focus.clone();
+        let buttons = stops;
         div()
             .id(id)
             .relative()

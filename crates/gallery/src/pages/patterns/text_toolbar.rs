@@ -218,9 +218,9 @@ fn items(
         button("redo", "Redo", CarbonIcon::Redo, false),
         ToolbarItem::Separator,
         // `<div style={{width:140}}><Dropdown type="inline" size="md"/></div>`.
-        ToolbarItem::control(140., font_select(font_id)),
+        ToolbarItem::dropdown(140., font_select(font_id)),
         // `<div style={{width:64}}>`.
-        ToolbarItem::control(64., size_select(size_id)),
+        ToolbarItem::dropdown(64., size_select(size_id)),
         ToolbarItem::Separator,
         button("bold", "Bold (⌘B)", CarbonIcon::TextBold, format.bold),
         button(
