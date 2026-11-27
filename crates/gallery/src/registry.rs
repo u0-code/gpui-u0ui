@@ -436,6 +436,11 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("permission-checklist", "PermissionChecklist", "T3 · Onboarding & feedback", Component::PermissionChecklist.summary(), pages::t3_workspace::onboarding::build_permission_checklist).thumbnail(pages::t3_workspace::onboarding::permission_checklist_thumbnail),
     PageDef::new("truncated-text", "TruncatedText", "T3 · Onboarding & feedback", Component::TruncatedText.summary(), pages::t3_workspace::onboarding::build_truncated_text).thumbnail(pages::t3_workspace::onboarding::truncated_text_thumbnail),
     // Ghost · Thread (src/ghost/workspace.jsx)
+    PageDef::new("checkpoint-marker", "CheckpointMarker", GHOST_THREAD, Component::CheckpointMarker.summary(), pages::ghost_thread::parts::build_checkpoint_marker).thumbnail(pages::ghost_thread::parts::checkpoint_thumbnail),
+    PageDef::new("continue-row", "ContinueRow", GHOST_THREAD, Component::ContinueRow.summary(), pages::ghost_thread::parts::build_continue_row).thumbnail(pages::ghost_thread::parts::continue_thumbnail),
+    PageDef::new("message-image", "MessageImage", GHOST_THREAD, Component::MessageImage.summary(), pages::ghost_thread::parts::build_message_image).thumbnail(pages::ghost_thread::parts::image_thumbnail),
+    PageDef::new("note-line", "NoteLine", GHOST_THREAD, Component::NoteLine.summary(), pages::ghost_thread::parts::build_note_line).thumbnail(pages::ghost_thread::parts::note_thumbnail),
+    PageDef::new("plan-checklist", "PlanChecklist", GHOST_THREAD, Component::PlanChecklist.summary(), pages::ghost_thread::parts::build_plan_checklist).thumbnail(pages::ghost_thread::parts::plan_thumbnail),
     PageDef::new("thinking-block", "ThinkingBlock", GHOST_THREAD, Component::ThinkingBlock.summary(), pages::ghost_thread::thinking_block::build).thumbnail(pages::ghost_thread::thinking_block::thumbnail),
     PageDef::new("tool-call-fold", "ToolCallFold", GHOST_THREAD, Component::ToolCallFold.summary(), pages::ghost_thread::tool_call_fold::build).thumbnail(pages::ghost_thread::tool_call_fold::thumbnail),
     PageDef::new("transcript-view-switch", "TranscriptViewSwitch", GHOST_THREAD, Component::TranscriptViewSwitch.summary(), pages::ghost_thread::transcript_view_switch::build).thumbnail(pages::ghost_thread::transcript_view_switch::thumbnail),
