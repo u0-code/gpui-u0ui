@@ -116,6 +116,146 @@ pub fn nav_anchor(
     }
 }
 
+/// Where a list keeps its [`nav_anchor`]: the anchor's handle and the index
+/// of the item that was removed while focus was in it.
+pub struct FocusSlot {
+    /// The anchor's focus handle.
+    pub handle: FocusHandle,
+    /// The removed item's index; the anchor sits before the item now there.
+    pub at: usize,
+}
+
+/// A [`FocusSlot`] kept under `id` across frames.
+pub fn focus_slot(
+    id: impl Into<ElementId>,
+    window: &mut Window,
+    cx: &mut App,
+) -> Entity<FocusSlot> {
+    window.use_keyed_state(id, cx, |_, cx| FocusSlot {
+        handle: cx.focus_handle(),
+        at: usize::MAX,
+    })
+}
+
+/// Item `at` of a list is about to be removed. When focus is on one of its
+/// `parts` (its own button or its close button), focus rests on the slot's
+/// anchor at that index instead of vanishing with it, so Tab continues with
+/// the stop after the item and Shift+Tab with the one before (Chromium's
+/// sequential focus navigation starting point). Render the anchor with
+/// [`insert_slot_anchor`].
+pub fn vacate_slot(
+    slot: &Entity<FocusSlot>,
+    at: usize,
+    parts: &[FocusHandle],
+    window: &mut Window,
+    cx: &mut App,
+) {
+    if !parts.iter().any(|h| h.is_focused(window)) {
+        return;
+    }
+    let handle = slot.update(cx, |s, _| {
+        s.at = at;
+        s.handle.clone()
+    });
+    handle.focus(window, cx);
+}
+
+/// Put the slot's [`nav_anchor`] among a list's `children`, before the item
+/// at its index (at the end when that index is past the last item).
+pub fn insert_slot_anchor(
+    children: &mut Vec<gpui_kit::AnyElement>,
+    id: impl Into<ElementId>,
+    slot: &Entity<FocusSlot>,
+    cx: &App,
+) {
+    let s = slot.read(cx);
+    let at = s.at.min(children.len());
+    let anchor = nav_anchor(id, &s.handle, None, cx).into_any_element();
+    children.insert(at, anchor);
+}
+
+/// The focus point of a window that a pressed control may take with it: the
+/// focused handle and the stops before and after it in that frame.
+struct Vacated {
+    window: gpui_kit::AnyWindowHandle,
+    here: FocusHandle,
+    prev: Option<FocusHandle>,
+    next: Option<FocusHandle>,
+}
+
+#[derive(Default)]
+struct VacatedFocus {
+    point: Option<Vacated>,
+    _intercept: Option<gpui_kit::Subscription>,
+}
+
+impl gpui_kit::Global for VacatedFocus {}
+
+/// A control inside `within` is being pressed and may disappear with it,
+/// because its caller stops rendering it (a dismissed tag, a removed
+/// attachment, a dialog button closing its dialog), so it cannot hold a
+/// [`nav_anchor`]. Call it before running the press handler.
+///
+/// When the focused element is gone by the next Tab, that Tab continues from
+/// where it was, as Chromium keeps the sequential focus navigation starting
+/// point at a removed element: Tab goes to the stop that followed it,
+/// Shift+Tab to the one before, and nothing shows focus meanwhile. When it is
+/// still there (or focus moved elsewhere), Tab is untouched.
+///
+/// GPUI does not expose its tab order, so the stops around the element are
+/// read from the current frame by stepping focus forward and back and then
+/// returning it; focus listeners only see the final state, which is unchanged.
+pub fn vacate_focus(within: &FocusHandle, window: &mut Window, cx: &mut App) {
+    if !(within.is_focused(window) || within.contains_focused(window, cx)) {
+        return;
+    }
+    let Some(here) = window.focused(cx) else {
+        return;
+    };
+    window.focus_next(cx);
+    let next = window.focused(cx).filter(|h| *h != here);
+    window.focus(&here, cx);
+    window.focus_prev(cx);
+    let prev = window.focused(cx).filter(|h| *h != here);
+    window.focus(&here, cx);
+    if !cx.has_global::<VacatedFocus>() {
+        let intercept = cx.intercept_keystrokes(|event, window, cx| {
+            let k = &event.keystroke;
+            let m = k.modifiers;
+            if k.key != "tab" || m.control || m.alt || m.platform || m.function {
+                return;
+            }
+            match cx.global::<VacatedFocus>().point.as_ref() {
+                Some(p) if p.window == window.window_handle() => {}
+                _ => return,
+            }
+            // Any Tab in that window ends the point.
+            let Some(p) = cx.global_mut::<VacatedFocus>().point.take() else {
+                return;
+            };
+            let gone = window.focused(cx).as_ref() == Some(&p.here) && !p.here.is_rendered(window);
+            if !gone {
+                return;
+            }
+            let to = if m.shift { p.prev } else { p.next };
+            if let Some(to) = to.filter(|h| h.is_rendered(window)) {
+                to.focus(window, cx);
+                cx.stop_propagation();
+            }
+        });
+        cx.set_global(VacatedFocus {
+            point: None,
+            _intercept: Some(intercept),
+        });
+    }
+    cx.global_mut::<VacatedFocus>().point = Some(Vacated {
+        window: window.window_handle(),
+        here,
+        prev,
+        next,
+    });
+}
+
 /// The Kit single-line editor without chrome, in the primitives' 14px body
 /// type (`font: inherit; font-size: 0.875rem; border: 0; background: none;
 /// outline: 0`). The caller draws the field around it.
@@ -309,7 +449,12 @@ impl RenderOnce for IconButton {
             .child(icon)
             .when(ring, |this| this.child(focus_ring()))
             .when_some(self.on_click, |this, handler| {
-                this.on_click(move |e, window, cx| handler(e, window, cx))
+                // A press that removes the button keeps the Tab starting point.
+                let focus = focus.clone();
+                this.on_click(move |e, window, cx| {
+                    vacate_focus(&focus, window, cx);
+                    handler(e, window, cx)
+                })
             })
     }
 }

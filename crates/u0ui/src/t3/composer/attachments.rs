@@ -270,7 +270,14 @@ fn bare_button(
         .cursor(CursorStyle::PointingHand)
         .on_hover(press::track_hover(hover))
         .when_some(bg, |this, bg| this.bg(bg))
-        .when_some(on_click, |this, f| this.on_click(move |_, w, cx| f(w, cx)))
+        .when_some(on_click, |this, f| {
+            // A press that removes the attachment keeps the Tab starting point.
+            let focus = focus.clone();
+            this.on_click(move |_, w, cx| {
+                crate::u0::primitives::parts::vacate_focus(&focus, w, cx);
+                f(w, cx)
+            })
+        })
         .child(content(hovered))
         .when(ring, |this| this.child(press::ring()))
 }

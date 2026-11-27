@@ -526,7 +526,14 @@ impl RenderOnce for ContextChip {
                 // `.t3-chip-x:hover { background: var(--background-hover) }`.
                 .when(hovered, |this| this.bg(color(ColorRole::BackgroundHover)))
                 .on_hover(press::track_hover(hover))
-                .on_click(move |_, window, cx| handler(window, cx))
+                .on_click({
+                    // Removing the chip keeps the Tab starting point there.
+                    let focus = focus.clone();
+                    move |_, window, cx| {
+                        crate::u0::primitives::parts::vacate_focus(&focus, window, cx);
+                        handler(window, cx)
+                    }
+                })
                 .child(press::icon(CarbonIcon::Close, 12., look.remove))
                 .when(ring, |this| this.child(press::ring()))
         });

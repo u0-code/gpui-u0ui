@@ -539,7 +539,9 @@ impl Badge {
     }
 
     /// Make the tag dismissible (`DismissibleTag`); `handler` runs when the
-    /// close button is pressed.
+    /// close button is pressed; it is expected to remove the tag. A focused
+    /// close button leaves the Tab starting point where it was
+    /// ([`crate::u0::primitives::parts::vacate_focus`]).
     pub fn on_dismiss(
         mut self,
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
@@ -801,7 +803,15 @@ impl RenderOnce for Badge {
                             })
                         }
                     })
-                    .on_click(move |event, window, cx| on_dismiss(event, window, cx))
+                    .on_click({
+                        let close_focus = close_focus.clone();
+                        move |event, window, cx| {
+                            // The caller removes the tag: keep the Tab starting
+                            // point where its focused close button was.
+                            crate::u0::primitives::parts::vacate_focus(&close_focus, window, cx);
+                            on_dismiss(event, window, cx)
+                        }
+                    })
                     .child(
                         Icon::carbon(CarbonIcon::Close)
                             .size(IconSize::S16)

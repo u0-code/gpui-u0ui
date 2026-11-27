@@ -12,6 +12,7 @@ use crate::{
     icons::{CarbonIcon, Icon},
     theme::color,
     tokens::{ColorRole, SIZE_MD},
+    u0::primitives::parts::{focus_slot, insert_slot_anchor, vacate_slot},
 };
 use gpui_kit::{
     AnyElement, App, ElementId, Hsla, InteractiveElement as _, IntoElement, ParentElement,
@@ -511,6 +512,9 @@ impl RenderOnce for RightPanelTabs {
         let (shown, hidden) = split_tabs(self.tabs.len(), active, self.max_visible);
 
         let mut cells: Vec<AnyElement> = Vec::new();
+        // Where focus rests when a focused tab closes: Chromium keeps the
+        // Tab starting point where a removed focused element was.
+        let slot = focus_slot((id.clone(), "slot"), window, cx);
         for i in shown {
             let tab = self.tabs[i].clone();
             let tab_id: ElementId =
@@ -562,6 +566,8 @@ impl RenderOnce for RightPanelTabs {
                 let (x_handle, x_focused) = focus((tab_id.clone(), "x-focus"), window, cx);
                 let on_close = self.on_close.clone();
                 let tid = tab.id.clone();
+                let (slot, at) = (slot.clone(), cells.len());
+                let parts = [handle.clone(), x_handle.clone()];
                 // `.t3-rptab-x { margin-right: spacing-03; padding: 2px; border-radius: 2px;
                 // color: icon-secondary }`, `:hover { background: background-hover; color: icon-primary }`.
                 let ink = color(if x_hovered {
@@ -583,6 +589,7 @@ impl RenderOnce for RightPanelTabs {
                     .on_hover(track_hover(x_store))
                     .on_click(move |_, w, cx| {
                         if let Some(f) = &on_close {
+                            vacate_slot(&slot, at, &parts, w, cx);
                             f(tid.clone(), w, cx)
                         }
                     })
@@ -616,6 +623,7 @@ impl RenderOnce for RightPanelTabs {
                     .into_any_element(),
             );
         }
+        insert_slot_anchor(&mut cells, (id.clone(), "anchor"), &slot, cx);
         let overflow = (!hidden.is_empty()).then(|| {
             let label = self.more_label.replace("{}", &hidden.len().to_string());
             IconMenu::new((id.clone(), "more"), label)

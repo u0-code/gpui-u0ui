@@ -27,7 +27,9 @@ use crate::{
     },
     theme::color,
     tokens::{self, ColorRole},
-    u0::primitives::parts::{focus_ring, focus_visible, keyed_focus},
+    u0::primitives::parts::{
+        focus_ring, focus_slot, focus_visible, insert_slot_anchor, keyed_focus, vacate_slot,
+    },
 };
 use gpui_kit::{
     Animation, AnimationExt as _, AnyElement, App, CursorStyle, ElementId, FocusHandle, FontWeight,
@@ -605,6 +607,15 @@ impl RenderOnce for TerminalTabs {
                 )
             })
             .collect();
+        let x_handles: Vec<FocusHandle> = (0..n)
+            .map(|i| {
+                let tid: ElementId = (id.clone(), SharedString::from(format!("t{i}"))).into();
+                keyed_focus((tid, "x-focus"), window, cx)
+            })
+            .collect();
+        // Where focus rests when the focused tab closes: Chromium keeps the
+        // Tab starting point where a removed focused element was.
+        let slot = focus_slot((id.clone(), "slot"), window, cx);
         let select: IndexHandler = {
             let store = store.clone();
             let on_change = self.on_value_change.clone();
@@ -623,7 +634,17 @@ impl RenderOnce for TerminalTabs {
         // the `on_close` handler removes that tab.
         let on_close: Option<IndexHandler> = self.on_close.clone().map(|f| {
             let store = store.clone();
+            let slot = slot.clone();
+            let parts: Vec<[FocusHandle; 2]> = handles
+                .iter()
+                .cloned()
+                .zip(x_handles.iter().cloned())
+                .map(|(t, x)| [t, x])
+                .collect();
             Rc::new(move |i, window: &mut Window, cx: &mut App| {
+                if let Some(p) = parts.get(i) {
+                    vacate_slot(&slot, i, p, window, cx);
+                }
                 if !controlled {
                     store.update(cx, |v, cx| {
                         *v = active_after_close(current, i, n);
@@ -644,7 +665,7 @@ impl RenderOnce for TerminalTabs {
                 let focus = handles[i].clone();
                 let ring = focus_visible(&focus, window);
                 let (x_over, x_hover) = hover_state((tid.clone(), "x-hover").into(), window, cx);
-                let x_focus = keyed_focus((tid.clone(), "x-focus"), window, cx);
+                let x_focus = x_handles[i].clone();
                 let x_ring = focus_visible(&x_focus, window);
                 let pick = select.clone();
                 let keys = select.clone();
@@ -765,7 +786,10 @@ impl RenderOnce for TerminalTabs {
                             .when(x_ring, |b| b.child(focus_ring())),
                     )
             })
+            .map(IntoElement::into_any_element)
             .collect::<Vec<_>>();
+        let mut tabs = tabs;
+        insert_slot_anchor(&mut tabs, (id.clone(), "anchor"), &slot, cx);
         let (new_over, new_hover) = hover_state((id.clone(), "new-hover").into(), window, cx);
         let new_focus = keyed_focus((id.clone(), "new-focus"), window, cx);
         let new_ring = focus_visible(&new_focus, window);

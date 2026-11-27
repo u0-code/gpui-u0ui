@@ -310,7 +310,14 @@ pub(crate) fn close_button(
                 .color(look.close_icon),
         )
         .child(inset_outline(2., outline))
-        .on_click(move |_, window, cx| on_click(window, cx))
+        .on_click({
+            let focus = focus.clone();
+            move |_, window, cx| {
+                // Closing removes the button: keep the Tab starting point.
+                crate::u0::primitives::parts::vacate_focus(&focus, window, cx);
+                on_click(window, cx)
+            }
+        })
 }
 
 /// `AlertTitle`.
@@ -531,7 +538,11 @@ fn action_button(
             })
         })
         .when_some(on_click, |d, f| {
-            d.on_click(move |_, window, cx| f(window, cx))
+            let focus = focus.clone();
+            d.on_click(move |_, window, cx| {
+                crate::u0::primitives::parts::vacate_focus(&focus, window, cx);
+                f(window, cx)
+            })
         })
         .child(action.label)
         // `:focus { outline: 2px solid var(--focus-inverse) }`; low contrast `focus`.

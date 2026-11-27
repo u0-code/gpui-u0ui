@@ -12,6 +12,7 @@ use crate::{
     },
     theme::color,
     tokens::{BORDER_RADIUS_02, ColorRole},
+    u0::primitives::parts::{focus_slot, insert_slot_anchor, vacate_slot},
 };
 use gpui_kit::{
     Animation, AnimationExt as _, AnyElement, App, CursorStyle, ElementId, InteractiveElement as _,
@@ -247,6 +248,9 @@ impl RenderOnce for TerminalDrawer {
         }
         .min(len.saturating_sub(1));
         let mut bar: Vec<AnyElement> = Vec::new();
+        // Where focus rests when a focused tab closes: Chromium keeps the
+        // Tab starting point where a removed focused element was.
+        let slot = focus_slot((id.clone(), "slot"), window, cx);
         for (i, tab) in self.tabs.iter().enumerate() {
             let on = i == active;
             let tab_id = child_id(&id, "tab", i);
@@ -329,7 +333,10 @@ impl RenderOnce for TerminalDrawer {
                 .on_hover(press::track_hover(x_store))
                 .when_some(on_close, |this, f| {
                     let selected = close_selected;
+                    let slot = slot.clone();
+                    let parts = [tab_focus.clone(), x_focus.clone()];
                     this.on_click(move |_, w, cx| {
+                        vacate_slot(&slot, i, &parts, w, cx);
                         // `.t3-term-tab--on` must follow the strip: the
                         // neighbor of a closed active tab becomes active.
                         if !controlled {
@@ -372,6 +379,7 @@ impl RenderOnce for TerminalDrawer {
                     .into_any_element(),
             );
         }
+        insert_slot_anchor(&mut bar, (id.clone(), "anchor"), &slot, cx);
         let texts = self.texts.clone();
         bar.push(
             click(

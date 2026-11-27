@@ -283,9 +283,14 @@ impl RenderOnce for TagInput {
         // any chip's remove button.
         let focus_within =
             focus_within(focused, remove_focuses.iter().map(|f| f.is_focused(window)));
+        // Where focus rests when a focused chip's remove button removes it:
+        // Chromium keeps the Tab starting point where it was.
+        let slot = parts::focus_slot((id.clone(), "slot"), window, cx);
         let tag_pills = tags.iter().enumerate().map(|(i, t)| {
             let model = model.clone();
+            let slot = slot.clone();
             let remove_focus = remove_focuses[i].clone();
+            let vacated = remove_focus.clone();
             let ring = parts::focus_visible(&remove_focus, window);
             let hover = window.use_keyed_state(
                 (id.clone(), SharedString::from(format!("rm-hover-{i}"))),
@@ -348,6 +353,7 @@ impl RenderOnce for TagInput {
                     })
                     .on_click(move |_, window, cx| {
                         let tag = tag.clone();
+                        parts::vacate_slot(&slot, i, std::slice::from_ref(&vacated), window, cx);
                         model.update(cx, |m, cx| {
                             let next: Vec<_> =
                                 m.tags.iter().filter(|x| **x != tag).cloned().collect();
@@ -355,7 +361,10 @@ impl RenderOnce for TagInput {
                         })
                     }),
                 )
+                .into_any_element()
         });
+        let mut tag_pills: Vec<_> = tag_pills.collect();
+        parts::insert_slot_anchor(&mut tag_pills, (id.clone(), "anchor"), &slot, cx);
 
         let placeholder = (tags.is_empty() && query.is_empty()).then(|| {
             div()

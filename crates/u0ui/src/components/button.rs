@@ -877,7 +877,13 @@ impl RenderOnce for Button {
                 }
             })
             .when_some(on_click, |this, handler| {
-                this.on_click(move |event, window, cx| handler(event, window, cx))
+                let focus = focus.clone();
+                this.on_click(move |event, window, cx| {
+                    // A press that removes the button (a dialog's Cancel, an
+                    // attachment's Remove) keeps the Tab starting point there.
+                    crate::u0::primitives::parts::vacate_focus(&focus, window, cx);
+                    handler(event, window, cx)
+                })
             });
 
         if kind == ButtonKind::Link {
