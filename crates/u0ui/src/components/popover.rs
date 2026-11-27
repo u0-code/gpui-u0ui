@@ -193,6 +193,8 @@ impl RenderOnce for Popover {
             self.align,
             self.caret.then_some(look.background),
             POPOVER_OFFSET,
+            window,
+            cx,
         )
     }
 }

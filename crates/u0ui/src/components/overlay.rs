@@ -423,13 +423,13 @@ pub(crate) struct Translate {
     child: AnyElement,
     fraction: Point<f32>,
     offset: Point<Pixels>,
-    /// See [`Translate::along_trigger`].
-    cross: Option<(bool, Rc<Cell<Option<f32>>>)>,
 }
 
 /// Where a surface centered on `center` along one axis starts once shifted by
 /// `fraction` of its `size` plus `px` (a Carbon `*-start`/`*-end` alignment),
-/// kept [`WINDOW_MARGIN`] inside a `viewport` that long.
+/// kept [`WINDOW_MARGIN`] inside a `viewport` that long. The shift comes
+/// first and the clamp after, so a shifted `*-end` surface near the window
+/// edge is not moved twice (its caret stays on the trigger).
 pub fn cross_origin(center: f32, size: f32, fraction: f32, px: f32, viewport: f32) -> f32 {
     let desired = center - size / 2. + fraction * size + px;
     desired
@@ -444,20 +444,7 @@ impl Translate {
             child: child.into_any_element(),
             fraction,
             offset,
-            cross: None,
         }
-    }
-
-    /// Place the child along one axis (`horizontal`) from the trigger's
-    /// `center` on it (recorded by the popup before this prepaints) rather
-    /// than from where the popup host put it. The host clamps the surface
-    /// into the window *before* the translation, so a shifted `*-end`
-    /// surface near the window edge was moved twice and its caret missed the
-    /// trigger; here the shift is applied first and the clamp after
-    /// ([`cross_origin`]).
-    pub fn along_trigger(mut self, horizontal: bool, center: Rc<Cell<Option<f32>>>) -> Self {
-        self.cross = Some((horizontal, center));
-        self
     }
 
     /// `translateY(y)` in px.
@@ -497,34 +484,10 @@ impl Element for Translate {
         window: &mut Window,
         cx: &mut App,
     ) {
-        let mut offset = point(
+        let offset = point(
             bounds.size.width * self.fraction.x + self.offset.x,
             bounds.size.height * self.fraction.y + self.offset.y,
         );
-        if let Some((horizontal, center)) = &self.cross
-            && let Some(center) = center.get()
-        {
-            let viewport = window.viewport_size();
-            if *horizontal {
-                let origin = cross_origin(
-                    center,
-                    f32::from(bounds.size.width),
-                    self.fraction.x,
-                    f32::from(self.offset.x),
-                    f32::from(viewport.width),
-                );
-                offset.x = px(origin) - bounds.origin.x;
-            } else {
-                let origin = cross_origin(
-                    center,
-                    f32::from(bounds.size.height),
-                    self.fraction.y,
-                    f32::from(self.offset.y),
-                    f32::from(viewport.height),
-                );
-                offset.y = px(origin) - bounds.origin.y;
-            }
-        }
         window.with_element_offset(offset, |window| self.child.prepaint(window, cx));
     }
 

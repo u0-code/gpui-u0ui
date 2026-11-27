@@ -150,7 +150,16 @@ impl RenderOnce for HoverCard {
                 .type_style(TypeStyle::Body01)
                 .children(self.children)
         });
-        floating::anchored((id, "popup"), trigger, surface, self.align, None, 0.)
+        floating::anchored(
+            (id, "popup"),
+            trigger,
+            surface,
+            self.align,
+            None,
+            0.,
+            window,
+            cx,
+        )
     }
 }
 

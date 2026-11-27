@@ -287,6 +287,8 @@ impl RenderOnce for Tooltip {
             self.align,
             Some(look.background),
             TOOLTIP_OFFSET,
+            window,
+            cx,
         )
     }
 }
