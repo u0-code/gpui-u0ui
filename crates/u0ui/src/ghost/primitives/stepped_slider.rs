@@ -61,6 +61,29 @@ pub fn level_after_key(key: &str, value: usize, steps: usize) -> Option<usize> {
     })
 }
 
+/// Which end rule (`:first-child` / `:last-child`) a tick takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TickEnd {
+    /// `:first-child`: the name starts at the field edge.
+    First,
+    /// Centered under its mark.
+    Middle,
+    /// `:last-child`: the name ends at the field edge.
+    Last,
+}
+
+/// The end rule a tick takes; a lone tick (never in the reference) is
+/// treated as the first.
+pub fn tick_end(i: usize, n: usize) -> TickEnd {
+    if i == 0 {
+        TickEnd::First
+    } else if i + 1 == n {
+        TickEnd::Last
+    } else {
+        TickEnd::Middle
+    }
+}
+
 type Handler = Rc<dyn Fn(usize, &mut Window, &mut App)>;
 type Describe = Rc<dyn Fn(usize) -> SharedString>;
 
@@ -189,8 +212,9 @@ impl RenderOnce for SteppedSlider {
         let (tp, toff) = thumb_left(pct);
         let range = div()
             .id((id.clone(), "range"))
-            .track_focus(&focus)
-            .tab_index(0)
+            // A tracked handle carries its own tab-stop flag; the div's
+            // `.tab_index` does not reach it.
+            .track_focus(&focus.clone().tab_index(0).tab_stop(true))
             .relative()
             .w_full()
             .h(rem(16.))
@@ -207,10 +231,13 @@ impl RenderOnce for SteppedSlider {
                 .size_full(),
             )
             .child(
+                // t3.css `.g-sslider-range { background-size: calc(100% - 14px) 2px }`
+                // (centered): the track runs between the thumb centres, so its
+                // ends meet the first and last tick.
                 div()
                     .absolute()
-                    .left_0()
-                    .right_0()
+                    .left(rem(THUMB / 2.))
+                    .right(rem(THUMB / 2.))
                     .top(rem(7.))
                     .h(px(2.))
                     .bg(color(ColorRole::BorderSubtle01))
@@ -293,22 +320,35 @@ impl RenderOnce for SteppedSlider {
                 .children(self.steps.iter().enumerate().map(|(i, name)| {
                     let on = i == value;
                     let set = set.clone();
+                    let end = tick_end(i, n);
                     // `.g-sslider-tick { position: absolute; transform: translateX(-50%) }`:
                     // a zero-width anchor at the tick's position centers its column.
+                    // t3.css: the first tick's name starts at the field edge
+                    // (`margin-left: -7px; align-items: flex-start`, its mark
+                    // `margin-left: 7px`), the last one's ends there
+                    // (`translateX(-100%); margin-left: 7px; align-items: flex-end`).
                     div()
                         .absolute()
                         .top_0()
                         .left(relative(fraction(i, n)))
                         .w_0()
                         .flex()
-                        .justify_center()
+                        .map(|d| match end {
+                            TickEnd::First => d.ml(rem(-THUMB / 2.)).justify_start(),
+                            TickEnd::Last => d.ml(rem(THUMB / 2.)).justify_end(),
+                            TickEnd::Middle => d.justify_center(),
+                        })
                         .child(
                             div()
                                 .id((id.clone(), SharedString::from(format!("tick-{i}"))))
                                 .flex()
                                 .flex_col()
                                 .flex_none()
-                                .items_center()
+                                .map(|d| match end {
+                                    TickEnd::First => d.items_start(),
+                                    TickEnd::Last => d.items_end(),
+                                    TickEnd::Middle => d.items_center(),
+                                })
                                 .gap(px(2.))
                                 .type_style(TypeStyle::Label01)
                                 .whitespace_nowrap()
@@ -324,6 +364,11 @@ impl RenderOnce for SteppedSlider {
                                     div()
                                         .w(px(1.))
                                         .h(px(4.))
+                                        .map(|d| match end {
+                                            TickEnd::First => d.ml(rem(THUMB / 2.)),
+                                            TickEnd::Last => d.mr(rem(THUMB / 2.)),
+                                            TickEnd::Middle => d,
+                                        })
                                         .bg(color(ColorRole::BorderStrong01)),
                                 )
                                 .child(name.clone()),
@@ -358,6 +403,14 @@ mod tests {
         assert_eq!(level_at(107., 0., 214., 4), 2); // 0.5 × 3 = 1.5 rounds up
         assert_eq!(level_at(-50., 0., 214., 4), 0);
         assert_eq!(level_at(500., 0., 214., 4), 3);
+    }
+
+    #[test]
+    fn end_ticks_take_the_edge_rules() {
+        assert_eq!(tick_end(0, 4), TickEnd::First);
+        assert_eq!(tick_end(1, 4), TickEnd::Middle);
+        assert_eq!(tick_end(3, 4), TickEnd::Last);
+        assert_eq!(tick_end(0, 1), TickEnd::First);
     }
 
     #[test]
