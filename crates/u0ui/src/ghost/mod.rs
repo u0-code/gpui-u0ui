@@ -4,6 +4,7 @@
 pub mod foundations;
 pub mod panels;
 pub mod primitives;
+pub mod settings;
 pub mod shell;
 pub mod tasks;
 pub mod thread;
