@@ -6,6 +6,7 @@ use gpui_kit::{
     AnyElement, AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled,
     Window, div, px,
 };
+use u0ui::icons::brands::BRAND_MARKS;
 use u0ui::prelude::*;
 use u0ui::t3::Status;
 use u0ui::t3::shell::{
@@ -15,14 +16,17 @@ use u0ui::t3::shell::{
 
 // ── ProviderIcon ────────────────────────────────────────────────────────
 
-const PROVIDERS: [&str; 8] = [
+const PROVIDERS: [&str; 11] = [
     "Claude",
     "Codex",
     "Cursor",
     "Antigravity",
     "OpenCode",
-    "Figma",
     "Gemini",
+    "GitHub Copilot",
+    "Mistral",
+    "Qwen Code",
+    "Figma",
     "Kiro",
 ];
 const ACCENTS: [&str; 9] = ["none", "1", "2", "3", "4", "5", "6", "7", "8"];
@@ -48,6 +52,23 @@ fn provider_reference() -> impl IntoElement {
                     .child(label_text(n, TypeStyle::BodyCompact01))
             }),
     )
+}
+
+/// Every vendored brand mark (Simple Icons 16.37.0), md, under its title:
+/// the agents, then the forges and services.
+fn brand_marks() -> impl IntoElement {
+    row().children(BRAND_MARKS.iter().map(|m| {
+        stack()
+            .items_center()
+            .gap(px(8.))
+            .w(px(96.))
+            .child(
+                ProviderIcon::new(m.title)
+                    .id(eid("brand", m.slug))
+                    .size(IdentitySize::Lg),
+            )
+            .child(label_text(m.title, TypeStyle::Label01))
+    }))
 }
 
 /// Overview specimen.
@@ -95,8 +116,8 @@ impl Render for ProviderPage {
             .starting(self.starting)
             .accent((self.accent > 0).then_some(self.accent as u8));
         if self.src {
-            // Any image you may use; here the Gemini glyph served as an SVG asset.
-            icon = icon.src("u0ui/t3/provider-Gemini.svg");
+            // Any image you may use; here the Codex glyph served as an SVG asset.
+            icon = icon.src("u0ui/t3/provider-Codex.svg");
         }
         let live = div()
             .flex()
@@ -173,6 +194,7 @@ impl Render for ProviderPage {
             .hint("Hover a mark for its title")
             .config(config)
             .example(controls::block("Reference preview", provider_reference()))
+            .example(controls::block("Brand marks", brand_marks()))
             .example(controls::block("Sizes", sizes_example))
     }
 }

@@ -167,6 +167,8 @@ cargo run -p u0ui-codegen -- --check # 已提交的生成文件过期时报错
 
 - **IBM Plex** 字体（`crates/u0ui/assets/fonts`）：SIL Open Font License 1.1。
 - **Material Symbols**（通过 `gpui-material-symbols`）：Apache-2.0，Google。
+- **Simple Icons** 16.37.0 品牌标志（`crates/u0ui/assets/brands`）：CC0-1.0，
+  Android（CC-BY-3.0）与 GitHub Copilot（MIT）除外；见其 `NOTICE`。这些标志是其所有者的商标。
 - **Carbon** 设计 token 与样式（`@carbon/themes`、`@carbon/styles`，生成的 token 和组件数值来源于此）：
   Apache-2.0，IBM。
 
