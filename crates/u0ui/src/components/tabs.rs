@@ -26,6 +26,12 @@
 //!   the panel are siblings of the surrounding layout and take its gap (the
 //!   reference previews sit in `.cu-stack { gap: spacing-06 }`).
 //!   [`Tabs::panel_gap`] reproduces that gap; it is 0 by default.
+//! - **Flush panel**: a tab set inside a card whose own padding already
+//!   insets it (`.np-card .cds--tab-content { padding: 24px 0 0 }` on the
+//!   NoProjects board) lays its panel flush, [`Tabs::flush_panel`]: no
+//!   padding, so the panel's content shares the tab list's edges, its
+//!   distance from the list given by `panel_gap`. It stays a tab stop with
+//!   its focus outline.
 //! - **Motion**: `transition: color 70ms, border 70ms, background-color 70ms`
 //!   (productive standard) on every tab.
 use super::{form::inset_outline, overlay::rem};
@@ -278,6 +284,7 @@ pub struct Tabs {
     label: SharedString,
     activation: TabsActivation,
     panel_gap: AbsoluteLength,
+    flush_panel: bool,
 }
 
 impl Tabs {
@@ -295,6 +302,7 @@ impl Tabs {
             label: SharedString::default(),
             activation: TabsActivation::Automatic,
             panel_gap: rem(0.).into(),
+            flush_panel: false,
         }
     }
 
@@ -355,6 +363,13 @@ impl Tabs {
     /// siblings of that layout (see the module docs). Default 0.
     pub fn panel_gap(mut self, gap: impl Into<AbsoluteLength>) -> Self {
         self.panel_gap = gap.into();
+        self
+    }
+
+    /// Lay the panel flush, without `.cds--tab-content`'s padding: for tabs
+    /// in a card already padded (see the module docs). Default false.
+    pub fn flush_panel(mut self, flush: bool) -> Self {
+        self.flush_panel = flush;
         self
     }
 
@@ -552,6 +567,7 @@ impl RenderOnce for Tabs {
             .into_iter()
             .find(|(value, _)| *value == selected)
             .map(|(_, content)| content);
+        let flush = self.flush_panel;
         let panel = show_panel.then(|| {
             let look = PanelLook::of(variant);
             let focus = window
@@ -564,7 +580,7 @@ impl RenderOnce for Tabs {
                 // `TabPanel tabIndex=0`.
                 .track_focus(&focus.tab_stop(true))
                 .relative()
-                .p(rem(look.padding))
+                .p(rem(if flush { 0. } else { look.padding }))
                 .type_style(TypeStyle::Body01)
                 .text_color(color(ColorRole::TextPrimary))
                 .bg(look.background)
@@ -654,6 +670,8 @@ mod tests {
         assert!(!shows_panel(0));
         assert!(shows_panel(1));
         assert_eq!(Tabs::new("t").panel_gap, rem(0.).into());
+        assert!(!Tabs::new("t").flush_panel);
+        assert!(Tabs::new("t").flush_panel(true).flush_panel);
         assert_eq!(
             Tabs::new("t")
                 .panel_gap(crate::tokens::SPACING_06)
