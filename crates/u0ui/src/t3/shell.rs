@@ -6,7 +6,8 @@
 //! [`StatusPill`] and the split-button chevron [`IconMenu`].
 //!
 //! The cards: the sidebar ([`sidebar`]) the page chrome ([`chrome`]) and the
-//! command palette and list toolbar ([`palette`]).
+//! command palette and list toolbar ([`palette`]), and the frame
+//! ([`app_shell`]).
 //!
 //! Values come from `src/t3.css` (`/* Identity */`), with the later craft
 //! passes applied: provider marks are glyphs, never two-letter tiles
@@ -33,10 +34,12 @@ use gpui_kit::{
 use std::rc::Rc;
 use std::time::Duration;
 
+pub mod app_shell;
 pub mod chrome;
 pub mod palette;
 pub mod sidebar;
 
+pub use app_shell::AppShell;
 pub use chrome::{
     Crumb, LayoutPanel, PanelLayoutControls, RightPanelTabs, SurfaceKind, SurfaceTab,
     WorkspaceBreadcrumb, WorkspacePageHeader,

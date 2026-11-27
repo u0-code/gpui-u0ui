@@ -1,4 +1,5 @@
 //! T3 · Shell and T3 · Identity & status pages (`src/t3/shell.jsx`).
+pub mod app_shell;
 pub mod chrome;
 pub mod identity;
 pub mod palette;

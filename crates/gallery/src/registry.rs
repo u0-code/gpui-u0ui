@@ -340,6 +340,7 @@ pub static PAGES: &[PageDef] = &[
     // Ghost · Tasks & workflows (src/ghost/admin.jsx)
     PageDef::new("task-row", "TaskRow", "Ghost · Tasks & workflows", Component::TaskRow.summary(), pages::ghost_tasks::task_row::build).thumbnail(pages::ghost_tasks::task_row::thumbnail),
     PageDef::new("workflow-row", "WorkflowRow", "Ghost · Tasks & workflows", Component::WorkflowRow.summary(), pages::ghost_tasks::workflow_row::build).thumbnail(pages::ghost_tasks::workflow_row::thumbnail),
+    PageDef::new("app-shell", "AppShell", "T3 · Shell", Component::AppShell.summary(), pages::t3_shell::app_shell::build).thumbnail(pages::t3_shell::app_shell::thumbnail),
 ];
 
 /// Look a page up by id.
