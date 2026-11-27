@@ -3,7 +3,9 @@
 //!
 //! - **ModeMenu**: a ghost `sm` menu button named after the current mode
 //!   whose menu is one radio group of the modes (Carbon `MenuButton` +
-//!   `MenuItemRadioGroup`, here u0ui's [`DropdownMenu`]).
+//!   `MenuItemRadioGroup`, here u0ui's [`DropdownMenu`]). As Carbon's
+//!   `MenuButton` the menu is centred under the trigger and as wide as it,
+//!   at least 10rem, so a long mode ("Auto-accept edits") ellipsizes.
 //! - **ModeList**: the expanded form, a 20rem floating list: each option
 //!   has its glyph, label and description, an optional shortcut, and a
 //!   checkmark when selected (`layer-selected-01` with a 2px
@@ -603,6 +605,20 @@ impl RenderOnce for MentionList {
 mod tests {
     use super::*;
     use crate::{CarbonTheme, theme::color_in};
+
+    #[test]
+    fn the_mode_menu_is_a_10rem_menu_button_menu() {
+        // A radio group has no icons: under the reference's 103px trigger
+        // the menu is `.cds--menu`'s 10rem, centred (x 3.5 under x 32).
+        let items = [MenuItem::radio_group(
+            "Mode",
+            ["Default", "Plan", "Auto-accept edits"].map(SharedString::from),
+        )];
+        assert_eq!(
+            crate::components::menu::button_menu_width(&items, 103.),
+            160.
+        );
+    }
 
     #[test]
     fn options_follow_g_opt() {
