@@ -337,6 +337,8 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("split-button", "SplitButton", "T3 · Mobile", Component::SplitButton.summary(), pages::t3_mobile::split_button::build).thumbnail(pages::t3_mobile::split_button::thumbnail),
     PageDef::new("command-palette", "CommandPalette", "T3 · Shell", Component::CommandPalette.summary(), pages::t3_shell::palette::build_command_palette).thumbnail(pages::t3_shell::palette::palette_thumbnail),
     PageDef::new("list-toolbar", "ListToolbar", "T3 · Shell", Component::ListToolbar.summary(), pages::t3_shell::palette::build_list_toolbar).thumbnail(pages::t3_shell::palette::toolbar_thumbnail),
+    // Ghost · Tasks & workflows (src/ghost/admin.jsx)
+    PageDef::new("workflow-row", "WorkflowRow", "Ghost · Tasks & workflows", Component::WorkflowRow.summary(), pages::ghost_tasks::workflow_row::build).thumbnail(pages::ghost_tasks::workflow_row::thumbnail),
 ];
 
 /// Look a page up by id.

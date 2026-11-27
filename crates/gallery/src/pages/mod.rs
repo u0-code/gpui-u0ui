@@ -31,6 +31,7 @@ pub mod dropdown_menu;
 pub mod empty;
 pub mod field;
 pub mod ghost_primitives;
+pub mod ghost_tasks;
 pub mod hover_card;
 pub mod icons;
 pub mod input;
