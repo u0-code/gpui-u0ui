@@ -293,8 +293,14 @@ impl Look {
                 }
             }
             // `.cds--btn--ghost`: link-primary text, background-hover/active
-            // washes, link-primary-hover text on hover/press; the icon is
-            // icon-primary (`.cds--btn--ghost:not([disabled]) svg`).
+            // washes, link-primary-hover text on hover/press.
+            //
+            // The icon of a text + icon ghost follows the text: its paths take
+            // `.cds--btn--ghost .cds--btn__icon path { fill: currentColor }`,
+            // which beats the `svg` fill they would inherit. An icon-only ghost
+            // draws its svg without `.cds--btn__icon`, so its paths inherit
+            // `.cds--btn--ghost:not([disabled]) svg { fill: icon-primary }`
+            // (reference render: text + icon #0f62fe, icon-only #161616).
             ButtonKind::Ghost => {
                 let mut look = if state.pressed {
                     Look::plain(c(BackgroundActive), clear, c(LinkPrimaryHover))
@@ -303,7 +309,9 @@ impl Look {
                 } else {
                     Look::plain(clear, clear, c(LinkPrimary))
                 };
-                look.icon = c(IconPrimary);
+                if icon_only {
+                    look.icon = c(IconPrimary);
+                }
                 look
             }
             // `.cds--btn--danger--ghost`.
@@ -521,6 +529,7 @@ pub struct Button {
     size: ButtonSize,
     density: Option<Density>,
     icon: Option<Icon>,
+    icon_color: Option<Hsla>,
     icon_only: bool,
     disabled: bool,
     loading: bool,
@@ -547,6 +556,7 @@ impl Button {
             size: ButtonSize::Lg,
             density: None,
             icon: None,
+            icon_color: None,
             icon_only: false,
             disabled: false,
             loading: false,
@@ -594,6 +604,14 @@ impl Button {
     /// Override the app density for this button.
     pub fn density(mut self, density: Density) -> Self {
         self.density = Some(density);
+        self
+    }
+
+    /// Paint the icon in `ink` while the button is enabled, for a context
+    /// rule such as `.g-ptree-row .cds--btn--ghost svg { fill:
+    /// var(--icon-secondary) }`. A disabled button keeps its disabled ink.
+    pub fn icon_color(mut self, ink: Hsla) -> Self {
+        self.icon_color = Some(ink);
         self
     }
 
@@ -754,6 +772,9 @@ impl RenderOnce for Button {
         let mut look = Look::of(kind, state, self.icon_only);
         if self.selected && self.icon_only && !self.disabled && !state.hovered && !state.pressed {
             look.background = color(ColorRole::BackgroundSelected);
+        }
+        if let Some(ink) = self.icon_color.filter(|_| !self.disabled) {
+            look.icon = ink;
         }
         let animate = |channel: &'static str, target: Hsla, window: &mut Window, cx: &mut App| {
             motion::animate_color((id.clone(), channel), target, Motion::HOVER, window, cx)
@@ -1140,7 +1161,6 @@ mod tests {
         assert_eq!(hex(hover.text), "#ffffff");
         let ghost = Look::of(ButtonKind::Ghost, ButtonState::default(), false);
         assert_eq!(hex(ghost.text), "#0f62fe");
-        assert_eq!(hex(ghost.icon), "#161616");
         let focused_icon_ghost = Look::of(
             ButtonKind::Ghost,
             ButtonState {
@@ -1151,6 +1171,41 @@ mod tests {
         );
         assert!(focused_icon_ghost.focus_ring.is_some());
         assert!(focused_icon_ghost.focus_inset.is_none());
+    }
+
+    /// Reference render (ScriptRow, ThemeEditor, Button): a text + icon ghost
+    /// paints its icon in the text color, link-primary at rest and
+    /// link-primary-hover on hover; an icon-only ghost keeps icon-primary.
+    #[test]
+    fn ghost_icon_follows_text_unless_icon_only() {
+        let hovered = ButtonState {
+            hovered: true,
+            ..Default::default()
+        };
+        for (theme, link, link_hover, icon) in [
+            (CarbonTheme::White, "#0f62fe", "#0043ce", "#161616"),
+            (CarbonTheme::G100, "#78a9ff", "#a6c8ff", "#f4f4f4"),
+        ] {
+            crate::theme::tests_set(theme);
+            let rest = Look::of(ButtonKind::Ghost, ButtonState::default(), false);
+            assert_eq!(hex(rest.icon), link, "{theme:?}");
+            assert_eq!(
+                hex(Look::of(ButtonKind::Ghost, hovered, false).icon),
+                link_hover
+            );
+            let only = Look::of(ButtonKind::Ghost, ButtonState::default(), true);
+            assert_eq!(hex(only.icon), icon, "{theme:?}");
+            assert_eq!(hex(Look::of(ButtonKind::Ghost, hovered, true).icon), icon);
+        }
+        // Every other kind is unchanged: its icon is its text color.
+        crate::theme::tests_set(CarbonTheme::White);
+        for kind in ButtonKind::BUTTONS.into_iter().chain([ButtonKind::Link]) {
+            if kind == ButtonKind::Ghost {
+                continue;
+            }
+            let look = Look::of(kind, ButtonState::default(), false);
+            assert_eq!(look.icon, look.text, "{kind:?}");
+        }
     }
 
     #[test]
