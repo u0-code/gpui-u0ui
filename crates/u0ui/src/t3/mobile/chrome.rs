@@ -23,6 +23,13 @@ type ValueHandler = Rc<dyn Fn(SharedString, &mut Window, &mut App)>;
 
 // ── PhoneFrame ───────────────────────────────────────────────────────────
 
+/// `.t3-phone { padding: 10px }`: the bezel width.
+pub const PHONE_BEZEL: f32 = 10.;
+/// `.t3-phone-screen { border-radius: 36px }`.
+pub const PHONE_SCREEN_RADIUS: f32 = 36.;
+/// `.t3-phone { border-radius: 2.75rem }`.
+pub const PHONE_RADIUS: f32 = 44.;
+
 /// A phone bezel for demos (`.t3-phone`): 22rem wide, 10px
 /// `background-inverse` bezel with 44px corners, a black notch, and a
 /// `background` screen with 36px corners and a 44px status-bar inset.
@@ -67,8 +74,8 @@ impl RenderOnce for PhoneFrame {
             .flex_none()
             .w(rem(352.))
             .h(rem(self.height))
-            .p(px(10.))
-            .rounded(rem(44.))
+            .p(px(PHONE_BEZEL))
+            .rounded(rem(PHONE_RADIUS))
             .bg(color(ColorRole::BackgroundInverse))
             .shadow(float_shadow(2.))
             .child(
@@ -79,9 +86,26 @@ impl RenderOnce for PhoneFrame {
                     .size_full()
                     .overflow_hidden()
                     .pt(rem(44.))
-                    .rounded(rem(36.))
+                    .rounded(rem(PHONE_SCREEN_RADIUS))
                     .bg(color(ColorRole::Background))
                     .children(self.children),
+            )
+            // `.t3-phone-screen { border-radius: 36px; overflow: hidden }`:
+            // GPUI clips overflow to a rectangle, so the screen's content (a
+            // sheet's square corners) would paint over the rounded corners
+            // and out past the bezel's own curve. The bezel again, as a
+            // ring over the screen (inner edge: its radius less the 10px
+            // border, within a pixel of the screen's 36px curve), masks
+            // whatever lies outside the screen.
+            .child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full()
+                    .border(px(PHONE_BEZEL))
+                    .border_color(color(ColorRole::BackgroundInverse))
+                    .rounded(rem(PHONE_RADIUS)),
             )
             // `.t3-phone-notch { top: 18px; 5.5rem × 1.5rem; radius 1rem; #000 }`.
             .child(
@@ -1281,6 +1305,23 @@ impl RenderOnce for MobileTabDock {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_phone_screen_mask_stays_in_the_bezel() {
+        use std::f32::consts::FRAC_1_SQRT_2;
+        // `.t3-phone { padding: 10px; border-radius: 2.75rem }`,
+        // `.t3-phone-screen { border-radius: 2.25rem }`.
+        assert_eq!(
+            (PHONE_BEZEL, PHONE_RADIUS, PHONE_SCREEN_RADIUS),
+            (10., 44., 36.)
+        );
+        // Along the diagonal, where the curves differ most, the masking
+        // ring's inner corner (radius 44 − 10, centred 44px in) sits within
+        // a pixel of the screen's (radius 36, centred 46px in).
+        let ring = PHONE_RADIUS - (PHONE_RADIUS - PHONE_BEZEL) * FRAC_1_SQRT_2;
+        let screen = PHONE_BEZEL + PHONE_SCREEN_RADIUS * (1. - FRAC_1_SQRT_2);
+        assert!((ring - screen).abs() < 1., "{ring} vs {screen}");
+    }
 
     #[test]
     fn list_and_bar_geometry() {
