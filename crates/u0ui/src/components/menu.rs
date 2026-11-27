@@ -1204,7 +1204,13 @@ pub(crate) fn menu_surface_returning(
         if !*had_focus.read(cx) {
             had_focus.update(cx, |v, _| *v = true);
         }
-    } else if *had_focus.read(cx) {
+    } else if *had_focus.read(cx)
+        // "Inside" is answered from the last painted frame. A submenu opened
+        // from the keyboard takes focus before its popup has painted (the
+        // popup waits a frame to measure its item), so for one frame the
+        // focused handle is in no frame at all: decide once it is painted.
+        && window.focused(cx).is_none_or(|f| f.is_rendered(window))
+    {
         had_focus.update(cx, |v, _| *v = false);
         let set_open = set_open.clone();
         window.defer(cx, move |window, cx| set_open(false, window, cx));

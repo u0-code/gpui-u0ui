@@ -6,11 +6,16 @@
 //!   else closes it too. DropdownMenu, ContextMenu and Menubar share it.
 //! - Menubar: after ←/→ moved to another menu, picking an item or Escape
 //!   returns focus to the trigger of the menu that was open.
+//! - Submenus from the keyboard (FB3, item 1): → or Enter opens a submenu
+//!   with focus on its first item; ← or Escape returns to its parent item;
+//!   Tab closes the whole tree. Focus moving into a submenu is not focus
+//!   leaving the menu.
 use gpui_kit::test::TestWindowExt as _;
 use gpui_kit::{
     AnyWindowHandle, AppContext as _, Bounds, Context, ElementId, Entity, FocusHandle,
-    InteractiveElement as _, IntoElement, ParentElement as _, Point, Render, Styled as _,
-    TestAppContext, Window, WindowBounds, WindowOptions, div, px, size,
+    InputEvent as _, InteractiveElement as _, IntoElement, KeyDownEvent, KeyUpEvent, Keystroke,
+    ParentElement as _, Point, Render, Styled as _, TestAppContext, Window, WindowBounds,
+    WindowOptions, div, px, size,
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -55,13 +60,22 @@ impl Render for Page {
                     div().w(px(200.)).h(px(80.)).child("Right-click here"),
                 )
                 .item(item(&entity, "Copy"))
-                .item(item(&entity, "Rename")),
+                .item(item(&entity, "Rename"))
+                .item(
+                    MenuItem::item("Share")
+                        .submenu([item(&entity, "Email"), item(&entity, "Slack")]),
+                ),
             )
             .child(
                 Menubar::new("bar")
                     .menu(
                         "File",
-                        vec![item(&entity, "New tab"), item(&entity, "Open…")],
+                        vec![
+                            item(&entity, "New tab"),
+                            item(&entity, "Open…"),
+                            MenuItem::item("Share")
+                                .submenu([item(&entity, "Email link"), item(&entity, "Copy link")]),
+                        ],
                     )
                     .menu(
                         "View",
@@ -345,5 +359,184 @@ fn a_default_open_menu_focuses_its_first_item(cx: &mut TestAppContext) {
     assert_eq!(
         cx.update(|cx| page.read(cx).ran.clone()),
         vec!["Show archived"]
+    );
+}
+
+/// Press `key` the way a real window sees it: key-down and key-up are
+/// separate events, so the frame drawn after the key-down is followed by the
+/// work it deferred (a submenu taking focus) before any other frame.
+/// [`act`]'s `press` sends both in one update and draws a second frame
+/// before that work runs, which hides a submenu whose popup is not painted
+/// yet when focus moves into it.
+fn press_live(window: AnyWindowHandle, key: &'static str, cx: &mut TestAppContext) {
+    let keystroke = Keystroke::parse(key).unwrap();
+    let down = keystroke.clone();
+    cx.update_window(window, |_, w, cx| {
+        w.dispatch_event(
+            KeyDownEvent {
+                keystroke: down,
+                is_held: false,
+                prefer_character_input: false,
+            }
+            .to_platform_input(),
+            cx,
+        );
+    })
+    .unwrap();
+    cx.update_window(window, |_, w, cx| {
+        w.dispatch_event(KeyUpEvent { keystroke }.to_platform_input(), cx);
+    })
+    .unwrap();
+    wait(window, cx);
+}
+
+/// Keyboard submenu round trip on an open menu whose highlight is on a
+/// submenu parent (design review FB3, item 1): `open_key` (→ or Enter)
+/// opens the submenu with focus on its first item, ← and Escape go back to
+/// the parent item, Tab closes the whole tree. `reopen` is the key that
+/// opens the menu from its trigger again; `to_parent` moves the highlight
+/// from the first item to the submenu parent; `first` is the submenu's
+/// first item, `trigger` where Tab must leave focus.
+#[allow(clippy::too_many_arguments)]
+fn submenu_round_trip(
+    window: AnyWindowHandle,
+    page: &Entity<Page>,
+    menu: &ElementId,
+    open_menu: &dyn Fn(AnyWindowHandle, &mut TestAppContext),
+    to_parent: &[&str],
+    first: &'static str,
+    cx: &mut TestAppContext,
+) {
+    for open_key in ["right", "enter"] {
+        // → / Enter: the submenu opens and its first item has focus.
+        open_menu(window, cx);
+        assert!(shown(window, menu, cx), "the menu did not open");
+        for key in to_parent {
+            act(window, cx, |w, cx| w.press(key, cx));
+        }
+        press_live(window, open_key, cx);
+        assert!(
+            shown(window, menu, cx),
+            "{open_key} on the submenu parent closed the menu"
+        );
+        act(window, cx, |w, cx| w.press("enter", cx));
+        assert_eq!(
+            last(page, cx),
+            Some(first),
+            "{open_key} did not focus the submenu's first item"
+        );
+        assert!(!shown(window, menu, cx), "picking left the menu open");
+
+        // ← and Escape leave the submenu for its parent item, which opens
+        // it again.
+        for back in ["left", "escape"] {
+            open_menu(window, cx);
+            for key in to_parent {
+                act(window, cx, |w, cx| w.press(key, cx));
+            }
+            press_live(window, open_key, cx);
+            act(window, cx, |w, cx| w.press(back, cx));
+            assert!(
+                shown(window, menu, cx),
+                "{back} in the submenu closed the menu"
+            );
+            press_live(window, "right", cx);
+            assert!(
+                shown(window, menu, cx),
+                "{back} did not return to the submenu parent"
+            );
+            act(window, cx, |w, cx| w.press("enter", cx));
+            assert_eq!(
+                last(page, cx),
+                Some(first),
+                "{back} did not return to the submenu parent"
+            );
+        }
+
+        // Tab inside the submenu closes the whole tree.
+        open_menu(window, cx);
+        for key in to_parent {
+            act(window, cx, |w, cx| w.press(key, cx));
+        }
+        press_live(window, open_key, cx);
+        act(window, cx, |w, cx| w.press("tab", cx));
+        assert!(
+            !shown(window, menu, cx),
+            "Tab in the submenu left the menu open"
+        );
+        cx.update(|cx| page.update(cx, |p, _| p.ran.clear()));
+    }
+}
+
+#[gpui_kit::test]
+fn a_dropdown_submenu_opens_from_the_keyboard(cx: &mut TestAppContext) {
+    let (window, page) = open(cx);
+    wait(window, cx);
+    let trigger = ElementId::from((ElementId::from("dd"), "trigger"));
+    let menu = menu_of(ElementId::from("dd"));
+    // Focus the trigger: open with the pointer, close with Escape.
+    act(window, cx, |w, cx| w.click(trigger.clone(), cx));
+    act(window, cx, |w, cx| w.press("escape", cx));
+    let open_menu = |window: AnyWindowHandle, cx: &mut TestAppContext| {
+        act(window, cx, |w, cx| w.press("enter", cx));
+    };
+    submenu_round_trip(
+        window,
+        &page,
+        &menu,
+        &open_menu,
+        &["down"],
+        "Production",
+        cx,
+    );
+    // Tab returned focus to the trigger: Enter opens the menu again.
+    act(window, cx, |w, cx| w.press("enter", cx));
+    assert!(
+        shown(window, &menu, cx),
+        "Tab in the submenu did not return to the trigger"
+    );
+}
+
+#[gpui_kit::test]
+fn a_context_submenu_opens_from_the_keyboard(cx: &mut TestAppContext) {
+    let (window, page) = open(cx);
+    wait(window, cx);
+    let area = ElementId::from((ElementId::from("ctx"), "area"));
+    let menu = menu_of(ElementId::from("ctx"));
+    act(window, cx, |w, cx| w.click(area.clone(), cx));
+    let open_menu = |window: AnyWindowHandle, cx: &mut TestAppContext| {
+        act(window, cx, |w, cx| w.press("shift-f10", cx));
+    };
+    submenu_round_trip(window, &page, &menu, &open_menu, &["end"], "Email", cx);
+    assert_eq!(
+        focused(window, &area, cx),
+        Some(true),
+        "Tab in the submenu did not return to the area"
+    );
+}
+
+#[gpui_kit::test]
+fn a_menubar_submenu_opens_from_the_keyboard(cx: &mut TestAppContext) {
+    let (window, page) = open(cx);
+    wait(window, cx);
+    act(window, cx, |w, cx| w.click(bar_trigger(0), cx));
+    act(window, cx, |w, cx| w.press("escape", cx));
+    assert_eq!(focused(window, &bar_trigger(0), cx), Some(true));
+    let open_menu = |window: AnyWindowHandle, cx: &mut TestAppContext| {
+        act(window, cx, |w, cx| w.press("down", cx));
+    };
+    submenu_round_trip(
+        window,
+        &page,
+        &menu_of(bar_menu(0)),
+        &open_menu,
+        &["end"],
+        "Email link",
+        cx,
+    );
+    assert_eq!(
+        focused(window, &bar_trigger(0), cx),
+        Some(true),
+        "Tab in the submenu did not return to File"
     );
 }
