@@ -5,6 +5,7 @@
 mod items;
 mod markers;
 pub(crate) mod parts;
+mod prose;
 pub mod thinking_block;
 pub mod tool_call_fold;
 mod transcript_view_switch;
@@ -17,6 +18,10 @@ pub use items::{
 pub use markers::{
     CheckpointMarker, CheckpointMarkerTexts, NoteKind, NoteLine, NoteLineTexts, restore_fill,
     restore_visible,
+};
+pub use prose::{
+    Block, Inline, ListItem, MarkdownProse, MathBlock, MermaidBlock, ProseCodeBlock, ProseTexts,
+    block_gaps, inline_code_look, parse_inlines, parse_markdown,
 };
 pub use thinking_block::{ThinkingBlock, ThinkingBlockTexts, shimmer_mix};
 pub use tool_call_fold::{ToolCallFold, ToolCallFoldTexts, ToolCallLook, ToolKind, ToolStatus};

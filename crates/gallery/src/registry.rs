@@ -450,6 +450,7 @@ pub static PAGES: &[PageDef] = &[
     // Ghost · Thread (src/ghost/workspace.jsx)
     PageDef::new("checkpoint-marker", "CheckpointMarker", GHOST_THREAD, Component::CheckpointMarker.summary(), pages::ghost_thread::parts::build_checkpoint_marker).thumbnail(pages::ghost_thread::parts::checkpoint_thumbnail),
     PageDef::new("continue-row", "ContinueRow", GHOST_THREAD, Component::ContinueRow.summary(), pages::ghost_thread::parts::build_continue_row).thumbnail(pages::ghost_thread::parts::continue_thumbnail),
+    PageDef::new("markdown-prose", "MarkdownProse", GHOST_THREAD, Component::MarkdownProse.summary(), pages::ghost_thread::markdown_prose::build).thumbnail(pages::ghost_thread::markdown_prose::thumbnail),
     PageDef::new("message-image", "MessageImage", GHOST_THREAD, Component::MessageImage.summary(), pages::ghost_thread::parts::build_message_image).thumbnail(pages::ghost_thread::parts::image_thumbnail),
     PageDef::new("note-line", "NoteLine", GHOST_THREAD, Component::NoteLine.summary(), pages::ghost_thread::parts::build_note_line).thumbnail(pages::ghost_thread::parts::note_thumbnail),
     PageDef::new("plan-checklist", "PlanChecklist", GHOST_THREAD, Component::PlanChecklist.summary(), pages::ghost_thread::parts::build_plan_checklist).thumbnail(pages::ghost_thread::parts::plan_thumbnail),
