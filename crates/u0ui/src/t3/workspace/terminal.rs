@@ -6,6 +6,7 @@ use crate::{
     icons::CarbonIcon,
     motion,
     t3::{
+        base::active_after_close,
         craft::{mono, sans},
         press::{self, Handler, rem},
     },
@@ -156,7 +157,9 @@ impl TerminalDrawer {
     }
 
     /// The tab selected at first (`active`, default 0); the drawer then
-    /// keeps its own selection.
+    /// keeps its own selection. A tab's × moves it as a browser tab strip
+    /// does ([`active_after_close`]), which assumes the `on_close` handler
+    /// removes that tab.
     pub fn active(mut self, active: usize) -> Self {
         self.active = active;
         self
@@ -236,11 +239,13 @@ impl RenderOnce for TerminalDrawer {
         let initial = self.active;
         let controlled = self.controlled;
         let selected = window.use_keyed_state((id.clone(), "active"), cx, move |_, _| initial);
+        let len = self.tabs.len();
         let active = if controlled {
             self.active
         } else {
             *selected.read(cx)
-        };
+        }
+        .min(len.saturating_sub(1));
         let mut bar: Vec<AnyElement> = Vec::new();
         for (i, tab) in self.tabs.iter().enumerate() {
             let on = i == active;
@@ -256,13 +261,15 @@ impl RenderOnce for TerminalDrawer {
             });
             let on_select = self.on_select.clone();
             let on_close = self.on_close.clone();
-            let selected = selected.clone();
+            let (selected, close_selected) = (selected.clone(), selected.clone());
             // `.t3-term-tab { display: flex; align-items: center; gap: spacing-03; height: 100%;
             // padding: 0 spacing-03 0 spacing-04; color: text-secondary; font-size: 0.75rem }`.
             let button = sans(
                 gpui_kit::base::Button::new(tab_id)
                     .track_focus(&tab_focus)
-                    .accessibility_label(tab.title.clone()),
+                    .accessibility_label(tab.title.clone())
+                    // `aria-selected={a === i}`.
+                    .aria_selected(on),
                 12.,
                 400,
             )
@@ -321,7 +328,18 @@ impl RenderOnce for TerminalDrawer {
                 .cursor(CursorStyle::PointingHand)
                 .on_hover(press::track_hover(x_store))
                 .when_some(on_close, |this, f| {
-                    this.on_click(move |_, w, cx| f(i, w, cx))
+                    let selected = close_selected;
+                    this.on_click(move |_, w, cx| {
+                        // `.t3-term-tab--on` must follow the strip: the
+                        // neighbor of a closed active tab becomes active.
+                        if !controlled {
+                            selected.update(cx, |a, cx| {
+                                *a = active_after_close(active, i, len);
+                                cx.notify();
+                            });
+                        }
+                        f(i, w, cx)
+                    })
                 })
                 .child(press::icon(CarbonIcon::Close, 12., x_ink))
                 .when(x_ring, |this| this.child(press::ring()));

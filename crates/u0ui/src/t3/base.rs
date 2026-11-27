@@ -195,6 +195,24 @@ pub fn radio_step(key: &str, len: usize, current: Option<usize>) -> Option<usize
     }
 }
 
+/// The active tab index after tab `closed` is removed from a strip of
+/// `len` tabs whose active index was `active`, the way a browser tab strip
+/// does it: closing the active tab activates its neighbor (the next one,
+/// else the previous one), closing a tab before it shifts it down by one,
+/// and closing one after it leaves it alone. The result is always a valid
+/// index of the `len - 1` remaining tabs (0 when none remain).
+pub fn active_after_close(active: usize, closed: usize, len: usize) -> usize {
+    let remaining = len.saturating_sub(1);
+    let next = if closed < active {
+        active - 1
+    } else if closed == active && closed + 1 >= len {
+        closed.saturating_sub(1)
+    } else {
+        active
+    };
+    next.min(remaining.saturating_sub(1))
+}
+
 /// A visually hidden label (`VH`, `.cu-visually-hidden`: absolute, 1×1,
 /// clipped). GPUI has no screen-reader text yet, so this only keeps the
 /// reference's structure: it takes no space and paints nothing visible.
@@ -646,6 +664,25 @@ mod tests {
         assert_eq!(radio_step("down", 3, None), Some(0));
         assert_eq!(radio_step("a", 3, Some(0)), None);
         assert_eq!(radio_step("down", 0, None), None);
+    }
+
+    #[test]
+    fn closing_a_tab_moves_the_active_index_like_a_browser() {
+        // Close the active last tab: the previous one becomes active.
+        assert_eq!(active_after_close(1, 1, 2), 0);
+        // Close the active middle tab: the next one (shifted into place) wins.
+        assert_eq!(active_after_close(1, 1, 3), 1);
+        // Close the active first tab: the next one becomes index 0.
+        assert_eq!(active_after_close(0, 0, 3), 0);
+        // Close a tab before the active one: the index shifts down.
+        assert_eq!(active_after_close(2, 0, 3), 1);
+        assert_eq!(active_after_close(1, 0, 2), 0);
+        // Close a tab after the active one: unchanged.
+        assert_eq!(active_after_close(0, 1, 2), 0);
+        assert_eq!(active_after_close(1, 2, 4), 1);
+        // The last tab closed, or a stale index: clamped.
+        assert_eq!(active_after_close(0, 0, 1), 0);
+        assert_eq!(active_after_close(5, 0, 3), 1);
     }
 
     #[test]
