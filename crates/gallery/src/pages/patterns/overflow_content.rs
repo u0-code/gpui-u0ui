@@ -16,11 +16,13 @@ use u0ui::ghost::foundations::{Truncate, TruncateMode};
 use u0ui::patterns::{Caption, PatternGrid};
 use u0ui::prelude::*;
 use u0ui::t3::review::StartTruncatedPath;
+use u0ui::typography::paragraph;
 
 /// Build the page.
 pub fn build(window: &mut Window, cx: &mut App) -> AnyView {
-    let name = crate::stand_in::input_state("build-box", window, cx);
-    let ref_name = crate::stand_in::input_state("build-box", window, cx);
+    // `h(K.TextInput, {id: 'oc1', …})` has no value.
+    let name = crate::stand_in::input_state("", window, cx);
+    let ref_name = crate::stand_in::input_state("", window, cx);
     cx.new(|_| OverflowPage {
         name,
         ref_name,
@@ -166,13 +168,27 @@ fn show_more(expanded: bool, toggle: Button) -> impl IntoElement {
         .line_height(rems(0.875 * 1.5))
         .text_color(color(ColorRole::TextPrimary))
         .child(
-            div()
+            // A bare `<p>`: Carbon's global `p` rule makes it 16px/24px.
+            paragraph()
                 .w_full()
-                // `-webkit-line-clamp: 2` until expanded.
-                .when(!expanded, |d| d.line_clamp(2).overflow_hidden())
+                .min_w_0()
+                // `display: -webkit-box; -webkit-line-clamp: 2; overflow: hidden`
+                // until expanded: two lines, the second ending in "…". The
+                // ellipsis also matters for correctness: GPUI's line-layout
+                // cache key leaves out the line clamp, so a clamped layout of
+                // the untouched text would be reused for the expanded text at
+                // the same width, unwrapping its second line.
+                .when(!expanded, |d| d.line_clamp(2).text_ellipsis())
                 .child(SUMMARY),
         )
-        .child(toggle)
+        .child(
+            // The `K.Link` sits in the div's 21px (14 × 1.5) line box.
+            div()
+                .h(rems(0.875 * 1.5))
+                .flex()
+                .items_center()
+                .child(toggle),
+        )
 }
 
 fn toggle_link(id: &'static str, expanded: bool) -> Button {
