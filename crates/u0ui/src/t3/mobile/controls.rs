@@ -946,6 +946,9 @@ fn shimmer(id: ElementId, label: SharedString, window: &mut Window, cx: &App) ->
         .into_any_element()
 }
 
+/// `.t3-floatwork { gap: var(--spacing-04) }`: 12px between its parts.
+pub const FLOATWORK_GAP: f32 = 12.;
+
 /// The floating "working" control of a mobile thread (`.t3-floatwork`,
 /// square per `gemini-MA`): spinner, shimmering label, ticking elapsed
 /// time, queued count and a framed Stop.
@@ -1024,7 +1027,8 @@ impl RenderOnce for FloatingWorkingControl {
             .flex_none()
             .self_start()
             .items_center()
-            .gap(rem(16.))
+            // `.t3-floatwork { gap: spacing-04 }` (gemini-MA, `t3.css:991`).
+            .gap(rem(FLOATWORK_GAP))
             .h(rem(44.))
             .pl(rem(16.))
             .pr(rem(4.))
@@ -1087,6 +1091,12 @@ mod tests {
         assert_eq!(Revealed::settle(30., true, true), Revealed::None);
         assert_eq!(Revealed::settle(-80., true, true), Revealed::Trailing);
         assert_eq!(Revealed::settle(-80., true, false), Revealed::None);
+    }
+
+    #[test]
+    fn floatwork_gap_follows_the_gemini_pass() {
+        // `.t3-floatwork { gap: var(--spacing-04) }` (gemini-MA), not spacing-03.
+        assert_eq!(FLOATWORK_GAP, 12.);
     }
 
     #[test]
