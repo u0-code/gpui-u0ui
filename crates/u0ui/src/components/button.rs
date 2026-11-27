@@ -839,9 +839,12 @@ impl RenderOnce for Button {
         .collect();
         let button = button.children(focus_layers).into_any_element();
         if self.icon_only && self.tooltip {
-            // `.cds--icon-tooltip`: the label as a Carbon tooltip (above by default).
+            // `.cds--icon-tooltip`: the label as a Carbon tooltip (above by
+            // default). Carbon `IconButton` defaults `closeOnActivation` to
+            // true: a press hides it.
             return super::tooltip::Tooltip::new((id, "tooltip"), button)
                 .content(label)
+                .close_on_activation(true)
                 .align(self.tooltip_align)
                 .into_any_element();
         }

@@ -431,7 +431,11 @@ impl RenderOnce for Input {
                     slot.child(
                         super::tooltip::Tooltip::new((id.clone(), "visibility-tip"), button)
                             .content(tip)
-                            .align(super::floating::Align::BottomRight),
+                            .align(super::floating::Align::BottomRight)
+                            // The toggle is an icon button: a press hides
+                            // the tooltip (and cancels a pending show)
+                            // like Carbon `IconButton`'s.
+                            .close_on_activation(true),
                     )
                 }
                 None => slot.child(button),

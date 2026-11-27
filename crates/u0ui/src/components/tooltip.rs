@@ -4,10 +4,14 @@
 //! - **Behavior**: shows while the pointer rests on the trigger (after
 //!   Carbon's `enterDelayMs` 100ms; hides `leaveDelayMs` 300ms after it leaves)
 //!   or while focus that arrived by keyboard navigation (Tab, arrows) is
-//!   inside the trigger. Pressing the trigger (pointer, Enter or Space) and
-//!   Escape hide it until the pointer enters again or focus arrives again by
-//!   navigation, so it never covers the popover or menu the press opened,
-//!   nor comes back when that surface hands focus back on close. Kit's
+//!   inside the trigger. Escape hides it until the pointer enters again or
+//!   focus arrives again by navigation. Pressing the trigger (pointer, Enter
+//!   or Space) hides it the same way only with
+//!   [`Tooltip::close_on_activation`] (Carbon `closeOnActivation`: off for a
+//!   standalone `Tooltip`, on for `IconButton`, so [`super::Button`]'s
+//!   icon-only tooltip turns it on); then it never covers the popover or
+//!   menu the press opened, nor comes back when that surface hands focus
+//!   back on close. Kit's
 //!   `component::tooltip` is a builder for GPUI's single window tooltip slot,
 //!   which cannot place a caret or honor Carbon's 12 alignments, so the
 //!   surface is drawn here and positioned by Base's `Popup`.
@@ -30,7 +34,7 @@ use crate::{
 use gpui_kit::{
     AnyElement, App, ElementId, Hsla, InteractiveElement, IntoElement, KeyDownEvent, ParentElement,
     RenderOnce, Role, SharedString, StatefulInteractiveElement as _, Styled, TestSupportExt as _,
-    Window, div,
+    Window, div, prelude::FluentBuilder as _,
 };
 use std::cell::Cell;
 use std::time::Duration;
@@ -157,6 +161,7 @@ pub struct Tooltip {
     content: SharedString,
     align: Align,
     default_open: bool,
+    close_on_activation: bool,
 }
 
 impl Tooltip {
@@ -168,6 +173,7 @@ impl Tooltip {
             content: SharedString::default(),
             align: Align::Top,
             default_open: false,
+            close_on_activation: false,
         }
     }
 
@@ -180,6 +186,15 @@ impl Tooltip {
     /// `side`/`align` (default `top`).
     pub fn align(mut self, align: Align) -> Self {
         self.align = align;
+        self
+    }
+
+    /// Hide when the trigger is pressed (pointer, Enter, Space) until the
+    /// next fresh arrival (Carbon `closeOnActivation`; default false, as
+    /// `Cb.Tooltip` has it; Carbon `IconButton` turns it on). Escape hides
+    /// it either way.
+    pub fn close_on_activation(mut self, close: bool) -> Self {
+        self.close_on_activation = close;
         self
     }
 
@@ -245,13 +260,18 @@ impl RenderOnce for Tooltip {
             })
             // Capture: the trigger (a button, a popover trigger) handles the
             // press itself and may stop it.
-            .capture_any_mouse_down({
+            .when(self.close_on_activation, |this| {
                 let dismiss = dismiss.clone();
-                move |_, _, cx| dismiss(true, cx)
+                this.capture_any_mouse_down(move |_, _, cx| dismiss(true, cx))
             })
-            .capture_key_down(move |event: &KeyDownEvent, _, cx| {
-                if matches!(event.keystroke.key.as_str(), "escape" | "enter" | "space") {
-                    dismiss(false, cx);
+            .capture_key_down({
+                let close_on_activation = self.close_on_activation;
+                move |event: &KeyDownEvent, _, cx| {
+                    let key = event.keystroke.key.as_str();
+                    if key == "escape" || (close_on_activation && matches!(key, "enter" | "space"))
+                    {
+                        dismiss(false, cx);
+                    }
                 }
             })
             .child(self.trigger)
@@ -354,6 +374,14 @@ mod tests {
     fn carbon_delays() {
         assert_eq!(ENTER_DELAY.as_millis(), 100);
         assert_eq!(LEAVE_DELAY.as_millis(), 300);
-        assert_eq!(Tooltip::new("t", div()).align, Align::Top);
+        let tip = Tooltip::new("t", div());
+        assert_eq!(tip.align, Align::Top);
+        // `Cb.Tooltip` `closeOnActivation` defaults to false.
+        assert!(!tip.close_on_activation);
+        assert!(
+            Tooltip::new("t", div())
+                .close_on_activation(true)
+                .close_on_activation
+        );
     }
 }
