@@ -56,8 +56,8 @@ use super::{
     form::{inset_outline, rem},
     pagination::Pagination,
     table::{
-        self, CellAlign, ColumnWidth, Geometry, RowLook, RowState, TableSize, body_row,
-        cell_box_padded, container, container_header, header_label, header_row,
+        self, Geometry, RowLook, RowState, body_row, cell_box_padded, container, container_header,
+        header_label, header_row,
     },
 };
 use crate::{
@@ -81,6 +81,7 @@ use gpui_kit::{
 use std::{cmp::Ordering, collections::HashSet, rc::Rc, sync::Arc, time::Duration};
 
 pub use super::input::InputState;
+pub use super::table::{CellAlign, ColumnWidth, TableSize};
 
 /// A Carbon sort direction (`DataTable.sortStates`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -254,6 +255,17 @@ pub type ExpandRender = Rc<dyn Fn(&DataTableRow) -> AnyElement>;
 type BatchHandler = Rc<dyn Fn(&[SharedString], &mut Window, &mut App)>;
 type Action = Rc<dyn Fn(&mut Window, &mut App)>;
 
+/// Colors of the summary footer row on `level`:
+/// `(background, border_top, border_bottom, text)`.
+pub fn footer_look(level: LayerLevel) -> (Hsla, Hsla, Hsla, Hsla) {
+    (
+        color(level.layer()),
+        color(level.border_strong()),
+        color(level.border_subtle()),
+        color(ColorRole::TextPrimary),
+    )
+}
+
 /// `index.d.ts` `DataTableColumn`: `{ key, header, render? }`.
 #[derive(Clone)]
 pub struct DataTableColumn {
@@ -261,6 +273,7 @@ pub struct DataTableColumn {
     header: SharedString,
     render: Option<CellRender>,
     width: ColumnWidth,
+    align: CellAlign,
 }
 
 impl DataTableColumn {
@@ -271,6 +284,7 @@ impl DataTableColumn {
             header: header.into(),
             render: None,
             width: ColumnWidth::default(),
+            align: CellAlign::Start,
         }
     }
 
@@ -286,6 +300,18 @@ impl DataTableColumn {
     /// The column width (default: an equal share).
     pub fn width(mut self, width: ColumnWidth) -> Self {
         self.width = width;
+        self
+    }
+
+    /// Horizontal alignment of the column's header, body cells and footer cell.
+    pub fn align(mut self, align: CellAlign) -> Self {
+        self.align = align;
+        self
+    }
+
+    /// Right-align header, body and footer cell content (for numeric columns).
+    pub fn align_end(mut self) -> Self {
+        self.align = CellAlign::End;
         self
     }
 }
@@ -397,6 +423,7 @@ pub struct DataTable {
     id: ElementId,
     columns: Vec<DataTableColumn>,
     rows: Vec<DataTableRow>,
+    footer_row: Option<DataTableRow>,
     title: Option<SharedString>,
     description: Option<SharedString>,
     size: TableSize,
@@ -420,6 +447,7 @@ impl DataTable {
             id: id.into(),
             columns: Vec::new(),
             rows: Vec::new(),
+            footer_row: None,
             title: None,
             description: None,
             size: TableSize::Lg,
@@ -446,6 +474,13 @@ impl DataTable {
     /// `rows` (each with a unique `id`).
     pub fn rows(mut self, rows: Vec<DataTableRow>) -> Self {
         self.rows = rows;
+        self
+    }
+
+    /// Optional summary footer row (`border-top: 1px solid border-strong`,
+    /// `layer` background, semibold cells).
+    pub fn footer_row(mut self, row: DataTableRow) -> Self {
+        self.footer_row = Some(row);
         self
     }
 
@@ -573,6 +608,7 @@ fn sort_header(
     direction: SortDirection,
     active: bool,
     size: TableSize,
+    align: CellAlign,
     label_start: f32,
     on_click: Action,
     window: &mut Window,
@@ -623,15 +659,17 @@ fn sort_header(
             })
             .into_any_element()
     };
-    gpui_kit::base::Button::new(id.clone())
+    let label_el = header_label(geometry, label.clone())
+        .line_height(rem(14.))
+        .min_w_0();
+    let btn = gpui_kit::base::Button::new(id.clone())
         .track_focus(&focus)
-        .accessibility_label(label.clone())
+        .accessibility_label(label)
         .relative()
         .w_full()
         .h(rem(height))
         .flex()
         .flex_row()
-        .justify_between()
         .map(|d| {
             if xl {
                 d.items_start()
@@ -639,9 +677,6 @@ fn sort_header(
                 d.items_center()
             }
         })
-        // `.cds--table-sort { padding-inline-start: 1rem }`, or the body cells'
-        // start padding after the leading columns, so labels line up with cells.
-        .pl(rem(label_start))
         .bg(bg)
         .text_color(color(ColorRole::TextPrimary))
         .cursor(CursorStyle::PointingHand)
@@ -656,24 +691,50 @@ fn sort_header(
                 })
             }
         })
-        .on_click(move |_, window, cx| on_click(window, cx))
-        .child(
-            // `.cds--table-sort { line-height: 1 }` with the size's label padding.
-            header_label(geometry, label)
-                .line_height(rem(14.))
-                .min_w_0(),
-        )
-        .child(
-            // `margin-inline: 0.5rem`; xl `margin-block-start: 0.8125rem`.
-            div()
-                .flex_none()
-                .mx(rem(8.))
-                .when(xl, |d| d.mt(rem(13.)))
-                .child(icon),
-        )
-        .when(focused, |d| {
-            d.child(inset_outline(2., color(ColorRole::Focus)))
-        })
+        .on_click(move |_, window, cx| on_click(window, cx));
+    let btn = match align {
+        CellAlign::End => btn
+            .justify_end()
+            .pl(rem(8.))
+            .pr(rem(table::CELL_PADDING_X))
+            .child(
+                div()
+                    .flex_none()
+                    .mr(rem(4.))
+                    .when(xl, |d| d.mt(rem(13.)))
+                    .child(icon),
+            )
+            .child(label_el.text_right()),
+        CellAlign::Center => btn
+            .justify_center()
+            .pl(rem(label_start))
+            .pr(rem(8.))
+            .child(label_el)
+            .child(
+                div()
+                    .flex_none()
+                    .ml(rem(4.))
+                    .when(xl, |d| d.mt(rem(13.)))
+                    .child(icon),
+            ),
+        CellAlign::Start => btn
+            .justify_between()
+            // `.cds--table-sort { padding-inline-start: 1rem }`, or the body cells'
+            // start padding after the leading columns, so labels line up with cells.
+            .pl(rem(label_start))
+            .child(label_el)
+            .child(
+                // `margin-inline: 0.5rem`; xl `margin-block-start: 0.8125rem`.
+                div()
+                    .flex_none()
+                    .mx(rem(8.))
+                    .when(xl, |d| d.mt(rem(13.)))
+                    .child(icon),
+            ),
+    };
+    btn.when(focused, |d| {
+        d.child(inset_outline(2., color(ColorRole::Focus)))
+    })
 }
 
 /// A `.cds--action-list .cds--btn--primary` button in the batch bar: 16px
@@ -1078,13 +1139,14 @@ impl RenderOnce for DataTable {
                     // padding is the body cells' (`.cds--table-sort { padding-inline-start:
                     // 1rem }`, 0.5rem after the expand + checkbox columns), so labels
                     // line up with cell text in every column.
-                    cell_box_padded(column.width, CellAlign::Start, 0., 0.)
+                    cell_box_padded(column.width, column.align, 0., 0.)
                         .child(sort_header(
                             child_id(&id, format!("sort-{c}")),
                             column.header.clone(),
                             direction,
                             active,
                             self.size,
+                            column.align,
                             pl,
                             on_click,
                             window,
@@ -1094,7 +1156,8 @@ impl RenderOnce for DataTable {
                 );
             } else {
                 head_cells.push(
-                    cell_box_padded(column.width, CellAlign::Start, pl, table::CELL_PADDING_X)
+                    cell_box_padded(column.width, column.align, pl, table::CELL_PADDING_X)
+                        .when(column.align == CellAlign::End, |d| d.text_right())
                         .child(header_label(geometry, column.header.clone()))
                         .into_any_element(),
                 );
@@ -1105,6 +1168,7 @@ impl RenderOnce for DataTable {
         // ── Body ──
         let mut body = div().flex().flex_col().w_full();
         let count = shown.len();
+        let has_footer = self.footer_row.is_some();
         for (pos, &ri) in shown.iter().enumerate() {
             let row = &self.rows[ri];
             let rid = row.id.clone();
@@ -1131,6 +1195,11 @@ impl RenderOnce for DataTable {
                 if is_expanded || row_state.hovered {
                     look.border_bottom = subtle;
                 }
+            }
+            if has_footer && pos + 1 == count && !is_expanded {
+                // Collapse the last body row's bottom rule into the footer row's
+                // `border-strong` top border so the boundary stays 1px crisp.
+                look.border_bottom = look.background;
             }
             let mut cells: Vec<AnyElement> = Vec::new();
             if expandable {
@@ -1251,7 +1320,8 @@ impl RenderOnce for DataTable {
                     table::CELL_PADDING_X
                 };
                 cells.push(
-                    cell_box_padded(column.width, CellAlign::Start, pl, table::CELL_PADDING_X)
+                    cell_box_padded(column.width, column.align, pl, table::CELL_PADDING_X)
+                        .when(column.align == CellAlign::End, |d| d.text_right())
                         .child(content)
                         .into_any_element(),
                 );
@@ -1305,8 +1375,10 @@ impl RenderOnce for DataTable {
                         .pt(tokens::SPACING_05)
                         .pb(tokens::SPACING_06)
                         .bg(bg)
-                        .border_b_1()
-                        .border_color(super::separator::line_color(level))
+                        .when(!(has_footer && pos + 1 == count), |d| {
+                            d.border_b_1()
+                                .border_color(super::separator::line_color(level))
+                        })
                         .type_style(TypeStyle::BodyCompact01)
                         .text_color(if row_state.hovered {
                             color(ColorRole::TextPrimary)
@@ -1318,6 +1390,74 @@ impl RenderOnce for DataTable {
                 );
             }
         }
+
+        // ── Summary footer row ──
+        let footer = self.footer_row.as_ref().map(|frow| {
+            let (fbg, ftop, fbottom, ftext) = footer_look(level);
+            let mut fcells: Vec<AnyElement> = Vec::new();
+            if expandable {
+                fcells.push(
+                    cell_box_padded(ColumnWidth::Fixed(expand_w), CellAlign::Start, 0., 0.)
+                        .into_any_element(),
+                );
+            }
+            if self.selectable {
+                fcells.push(
+                    cell_box_padded(
+                        ColumnWidth::Fixed(select_w),
+                        CellAlign::Start,
+                        select_pl,
+                        select_pr,
+                    )
+                    .into_any_element(),
+                );
+            }
+            for (c, column) in self.columns.iter().enumerate() {
+                let pl = if c == 0 {
+                    first_pl
+                } else {
+                    table::CELL_PADDING_X
+                };
+                let value = frow.value(&column.key);
+                fcells.push(
+                    cell_box_padded(column.width, column.align, pl, table::CELL_PADDING_X)
+                        .when(column.align == CellAlign::End, |d| d.text_right())
+                        .child(value)
+                        .into_any_element(),
+                );
+            }
+            div()
+                .id(child_id(&id, "footer"))
+                .relative()
+                .flex()
+                .flex_row()
+                .w_full()
+                .min_h(rem(geometry.row))
+                .pt(rem(geometry.body_padding.0))
+                .pb(rem(geometry.body_padding.1))
+                .map(|d| {
+                    if geometry.top_aligned {
+                        d.items_start()
+                    } else {
+                        d.items_center()
+                    }
+                })
+                .bg(fbg)
+                .border_b_1()
+                .border_color(fbottom)
+                .type_style(TypeStyle::HeadingCompact01)
+                .text_color(ftext)
+                .children(fcells)
+                .child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .right_0()
+                        .h(px(1.))
+                        .bg(ftop),
+                )
+        });
 
         // ── Toolbar ──
         let batch_open = !self.batch_actions.is_empty() && !selected.is_empty();
@@ -1474,7 +1614,15 @@ impl RenderOnce for DataTable {
                 d.child(container_header(self.title, self.description, level))
             })
             .children(toolbar)
-            .child(div().flex().flex_col().w_full().child(header).child(body))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .w_full()
+                    .child(header)
+                    .child(body)
+                    .children(footer),
+            )
             .children(pagination)
     }
 }
@@ -1561,5 +1709,31 @@ mod tests {
         assert_eq!(batch_reveal(1., 48.), (0., 48.));
         assert_eq!(batch_reveal(0.5, 48.), (24., 48.));
         assert_eq!(BATCH_MOTION.speed.millis(), 110);
+    }
+
+    #[test]
+    fn numeric_alignment_and_footer_look_follow_carbon() {
+        crate::theme::tests_set(crate::CarbonTheme::White);
+        let col = DataTableColumn::new("cost", "Cost").align_end();
+        assert_eq!(col.align, CellAlign::End);
+        assert_eq!(DataTableColumn::new("name", "Name").align, CellAlign::Start,);
+        assert_eq!(
+            footer_look(LayerLevel::One),
+            (
+                color(ColorRole::Layer01),
+                color(ColorRole::BorderStrong01),
+                color(ColorRole::BorderSubtle01),
+                color(ColorRole::TextPrimary),
+            ),
+        );
+        assert_eq!(
+            footer_look(LayerLevel::Two),
+            (
+                color(ColorRole::Layer02),
+                color(ColorRole::BorderStrong02),
+                color(ColorRole::BorderSubtle02),
+                color(ColorRole::TextPrimary),
+            ),
+        );
     }
 }

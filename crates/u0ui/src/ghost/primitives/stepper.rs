@@ -22,7 +22,7 @@ use crate::{
     components::form,
     density,
     icons::{CarbonIcon, Icon},
-    theme::color,
+    theme::{LayerLevel, color},
     tokens::ColorRole,
 };
 use gpui_kit::{
@@ -91,15 +91,25 @@ pub fn stepped(base: f64, dir: f64, min: f64, max: f64, step: f64) -> f64 {
     clamp(base + dir * step, min, max, step)
 }
 
-/// The `.g-stepper` box colors: (fill, bottom rule, outline).
+/// The `.g-stepper` box colors on [`LayerLevel::One`]: (fill, bottom rule, outline).
 pub fn box_look(focused: bool, invalid: bool, disabled: bool) -> (Hsla, Hsla, Hsla) {
+    box_look_on(LayerLevel::One, focused, invalid, disabled)
+}
+
+/// The `.g-stepper` box colors on `level`: (fill, bottom rule, outline).
+pub fn box_look_on(
+    level: LayerLevel,
+    focused: bool,
+    invalid: bool,
+    disabled: bool,
+) -> (Hsla, Hsla, Hsla) {
     let clear = Hsla::transparent_black();
-    let fill = color(ColorRole::Field01);
+    let fill = color(level.field());
     // `.g-stepper--disabled { border-bottom-color: transparent }`.
     let rule = if disabled {
         clear
     } else {
-        color(ColorRole::BorderStrong01)
+        color(level.border_strong())
     };
     // `.g-stepper:focus-within { outline-color: focus }`, then the later
     // `.g-field--invalid .g-stepper { outline-color: support-error }` wins.
@@ -113,17 +123,22 @@ pub fn box_look(focused: bool, invalid: bool, disabled: bool) -> (Hsla, Hsla, Hs
     (fill, rule, outline)
 }
 
-/// The read-only box colors (fill, bottom rule, outline): `.cds--number--readonly
-/// input { background: transparent; border-block-end-color: var(--border-subtle) }`,
-/// still outlined in `focus` while focused (read-only fields take focus).
+/// The read-only box colors on [`LayerLevel::One`]: (fill, bottom rule, outline).
 pub fn readonly_box_look(focused: bool) -> (Hsla, Hsla, Hsla) {
+    readonly_box_look_on(LayerLevel::One, focused)
+}
+
+/// The read-only box colors on `level` (fill, bottom rule, outline):
+/// `.cds--number--readonly input { background: transparent; border-block-end-color:
+/// var(--border-subtle) }`, still outlined in `focus` while focused.
+pub fn readonly_box_look_on(level: LayerLevel, focused: bool) -> (Hsla, Hsla, Hsla) {
     let clear = Hsla::transparent_black();
     let outline = if focused {
         color(ColorRole::Focus)
     } else {
         clear
     };
-    (clear, color(ColorRole::BorderSubtle01), outline)
+    (clear, color(level.border_subtle()), outline)
 }
 
 type ValueHandler = Rc<dyn Fn(f64, &mut Window, &mut App)>;
@@ -197,6 +212,7 @@ pub struct Stepper {
     invalid_text: Option<SharedString>,
     helper_text: Option<SharedString>,
     width: Rems,
+    level: LayerLevel,
     decrease_label: SharedString,
     increase_label: SharedString,
     on_value_change: Option<ValueHandler>,
@@ -221,11 +237,19 @@ impl Stepper {
             helper_text: None,
             // `width = '7rem'`.
             width: gpui_kit::rems(7.),
+            level: LayerLevel::One,
             // The reference's `aria-label`s; override per locale.
             decrease_label: "Decrease".into(),
             increase_label: "Increase".into(),
             on_value_change: None,
         }
+    }
+
+    /// The layer the field sits on (`LayerLevel::One` paints `field-01`,
+    /// `LayerLevel::Two` `field-02`).
+    pub fn level(mut self, level: LayerLevel) -> Self {
+        self.level = level;
+        self
     }
 
     /// The label above the field.
@@ -384,10 +408,11 @@ impl RenderOnce for Stepper {
             (m.value, m.input.clone())
         };
         let focused = input.read(cx).focus_handle(cx).is_focused(window);
+        let level = self.level;
         let (fill, rule, outline) = if self.readonly && !self.disabled {
-            readonly_box_look(focused)
+            readonly_box_look_on(level, focused)
         } else {
-            box_look(focused, self.invalid, self.disabled)
+            box_look_on(level, focused, self.invalid, self.disabled)
         };
         let readonly = self.readonly;
         let field_h = density::current().field().px_value();
@@ -412,11 +437,11 @@ impl RenderOnce for Stepper {
                     .items_center()
                     .justify_center()
                     .size(rem(field_h))
-                    // `border-left: 1px solid var(--border-subtle-01)`.
+                    // `border-left: 1px solid var(--border-subtle)`.
                     .border_l(px(1.))
-                    .border_color(color(ColorRole::BorderSubtle01))
-                    // `:hover:not(:disabled) { background: var(--field-hover-01) }`.
-                    .when(is_hovered, |b| b.bg(color(ColorRole::FieldHover01)))
+                    .border_color(color(level.border_subtle()))
+                    // `:hover:not(:disabled) { background: var(--field-hover) }`.
+                    .when(is_hovered, |b| b.bg(color(level.field_hover())))
                     .cursor(if inert {
                         CursorStyle::Arrow
                     } else if disabled {
@@ -599,5 +624,12 @@ mod tests {
         assert_eq!(rule, c(ColorRole::BorderSubtle01));
         assert_eq!(outline, Hsla::transparent_black());
         assert_eq!(readonly_box_look(true).2, c(ColorRole::Focus));
+        let (fill2, rule2, _) = box_look_on(LayerLevel::Two, false, false, false);
+        assert_eq!(fill2, c(ColorRole::Field02));
+        assert_eq!(rule2, c(ColorRole::BorderStrong02));
+        assert_eq!(
+            readonly_box_look_on(LayerLevel::Two, false).1,
+            c(ColorRole::BorderSubtle02)
+        );
     }
 }

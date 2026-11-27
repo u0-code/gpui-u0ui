@@ -14,6 +14,7 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
     cx.new(|_| CopyFieldPage {
         mono: true,
         masked: false,
+        dashed: false,
         href: true,
         opened: 0,
     })
@@ -23,6 +24,7 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
 struct CopyFieldPage {
     mono: bool,
     masked: bool,
+    dashed: bool,
     href: bool,
     opened: usize,
 }
@@ -66,7 +68,8 @@ impl Render for CopyFieldPage {
         let mut field = CopyField::new("copy-live", "https://quiet-river-1234.trycloudflare.com")
             .label("Tunnel address")
             .mono(self.mono)
-            .masked(self.masked);
+            .masked(self.masked)
+            .dashed(self.dashed);
         if self.href {
             let e = entity.clone();
             field = field.on_open(move |_, _, cx| {
@@ -104,6 +107,12 @@ impl Render for CopyFieldPage {
                 "masked",
                 self.masked,
                 controls::setter(&entity, |this: &mut Self, on| this.masked = on),
+            ))
+            .child(controls::toggle(
+                "copy-dashed",
+                "dashed",
+                self.dashed,
+                controls::setter(&entity, |this: &mut Self, on| this.dashed = on),
             ))
             .child(controls::toggle(
                 "copy-href",

@@ -69,6 +69,16 @@ pub fn add_word(words: &[SharedString], word: &str) -> Option<Vec<SharedString>>
     Some(next)
 }
 
+/// Remove `word` from `words`, returning `None` when absent.
+pub fn remove_word(words: &[SharedString], word: &str) -> Option<Vec<SharedString>> {
+    let next: Vec<SharedString> = words
+        .iter()
+        .filter(|x| x.as_ref() != word)
+        .cloned()
+        .collect();
+    (next.len() != words.len()).then_some(next)
+}
+
 /// An approximation of `String.prototype.localeCompare` (root collation):
 /// case-folded comparison first, lowercase before uppercase on a tie.
 pub fn locale_cmp(a: &str, b: &str) -> std::cmp::Ordering {
@@ -77,20 +87,74 @@ pub fn locale_cmp(a: &str, b: &str) -> std::cmp::Ordering {
         .then_with(|| b.cmp(a))
 }
 
-struct Model {
+/// Tracks the dictionary's words across uncontrolled edits and caller
+/// [`DictionaryEditor::words`] updates.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct WordsState {
+    prop: Vec<SharedString>,
     words: Vec<SharedString>,
+}
+
+impl WordsState {
+    /// Seeded from the `words` prop.
+    pub fn new(words: Vec<SharedString>) -> Self {
+        Self {
+            prop: words.clone(),
+            words,
+        }
+    }
+
+    /// Re-seed when the caller's `words` prop changed since the last render;
+    /// otherwise keep local edits.
+    pub fn sync(&mut self, prop: &[SharedString]) {
+        if self.prop != prop {
+            self.prop = prop.to_vec();
+            self.words = prop.to_vec();
+        }
+    }
+
+    /// The current words.
+    pub fn words(&self) -> &[SharedString] {
+        &self.words
+    }
+
+    /// Store a locally edited list.
+    pub fn set(&mut self, words: Vec<SharedString>) {
+        self.words = words;
+    }
+}
+
+type WordsHandler = Rc<dyn Fn(&[SharedString], &mut Window, &mut App)>;
+
+struct Model {
+    state: WordsState,
     input: Entity<InputState>,
+    on_change: Option<WordsHandler>,
     _sub: Subscription,
 }
 
 impl Model {
     fn add(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let q = self.input.read(cx).value().to_string();
-        if let Some(next) = add_word(&self.words, &q) {
-            self.words = next;
+        let added = add_word(self.state.words(), &q);
+        if let Some(next) = added.clone() {
+            self.state.set(next);
         }
         self.input.update(cx, |s, cx| s.set_value("", window, cx));
+        if let (Some(next), Some(f)) = (added, self.on_change.clone()) {
+            f(&next, window, cx);
+        }
         cx.notify();
+    }
+
+    fn remove(&mut self, word: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(next) = remove_word(self.state.words(), word) {
+            self.state.set(next.clone());
+            if let Some(f) = self.on_change.clone() {
+                f(&next, window, cx);
+            }
+            cx.notify();
+        }
     }
 }
 
@@ -101,6 +165,7 @@ pub struct DictionaryEditor {
     words: Vec<SharedString>,
     label: SharedString,
     texts: DictionaryTexts,
+    on_change: Option<WordsHandler>,
 }
 
 impl DictionaryEditor {
@@ -111,10 +176,12 @@ impl DictionaryEditor {
             words: Vec::new(),
             label: "Dictionary".into(),
             texts: DictionaryTexts::default(),
+            on_change: None,
         }
     }
 
-    /// The starting words (`words`).
+    /// The words (`words`): seeds uncontrolled state, and syncs whenever the
+    /// caller passes a changed list.
     pub fn words(mut self, words: impl IntoIterator<Item = impl Into<SharedString>>) -> Self {
         self.words = words.into_iter().map(Into::into).collect();
         self
@@ -131,6 +198,15 @@ impl DictionaryEditor {
         self.texts = texts;
         self
     }
+
+    /// Called with the updated words slice whenever a word is added or removed.
+    pub fn on_change(
+        mut self,
+        f: impl Fn(&[SharedString], &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_change = Some(Rc::new(f));
+        self
+    }
 }
 
 impl RenderOnce for DictionaryEditor {
@@ -144,15 +220,19 @@ impl RenderOnce for DictionaryEditor {
                 _ => cx.notify(),
             });
             Model {
-                words: initial,
+                state: WordsState::new(initial),
                 input,
+                on_change: None,
                 _sub: sub,
             }
         });
-        let (words, input) = {
-            let m = model.read(cx);
-            (m.words.clone(), m.input.clone())
-        };
+        let prop_words = self.words;
+        let on_change = self.on_change;
+        let (words, input) = model.update(cx, |m, _| {
+            m.state.sync(&prop_words);
+            m.on_change = on_change;
+            (m.state.words().to_vec(), m.input.clone())
+        });
         let blank = input.read(cx).value().trim().is_empty();
         let count = words.len();
         let add = model.clone();
@@ -220,12 +300,9 @@ impl RenderOnce for DictionaryEditor {
                                 )
                                 .size_px(22.)
                                 .icon_px(14.)
-                                .on_click(move |_, _, cx| {
+                                .on_click(move |_, w, cx| {
                                     let word = word.clone();
-                                    model.update(cx, |m, cx| {
-                                        m.words.retain(|x| *x != word);
-                                        cx.notify();
-                                    })
+                                    model.update(cx, |m, cx| m.remove(&word, w, cx));
                                 }),
                             )
                     }),
@@ -258,6 +335,11 @@ mod tests {
         );
         assert_eq!(add_word(&w, "pnpm"), None);
         assert_eq!(add_word(&w, "   "), None);
+        assert_eq!(
+            remove_word(&w, "g100"),
+            Some(s(&["Carbon", "Kubernetes", "pnpm"]))
+        );
+        assert_eq!(remove_word(&w, "missing"), None);
     }
 
     #[test]
@@ -265,5 +347,20 @@ mod tests {
         let mut v = s(&["pnpm", "Carbon", "g100", "Kubernetes"]);
         v.sort_by(|a, b| locale_cmp(a, b));
         assert_eq!(v, s(&["Carbon", "g100", "Kubernetes", "pnpm"]));
+    }
+
+    #[test]
+    fn words_state_keeps_local_edits_and_syncs_when_caller_prop_changes() {
+        let mut st = WordsState::new(s(&["Carbon", "pnpm"]));
+        st.set(s(&["Carbon", "Docker", "pnpm"]));
+        // Uncontrolled re-render with unchanged initial prop keeps local edit.
+        st.sync(&s(&["Carbon", "pnpm"]));
+        assert_eq!(st.words(), s(&["Carbon", "Docker", "pnpm"]));
+        // Controlled caller updates prop to match `on_change` slice.
+        st.sync(&s(&["Carbon", "Docker", "pnpm"]));
+        assert_eq!(st.words(), s(&["Carbon", "Docker", "pnpm"]));
+        // Caller resets or switches scope: new prop replaces words.
+        st.sync(&s(&["Carbon"]));
+        assert_eq!(st.words(), s(&["Carbon"]));
     }
 }

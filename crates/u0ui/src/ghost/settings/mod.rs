@@ -22,7 +22,9 @@ pub use dialog::{
     SettingsDialog, SettingsDialogTexts, SettingsNavItem, SettingsSection, filter_sections,
     settings_heading,
 };
-pub use dictionary_editor::{DictionaryEditor, DictionaryTexts, add_word, locale_cmp};
+pub use dictionary_editor::{
+    DictionaryEditor, DictionaryTexts, WordsState, add_word, locale_cmp, remove_word,
+};
 pub use read_aloud::{ReadAloudControl, ReadAloudTexts, Wave, next_rate, rate_text, wave_scale};
 pub use scope_header::{ScopeHeader, ScopeHeaderTexts};
 pub use script_row::{RunSlot, ScriptRow, ScriptRowTexts, kind_label, shortcut_keys};

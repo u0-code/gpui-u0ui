@@ -28,3 +28,4 @@ pub use shell::{
     IdentitySize, MachineKind, MonoTone, ProjectFavicon, ProjectMonogram, ProviderIcon,
     ProviderMark, StatusPill,
 };
+pub use workspace::SettingsBadgeTone;

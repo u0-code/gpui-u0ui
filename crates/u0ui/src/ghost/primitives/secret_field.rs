@@ -15,12 +15,12 @@ use crate::{
     components::{DropdownMenu, DropdownMenuKind, DropdownMenuSize, MenuItem, form},
     density,
     icons::CarbonIcon,
-    theme::color,
+    theme::{LayerLevel, color},
     tokens::ColorRole,
 };
 use gpui_kit::{
-    App, AppContext as _, ElementId, Entity, Focusable as _, InteractiveElement as _, IntoElement,
-    MouseButton, ParentElement, RenderOnce, SharedString, Styled, Window,
+    App, AppContext as _, ElementId, Entity, Focusable as _, Hsla, InteractiveElement as _,
+    IntoElement, MouseButton, ParentElement, RenderOnce, SharedString, Styled, Window,
     component::input::{InputEvent, InputState},
     div,
     prelude::FluentBuilder as _,
@@ -102,6 +102,15 @@ struct Model {
     _subscription: gpui_kit::Subscription,
 }
 
+/// Contextual colors of `.g-secret` on `level`: `(fill, source divider, bottom rule)`.
+pub fn box_look(level: LayerLevel) -> (Hsla, Hsla, Hsla) {
+    (
+        color(level.field()),
+        color(level.border_subtle()),
+        color(level.border_strong()),
+    )
+}
+
 /// A secret field. See the module docs.
 #[derive(IntoElement)]
 pub struct SecretField {
@@ -112,6 +121,7 @@ pub struct SecretField {
     sources: Vec<SecretSource>,
     placeholder: Option<SharedString>,
     show_labels: (SharedString, SharedString),
+    level: LayerLevel,
     on_change: Option<TextHandler>,
     on_source_change: Option<SourceHandler>,
 }
@@ -128,9 +138,17 @@ impl SecretField {
             placeholder: None,
             // The reference's `aria-label`s; override per locale.
             show_labels: ("Show value".into(), "Hide value".into()),
+            level: LayerLevel::One,
             on_change: None,
             on_source_change: None,
         }
+    }
+
+    /// The layer the field sits on (`LayerLevel::One` paints `field-01`,
+    /// `LayerLevel::Two` `field-02`).
+    pub fn level(mut self, level: LayerLevel) -> Self {
+        self.level = level;
+        self
     }
 
     /// The label above.
@@ -343,23 +361,24 @@ impl RenderOnce for SecretField {
                 .into_any_element(),
         };
 
+        let (fill, divider, rule) = box_look(self.level);
         let body = div()
             .relative()
             .flex()
             .items_center()
             .min_h(rem(field_h))
-            .bg(color(ColorRole::Field01))
+            .bg(fill)
             .child(
-                // `.g-secret-src { flex: none; border-right: 1px solid var(--border-subtle-01) }`.
+                // `.g-secret-src { flex: none; border-right: 1px solid var(--border-subtle) }`.
                 div()
                     .flex_none()
                     .border_r(px(1.))
-                    .border_color(color(ColorRole::BorderSubtle01))
+                    .border_color(divider)
                     .child(menu),
             )
             .child(editor)
             .child(end)
-            .child(form::bottom_rule(color(ColorRole::BorderStrong01)))
+            .child(form::bottom_rule(rule))
             .when(focused, |d| d.child(parts::focus_ring()));
         parts::field()
             .when_some(self.label.clone(), |f, l| f.child(parts::label(l)))
@@ -370,6 +389,7 @@ impl RenderOnce for SecretField {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{CarbonTheme, theme::color_in};
 
     #[test]
     fn sources_follow_the_reference_table() {
@@ -382,5 +402,27 @@ mod tests {
         assert_eq!(SecretSource::Keychain.badge(), Some("Keychain"));
         assert_eq!(SecretSource::Plain.label(), "Typed value");
         assert_eq!(SecretSource::OnePassword.icon(), CarbonIcon::Key);
+    }
+
+    #[test]
+    fn layer_levels_select_contextual_field_tokens() {
+        crate::theme::tests_set(CarbonTheme::White);
+        let c = |r| color_in(CarbonTheme::White, r);
+        assert_eq!(
+            box_look(LayerLevel::One),
+            (
+                c(ColorRole::Field01),
+                c(ColorRole::BorderSubtle01),
+                c(ColorRole::BorderStrong01),
+            )
+        );
+        assert_eq!(
+            box_look(LayerLevel::Two),
+            (
+                c(ColorRole::Field02),
+                c(ColorRole::BorderSubtle02),
+                c(ColorRole::BorderStrong02),
+            )
+        );
     }
 }

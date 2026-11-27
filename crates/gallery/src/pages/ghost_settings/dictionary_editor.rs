@@ -10,12 +10,16 @@ use u0ui::ghost::settings::DictionaryEditor;
 
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
-    cx.new(|_| Page { seed: 0, epoch: 0 }).into()
+    cx.new(|_| Page {
+        seed: 0,
+        words: WORDS.iter().map(|&w| w.into()).collect(),
+    })
+    .into()
 }
 
 struct Page {
     seed: usize,
-    epoch: usize,
+    words: Vec<gpui_kit::SharedString>,
 }
 
 const SEEDS: [&str; 2] = ["reference words", "empty"];
@@ -41,16 +45,18 @@ pub fn thumbnail(_: &mut Window, _: &mut App) -> AnyElement {
 impl Render for Page {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let entity = cx.entity();
-        // A new id re-seeds the editor's own state.
-        let words: Vec<&str> = if self.seed == 0 {
-            WORDS.to_vec()
-        } else {
-            vec![]
-        };
+        let on_change_entity = entity.clone();
         let live = div().w(rems(30.)).max_w_full().child(
-            DictionaryEditor::new(("dict-live", self.epoch * 2 + self.seed))
+            DictionaryEditor::new("dict-live")
                 .label("Dictation dictionary")
-                .words(words),
+                .words(self.words.clone())
+                .on_change(move |next, _, cx| {
+                    let next = next.to_vec();
+                    on_change_entity.update(cx, |p, cx| {
+                        p.words = next;
+                        cx.notify();
+                    });
+                }),
         );
         let config = controls::field(
             "words",
@@ -60,7 +66,11 @@ impl Render for Page {
                 self.seed,
                 controls::setter(&entity, |p: &mut Page, i| {
                     p.seed = i;
-                    p.epoch += 1;
+                    p.words = if i == 0 {
+                        WORDS.iter().map(|&w| w.into()).collect()
+                    } else {
+                        Vec::new()
+                    };
                 }),
             ),
         );
