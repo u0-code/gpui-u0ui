@@ -503,8 +503,13 @@ fn action_button(
         // `.cds--actionable-notification .cds--actionable-notification__action-button.cds--btn
         // { block-size: 2rem; padding: 0 var(--spacing-04) }` (the bundle's r3-set rule).
         .px(rem(12.))
+        // Computed `.cds--actionable-notification__action-button`:
+        // `padding-block: 0` in a stretched flex box, so the label's line
+        // sits at the top, under the 1px transparent `.cds--btn` border
+        // (its centre 10px from the top, not the box's 16).
+        .pt(px(1.))
         .flex()
-        .items_center()
+        .items_start()
         .whitespace_nowrap()
         .type_style(TypeStyle::BodyCompact01)
         .text_color(text)

@@ -156,6 +156,8 @@ impl RenderOnce for ActionableToast {
             Button::new(action_id, label)
                 .variant(ButtonVariant::Tertiary)
                 .size(ButtonSize::Sm)
+                // Computed: `padding-block: 0`, the label at the top.
+                .label_top(true)
                 .when_some(on_action, |b, f| b.on_click(move |_, w, cx| f(w, cx)))
                 .into_any_element()
         });
