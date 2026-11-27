@@ -9,6 +9,7 @@ use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::t3::press::{self, Handler, inset_frame, rem};
 use crate::t3::review::{DiffFileStatus, DiffStat, FileStatus};
 use crate::{
+    icons::CarbonIcon,
     theme::color,
     tokens::{ColorRole, FontFamilyKey},
     typography::font,
@@ -169,9 +170,11 @@ impl RenderOnce for TurnChanges {
             .child(div().flex_1())
             .when_some(self.on_undo.clone(), |this, f| {
                 this.child(
+                    // The bundle's `C.Button({ variant: 'ghost', size: 'sm', icon: I.Undo })`.
                     Button::new((id.clone(), "undo"), texts.undo.clone())
                         .variant(ButtonVariant::Ghost)
                         .size(ButtonSize::Sm)
+                        .icon(CarbonIcon::Undo)
                         .on_click(move |_, w, cx| f(w, cx)),
                 )
             })
