@@ -1179,7 +1179,9 @@ impl RenderOnce for ThreadDetailsSection {
                         -std::f32::consts::FRAC_PI_2
                     })),
             )
-            .child(sans(div(), 14., 600).child(self.title.clone()))
+            // `.t3-dsec-head b`: no weight rule, so Carbon's `b { font: inherit }`
+            // keeps it 400.
+            .child(sans(div(), 14., 400).child(self.title.clone()))
             .when_some(self.count, |b, n| b.child(count_chip(n)))
             .when(ring, |b| b.child(craft::focus_ring()));
         div()
@@ -1301,7 +1303,9 @@ impl RenderOnce for ContextMeter {
                     .text_color(color(ColorRole::TextSecondary))
                     .child(self.label.clone())
                     .child(
-                        sans(div(), 12., 600)
+                        // `.t3-meter-top b { color: text-primary }`, no weight:
+                        // Carbon's `b { font: inherit }` keeps it 400.
+                        sans(div(), 12., 400)
                             .text_color(color(ColorRole::TextPrimary))
                             .child(format!("{pct}%")),
                     ),

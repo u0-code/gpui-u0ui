@@ -916,7 +916,8 @@ impl RenderOnce for ChecksList {
                     .border_b_1()
                     .border_color(color(ColorRole::BorderSubtle01))
                     .child(ChecksGlyph::new(status))
-                    .child(sans(div(), 14., 600).child(head)),
+                    // A bare `<b>`: Carbon's reset (`b { font: inherit }`) keeps it 400.
+                    .child(sans(div(), 14., 400).child(head)),
             )
             .children(self.checks.iter().enumerate().map(|(i, c)| {
                 let on_details = self.on_details.clone();
@@ -1126,7 +1127,9 @@ impl RenderOnce for GuideRail {
                             .flex()
                             .flex_col()
                             .gap(px(2.))
-                            .child(sans(div(), 14., 600).child(s.title.clone()))
+                            // `.t3-guide-text b`: no weight rule, so Carbon's
+                            // `b { font: inherit }` keeps it 400.
+                            .child(sans(div(), 14., 400).child(s.title.clone()))
                             .child(craft::text(
                                 format!("{} {} \u{b7} {}", s.files, self.files_label, s.note),
                                 12.,

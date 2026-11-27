@@ -250,8 +250,10 @@ impl RenderOnce for PullRequestDetailHeader {
                     .variant(self.state.badge())
                     .size(BadgeSize::Sm),
             )
+            // `.t3-prhead-meta b { color: text-primary }`, no weight: Carbon's
+            // `b { font: inherit }` keeps it 400.
             .child(
-                sans(div(), 14., 600)
+                sans(div(), 14., 400)
                     .text_color(color(ColorRole::TextPrimary))
                     .child(self.author.clone()),
             )

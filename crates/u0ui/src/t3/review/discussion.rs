@@ -419,7 +419,10 @@ impl RenderOnce for PullRequestTimeline {
                             .border_color(color(ColorRole::BorderSubtle01))
                             .text_color(secondary)
                             .child(
-                                sans(div(), 14., 600)
+                                // `.t3-prtl-head b { color: text-primary; font-size:
+                                // 0.875rem }`, no weight: Carbon's `b { font: inherit }`
+                                // keeps it 400.
+                                sans(div(), 14., 400)
                                     .text_color(color(ColorRole::TextPrimary))
                                     .child(e.actor.clone()),
                             )
@@ -465,7 +468,9 @@ impl RenderOnce for PullRequestTimeline {
                     .min_h(rem(24.))
                     .text_color(secondary)
                     .child(
-                        sans(div(), 14., 600)
+                        // `.t3-prtl-event b { color: text-primary }`, no weight:
+                        // Carbon's `b { font: inherit }` keeps it 400.
+                        sans(div(), 14., 400)
                             .text_color(color(ColorRole::TextPrimary))
                             .child(e.actor.clone()),
                     )
