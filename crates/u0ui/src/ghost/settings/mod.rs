@@ -3,8 +3,10 @@
 //! card; everything is re-exported here, so callers write
 //! `u0ui::ghost::settings::ThemeEditor`.
 pub(crate) mod row;
+mod settings_list_row;
 mod theme_editor;
 
+pub use settings_list_row::{ActionKind, SettingsAction, SettingsListRow};
 pub use theme_editor::{
     MIN_CONTRAST, ThemeEditor, ThemeEditorTexts, ThemeToken, contrast_ratio, grid_columns,
     import_vscode, parse_hex, to_hex, vscode_token,

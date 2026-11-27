@@ -14,7 +14,7 @@ use gpui_kit::{AnyElement, Div, IntoElement, ParentElement, SharedString, Styled
 /// var(--spacing-02) var(--spacing-03) var(--spacing-02) var(--spacing-05);
 /// background: var(--layer-01); border-bottom: 1px solid
 /// var(--border-subtle-01); font-size: 0.875rem; color: var(--text-primary) }`.
-pub(super) fn frame() -> Div {
+pub(crate) fn frame() -> Div {
     sans(div(), 14., 400)
         .flex()
         .items_center()

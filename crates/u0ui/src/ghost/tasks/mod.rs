@@ -2,7 +2,7 @@
 //! workflows"): scheduled-task and workflow rows and their editors. One
 //! submodule per card; everything is re-exported here, so callers write
 //! `u0ui::ghost::tasks::WorkflowRow`.
-mod row;
+pub(crate) mod row;
 mod task_row;
 mod workflow_row;
 
