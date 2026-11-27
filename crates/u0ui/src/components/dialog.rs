@@ -10,7 +10,10 @@
 //! - **Appearance**: `.cds--modal-container` on `layer-01` with a 1px
 //!   `border-subtle-01` line, Carbon's responsive widths per size ([`ModalGeometry`]),
 //!   header/body/footer geometry from `bundle.css`, footer buttons 64px tall and
-//!   split 50/50 (`.cds--modal-footer .cds--btn { flex: 0 1 50% }`).
+//!   split 50/50 (`.cds--modal-footer .cds--btn { flex: 0 1 50% }`). The
+//!   footer is a Carbon button set (`.cds--modal-footer.cds--btn-set`): a 1px
+//!   `button-separator` line between the buttons, hidden while either one
+//!   has focus ([`footer_separator`]).
 //! - **Motion** (`.cds--modal`, `.cds--modal-container`): the scrim and the
 //!   container fade over 240ms; the container also slides from
 //!   `translate3d(0, -24px, 0)`. Entrance `cubic-bezier(0, 0, 0.3, 1)`, exit
@@ -28,6 +31,7 @@
 //!     .child(input)
 //! ```
 use super::button::{Button, ButtonSize, ButtonVariant};
+use super::button_group::{ButtonGroupOrientation, separator_color};
 use super::overlay::{self, OpenChange, Translate, rem};
 use crate::{
     density::{self, Density},
@@ -40,7 +44,7 @@ use crate::{
 use gpui_kit::{
     AnyElement, App, CursorStyle, ElementId, FocusHandle, Hsla, InteractiveElement, IntoElement,
     ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window, div,
-    prelude::FluentBuilder as _,
+    prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -397,6 +401,26 @@ struct Handles {
     close: FocusHandle,
 }
 
+/// The line before the footer's primary button: the footer is a button set
+/// (`.cds--btn-set .cds--btn:not(:focus) { box-shadow: -1px 0 0 0
+/// var(--button-separator) }`, `:first-of-type` and the button after a
+/// focused one excepted). `None` without a secondary button or while either
+/// button has focus.
+pub fn footer_separator(
+    has_secondary: bool,
+    primary_disabled: bool,
+    primary_focused: bool,
+    secondary_focused: bool,
+) -> Option<Hsla> {
+    separator_color(
+        ButtonGroupOrientation::Horizontal,
+        !has_secondary,
+        primary_disabled,
+        primary_focused,
+        secondary_focused,
+    )
+}
+
 /// The footer buttons' size. Comfortable: `.cds--modal-footer .cds--btn {
 /// height: 4rem }`, the xl (64px) button. Compact: the compact button rule
 /// (`[data-density="compact"] .cds--btn:not(.cds--btn--sm):not(.cds--btn--xl)
@@ -594,25 +618,46 @@ impl RenderOnce for Dialog {
                         }),
                 )
             });
+            let separator = footer_separator(
+                secondary.is_some(),
+                self.primary_disabled,
+                primary_focus.is_focused(window),
+                secondary_focus.is_focused(window),
+            );
             let primary = self.primary_text.clone().map(|text| {
                 let on_primary = self.on_primary.clone();
-                div().w_1_2().child(
-                    Button::new((id.clone(), "primary"), text)
-                        .variant(if self.danger {
-                            ButtonVariant::Danger
-                        } else {
-                            ButtonVariant::Primary
-                        })
-                        .size(footer_button)
-                        .full_width(true)
-                        .disabled(self.primary_disabled)
-                        .track_focus(&primary_focus)
-                        .on_click(move |_, window, cx| {
-                            if let Some(f) = &on_primary {
-                                f(window, cx)
-                            }
-                        }),
-                )
+                div()
+                    .relative()
+                    .w_1_2()
+                    .child(
+                        Button::new((id.clone(), "primary"), text)
+                            .variant(if self.danger {
+                                ButtonVariant::Danger
+                            } else {
+                                ButtonVariant::Primary
+                            })
+                            .size(footer_button)
+                            .full_width(true)
+                            .disabled(self.primary_disabled)
+                            .track_focus(&primary_focus)
+                            .on_click(move |_, window, cx| {
+                                if let Some(f) = &on_primary {
+                                    f(window, cx)
+                                }
+                            }),
+                    )
+                    // The box shadow sits just outside the primary's start edge.
+                    .when_some(separator, |this, line| {
+                        this.child(
+                            div()
+                                .absolute()
+                                .top_0()
+                                .bottom_0()
+                                .left(px(-1.))
+                                .w(px(1.))
+                                .bg(line),
+                        )
+                    })
             });
             // `.cds--modal-footer`: 4rem, flex-end; compact buttons sit at its top.
             div()
@@ -782,6 +827,20 @@ mod tests {
         assert!((look.scrim.a - 0.6).abs() < 0.01);
         crate::theme::tests_set(CarbonTheme::G100);
         assert_eq!(hex(ModalLook::current().container), "#262626");
+    }
+
+    #[test]
+    fn footer_separator_follows_btn_set() {
+        crate::theme::tests_set(CarbonTheme::White);
+        let line = footer_separator(true, false, false, false).map(hex);
+        assert_eq!(line.as_deref(), Some("#e0e0e0"));
+        // Hidden next to a focused button, and with no secondary button.
+        assert_eq!(footer_separator(true, false, true, false), None);
+        assert_eq!(footer_separator(true, false, false, true), None);
+        assert_eq!(footer_separator(false, false, false, false), None);
+        crate::theme::tests_set(CarbonTheme::G100);
+        let line = footer_separator(true, false, false, false).map(hex);
+        assert_eq!(line.as_deref(), Some("#161616"));
     }
 
     #[test]
