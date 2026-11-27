@@ -3,7 +3,7 @@
 use super::pull_request::{Label, LabelChip, icon_count};
 use crate::{
     components::AvatarColor,
-    icons::{CarbonIcon, Icon},
+    icons::CarbonIcon,
     t3::craft::{self, focus_handle, focus_visible, mono, press, rem, sans},
     theme::color,
     tokens::ColorRole,
@@ -100,11 +100,7 @@ impl IssueStateGlyph {
 
 impl RenderOnce for IssueStateGlyph {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
-        div().flex().flex_none().child(
-            Icon::carbon(self.state.icon())
-                .size_length(rem(16.))
-                .color(self.state.ink()),
-        )
+        super::pull_request::glyph(self.state.icon(), self.state.ink(), 16., self.state.label())
     }
 }
 

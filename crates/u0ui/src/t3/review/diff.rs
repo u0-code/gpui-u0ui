@@ -227,7 +227,7 @@ impl DiffFileStatus {
 impl RenderOnce for DiffFileStatus {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let (bg, fg) = self.status.colors();
-        mono(div(), 11., 600)
+        let el = mono(div(), 11., 600)
             .flex()
             .flex_none()
             .items_center()
@@ -235,7 +235,8 @@ impl RenderOnce for DiffFileStatus {
             .size(rem(16.))
             .bg(bg)
             .text_color(fg)
-            .child(self.status.letter())
+            .child(self.status.letter());
+        craft::titled(el, "fstat", self.status.label())
     }
 }
 
@@ -265,7 +266,7 @@ impl StartTruncatedPath {
 impl RenderOnce for StartTruncatedPath {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let (dir, file) = split_path(&self.path);
-        mono(div(), 12., 400)
+        let el = mono(div(), 12., 400)
             .flex()
             .min_w_0()
             .overflow_hidden()
@@ -287,7 +288,8 @@ impl RenderOnce for StartTruncatedPath {
                     .flex_none()
                     .text_color(color(ColorRole::TextPrimary))
                     .child(SharedString::from(file.to_string())),
-            )
+            );
+        craft::titled(el, "path", self.path.clone())
     }
 }
 

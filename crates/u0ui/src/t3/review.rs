@@ -12,9 +12,9 @@ pub mod review_thread;
 pub use review_thread::{ReviewComment, ReviewThreadCard, ReviewThreadTexts};
 pub mod pull_request;
 pub use pull_request::{
-    Check, ChecksGlyph, ChecksList, ChecksStatus, DetailHeaderTexts, GuideRail, GuideStop, Label,
-    LabelChip, PullRequestDetailHeader, PullRequestRow, PullRequestStack, PullRequestState,
-    PullRequestStateGlyph, ReviewDecision, ReviewDecisionBadge, StackLayer, StopState,
+    Check, ChecksGlyph, ChecksList, ChecksStatus, GuideRail, GuideStop, Label, LabelChip,
+    PullRequestRow, PullRequestStack, PullRequestState, PullRequestStateGlyph, ReviewDecision,
+    ReviewDecisionBadge, StackLayer, StopState,
 };
 pub mod discussion;
 pub use discussion::{
@@ -23,3 +23,7 @@ pub use discussion::{
 };
 pub mod issue;
 pub use issue::{IssueRow, IssueState, IssueStateGlyph, Priority};
+pub mod pr_detail;
+pub use pr_detail::{
+    DetailHeaderTexts, MergeControls, MergeMethod, MergeTexts, PullRequestDetailHeader,
+};

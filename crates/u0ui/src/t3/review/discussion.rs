@@ -1,6 +1,7 @@
 //! T3 · Pull requests & issues: the discussion parts — [`ReactionBar`],
 //! [`PullRequestTimeline`] and [`ReviewForm`] (`src/t3.css` "PR vocabulary").
-use super::pull_request::{ReviewDecision, ReviewDecisionBadge, icon_button};
+use super::pr_detail::icon_button;
+use super::pull_request::{ReviewDecision, ReviewDecisionBadge};
 use crate::{
     components::{AvatarColor, Button, ButtonSize, ButtonVariant, Textarea, TextareaState},
     icons::{CarbonIcon, Icon},

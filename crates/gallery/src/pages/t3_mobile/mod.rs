@@ -8,3 +8,4 @@ pub mod mobile_notice;
 pub mod mobile_sheet;
 pub mod mobile_tab_dock;
 pub mod split_button;
+pub mod swipe_row;

@@ -65,6 +65,27 @@ pub(crate) fn focus_ring_offset(offset: f32) -> AnyElement {
         .into_any_element()
 }
 
+/// A plain hover tooltip standing in for an HTML `title` attribute (a
+/// native browser tooltip, not a Carbon `Tooltip`): Kit's window tooltip.
+pub(crate) fn title_tooltip(
+    text: SharedString,
+) -> impl Fn(&mut Window, &mut App) -> gpui_kit::AnyView {
+    move |window, cx| gpui_kit::component::tooltip::Tooltip::new(text.clone()).build(window, cx)
+}
+
+/// `title="…"` on a small element: an id derived from `kind` and the text,
+/// plus the hover tooltip.
+pub(crate) fn titled(
+    el: Div,
+    kind: &str,
+    text: impl Into<SharedString>,
+) -> gpui_kit::Stateful<Div> {
+    use gpui_kit::{InteractiveElement as _, StatefulInteractiveElement as _};
+    let text: SharedString = text.into();
+    el.id(ElementId::Name(format!("t3-{kind}-{text}").into()))
+        .tooltip(title_tooltip(text))
+}
+
 /// A child id `name-i` under `id`.
 pub(crate) fn sub(id: &ElementId, name: &str, i: usize) -> ElementId {
     (id.clone(), SharedString::from(format!("{name}-{i}"))).into()
