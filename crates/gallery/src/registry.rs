@@ -269,6 +269,10 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("toast", "Toast", FEEDBACK, Component::Toast.summary(), pages::toast::build).thumbnail(thumbnails::toast),
     PageDef::new("questionnaire", "Questionnaire", CHAT_AI, Component::Questionnaire.summary(), pages::questionnaire::build).thumbnail(thumbnails::questionnaire),
     PageDef::new("trace", "Trace", CHAT_AI, Component::Trace.summary(), pages::trace::build).thumbnail(thumbnails::trace),
+    PageDef::new("diff-file-header", "DiffFileHeader", "T3 · Diff & review", Component::DiffFileHeader.summary(), pages::t3_review::diff_file_header::build).thumbnail(pages::t3_review::diff_file_header::thumbnail),
+    PageDef::new("diff-file-tree", "DiffFileTree", "T3 · Diff & review", Component::DiffFileTree.summary(), pages::t3_review::diff_file_tree::build).thumbnail(pages::t3_review::diff_file_tree::thumbnail),
+    PageDef::new("diff-view", "DiffView", "T3 · Diff & review", Component::DiffView.summary(), pages::t3_review::diff_view::build).thumbnail(pages::t3_review::diff_view::thumbnail),
+    PageDef::new("review-thread-card", "ReviewThreadCard", "T3 · Diff & review", Component::ReviewThreadCard.summary(), pages::t3_review::review_thread_card::build).thumbnail(pages::t3_review::review_thread_card::thumbnail),
 ];
 
 /// Look a page up by id.

@@ -61,6 +61,7 @@ pub mod skeleton;
 pub mod slider;
 pub mod spinner;
 pub mod switch;
+pub mod t3_review;
 pub mod table;
 pub mod tabs;
 pub mod textarea;

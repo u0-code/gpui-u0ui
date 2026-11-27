@@ -13,6 +13,7 @@
 //! | [`icons`] | Material Symbols Sharp [`Icon`], [`CarbonIcon`], asset source, Kit icon mapping |
 //! | [`density`] | [`Density`] (compact desktop default / comfortable) |
 //! | [`components`] | Carbon components ([`components::button`] is the reference) |
+//! | [`t3`] | The T3 Code pattern library |
 //!
 //! ```no_run
 //! use gpui_kit::*;
@@ -42,6 +43,7 @@ pub mod components;
 pub mod density;
 pub mod icons;
 pub mod motion;
+pub mod t3;
 pub mod theme;
 pub mod tokens;
 pub mod typography;
