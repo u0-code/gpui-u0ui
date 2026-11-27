@@ -279,6 +279,8 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("highlighted-text", "HighlightedText", GHOST_PRIMITIVES, Component::HighlightedText.summary(), pages::highlighted_text::build).thumbnail(pages::highlighted_text::thumbnail),
     // T3 · Composer (src/t3/composer.jsx)
     PageDef::new("context-chip", "ContextChip", "T3 · Composer", Component::ContextChip.summary(), pages::t3_composer::context_chip::build).thumbnail(pages::t3_composer::context_chip::thumbnail),
+    PageDef::new("effort-glyph", "EffortGlyph", "T3 · Composer", Component::EffortGlyph.summary(), pages::t3_composer::effort_glyph::build).thumbnail(pages::t3_composer::effort_glyph::thumbnail),
+    PageDef::new("read-only-composer-bar", "ReadOnlyComposerBar", "T3 · Composer", Component::ReadOnlyComposerBar.summary(), pages::t3_composer::read_only_composer_bar::build).thumbnail(pages::t3_composer::read_only_composer_bar::thumbnail),
 ];
 
 /// Look a page up by id.
