@@ -12,7 +12,6 @@
 //!   the figure.
 use crate::{
     components::{Button, ButtonSize, ButtonVariant},
-    ghost::primitives::parts::{focus_ring, focus_visible, keyed_focus},
     icons::{CarbonIcon, Icon},
     motion::{self, Motion},
     t3::{
@@ -21,6 +20,7 @@ use crate::{
     },
     theme::color,
     tokens::{self, ColorRole},
+    u0::primitives::parts::{focus_ring, focus_visible, keyed_focus},
 };
 use gpui_kit::{
     AnyElement, App, CursorStyle, Div, ElementId, Hsla, InteractiveElement as _, IntoElement,
