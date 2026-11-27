@@ -4,7 +4,8 @@
 //!
 //! - **Behavior**: page and page-size pickers open the Carbon [`super::menu`]
 //!   (keyboard included); previous/next and page buttons are Base `Button`s
-//!   (focus, Enter/Space, pointer); disabled ends do nothing. Page state is
+//!   (focus, Enter/Space, pointer), the arrows Carbon `IconButton`s with
+//!   their backward/forward text as a tooltip; disabled ends do nothing. Page state is
 //!   controlled or uncontrolled. Kit's `pagination` renders its own rounded
 //!   buttons, so only its idea (page items + ellipses) is reused, as the pure
 //!   [`nav_slots`].
@@ -17,8 +18,10 @@
 //!   page 600 weight with a 1rem × 4px `border-interactive` bar.
 //! - **Motion**: background 110ms productive standard; the active bar grows
 //!   from the center (`transition: width 110ms`), a cut under reduced motion.
+use super::floating::Align;
 use super::menu::{self, MenuItem, MenuSize};
 use super::overlay::{self, rem};
+use super::tooltip::Tooltip;
 use crate::{
     icons::{CarbonIcon, Icon, IconSize},
     motion::{self, Curve, Motion, Speed},
@@ -144,6 +147,22 @@ pub fn button_colors(hovered: bool, disabled: bool) -> (Hsla, Hsla) {
     } else {
         (Hsla::transparent_black(), color(ColorRole::IconPrimary))
     }
+}
+
+/// `button` with `label` as its Carbon `IconButton` tooltip (`.cds--icon-tooltip`;
+/// the CSS styles the arrows as `.cds--btn--ghost.cds--pagination__button`).
+/// A press hides it (`IconButton` `closeOnActivation` defaults to true).
+fn icon_tooltip(
+    id: ElementId,
+    button: AnyElement,
+    label: SharedString,
+    align: Align,
+) -> AnyElement {
+    Tooltip::new((id, "tooltip"), button)
+        .content(label)
+        .align(align)
+        .close_on_activation(true)
+        .into_any_element()
 }
 
 /// A hover-tracked focusable square used by both components.
@@ -486,9 +505,10 @@ impl RenderOnce for Pagination {
                      cx: &mut App| {
             let go = go.clone();
             let (_, fg) = button_colors(false, target.is_none());
-            square(
-                ElementId::NamedChild(std::sync::Arc::new(id.clone()), name.into()),
-                label,
+            let button_id = ElementId::NamedChild(std::sync::Arc::new(id.clone()), name.into());
+            let button = square(
+                button_id.clone(),
+                label.clone(),
                 SIZE_MD.px_value(),
                 true,
                 target.is_none(),
@@ -504,7 +524,10 @@ impl RenderOnce for Pagination {
                 color(ColorRole::LayerHover01),
                 window,
                 cx,
-            )
+            );
+            // Carbon `Pagination` renders these as `IconButton`s
+            // (`align="top-end"`) with the backward/forward text as tooltip.
+            icon_tooltip(button_id, button, label, Align::TopRight)
         };
         let back = arrow(
             "back",
@@ -676,9 +699,10 @@ impl RenderOnce for PaginationNav {
                          cx: &mut App| {
             let go = go.clone();
             let (_, fg) = button_colors(false, target.is_none());
-            square(
-                child_id(name.to_string()),
-                label,
+            let button_id = child_id(name.to_string());
+            let button = square(
+                button_id.clone(),
+                label.clone(),
                 size,
                 false,
                 target.is_none(),
@@ -694,7 +718,10 @@ impl RenderOnce for PaginationNav {
                 color(ColorRole::BackgroundHover),
                 window,
                 cx,
-            )
+            );
+            // Carbon `PaginationNav`'s direction buttons are `IconButton`s
+            // (`tooltipPosition="bottom"`, `tooltipAlignment="center"`).
+            icon_tooltip(button_id, button, label, Align::Bottom)
         };
         row = row.child(direction(
             "back",
