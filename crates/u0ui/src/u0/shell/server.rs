@@ -556,17 +556,18 @@ impl RenderOnce for ServerHeader {
                 )
         });
         // `.g-shead { display: grid; grid-template-columns: 1fr auto; padding: 0
-        // var(--spacing-03) 0 0 }`; the reason spans both columns.
+        // var(--spacing-03) 0 0 }`; the reason spans both columns, inside
+        // the same right padding.
         div()
             .id(id.clone())
             .flex()
             .flex_col()
+            .pr(tokens::SPACING_03)
             .child(
                 div()
                     .flex()
                     .items_center()
                     .gap(tokens::SPACING_03)
-                    .pr(tokens::SPACING_03)
                     .child(main)
                     .child(state),
             )
