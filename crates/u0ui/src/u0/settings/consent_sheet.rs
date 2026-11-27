@@ -195,8 +195,10 @@ impl RenderOnce for ConsentSheet {
             )
             .child(
                 // `.g-consent > p { margin: calc(-1 * var(--spacing-03)) 0 0;
-                // font-size: 0.875rem }` in `.g-dim`.
+                // font-size: 0.875rem }` in `.g-dim`; Carbon's global `p {
+                // line-height: 1.5 }` makes the lines 21px (reference render).
                 sans(div(), 14., 400)
+                    .line_height(rem(21.))
                     .mt(rem(-8.))
                     .text_color(color(ColorRole::TextSecondary))
                     .child((self.texts.intro)(&self.app_name)),

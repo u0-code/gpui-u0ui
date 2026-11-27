@@ -596,6 +596,7 @@ pub struct SettingsRow {
     overridden: bool,
     inherited_value: Option<SharedString>,
     on_reset: Option<Handler>,
+    after_row: bool,
     texts: SettingsRowTexts,
 }
 
@@ -613,6 +614,7 @@ impl SettingsRow {
             overridden: false,
             inherited_value: None,
             on_reset: None,
+            after_row: false,
             texts: SettingsRowTexts::default(),
         }
     }
@@ -667,10 +669,45 @@ impl SettingsRow {
         self
     }
 
+    /// Another settings row sits directly above this one (`.t3-srow +
+    /// .t3-srow`): a quiet 1px `border-subtle-00` line at the top. That
+    /// `box-shadow` comes later in the cascade with a higher specificity
+    /// than `.t3-srow--over { box-shadow: inset 2px 0 0 interactive }`, so it
+    /// also takes the overridden bar's place (reference render: only a first
+    /// row shows the bar). [`SettingsSection`] draws the line between its
+    /// children itself; set this for rows stacked in another container.
+    pub fn after_row(mut self, after_row: bool) -> Self {
+        self.after_row = after_row;
+        self
+    }
+
     /// Replace the default texts.
     pub fn texts(mut self, texts: SettingsRowTexts) -> Self {
         self.texts = texts;
         self
+    }
+}
+
+/// What the row's inset `box-shadow` draws: the overridden bar on a first
+/// row, the hairline on a row after another (it wins), else nothing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RowEdge {
+    /// No shadow.
+    None,
+    /// `inset 2px 0 0 var(--interactive)` on the left.
+    OverriddenBar,
+    /// `inset 0 1px 0 var(--border-subtle-00)` on top.
+    Divider,
+}
+
+impl RowEdge {
+    /// The edge of a row that is `overridden` and maybe `after_row`.
+    pub fn of(overridden: bool, after_row: bool) -> Self {
+        match (after_row, overridden) {
+            (true, _) => Self::Divider,
+            (false, true) => Self::OverriddenBar,
+            (false, false) => Self::None,
+        }
     }
 }
 
@@ -812,9 +849,10 @@ impl RenderOnce for SettingsRow {
             .min_h(rem(64.))
             .py(rem(16.))
             .px(rem(20.))
-            .when(self.overridden, |this| {
+            .map(|this| match RowEdge::of(self.overridden, self.after_row) {
+                RowEdge::None => this,
                 // `.t3-srow--over { box-shadow: inset 2px 0 0 var(--interactive) }`.
-                this.relative().child(
+                RowEdge::OverriddenBar => this.relative().child(
                     div()
                         .absolute()
                         .top_0()
@@ -822,7 +860,18 @@ impl RenderOnce for SettingsRow {
                         .left_0()
                         .w(px(2.))
                         .bg(color(ColorRole::Interactive)),
-                )
+                ),
+                // `.t3-srow + .t3-srow { box-shadow: inset 0 1px 0
+                // var(--border-subtle-00) }`.
+                RowEdge::Divider => this.relative().child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .right_0()
+                        .h(px(1.))
+                        .bg(color(ColorRole::BorderSubtle00)),
+                ),
             })
             .child(
                 // `.t3-srow-text { display: flex; flex: 1; min-width: 0; flex-direction: column;
@@ -1298,6 +1347,16 @@ impl RenderOnce for ThemeCard {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_following_row_trades_the_overridden_bar_for_a_divider() {
+        // Reference render of SettingsRowOverridden: rows 2 and 3 are
+        // overridden and show `inset 0 1px 0 #e0e0e0`, no bar.
+        assert_eq!(RowEdge::of(true, true), RowEdge::Divider);
+        assert_eq!(RowEdge::of(false, true), RowEdge::Divider);
+        assert_eq!(RowEdge::of(true, false), RowEdge::OverriddenBar);
+        assert_eq!(RowEdge::of(false, false), RowEdge::None);
+    }
 
     #[test]
     fn keys_split_on_plus() {

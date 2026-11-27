@@ -201,9 +201,11 @@ impl RenderOnce for PairingCard {
                     // `.g-pair-side b { font-size: 1rem; font-weight: 600 }`.
                     .child(sans(div(), 16., 600).child(self.texts.title.clone()))
                     // `.g-pair-side p { margin: calc(-1 * var(--spacing-03)) 0 0;
-                    // font-size: 0.75rem }` in `.g-dim`.
+                    // font-size: 0.75rem }` in `.g-dim`; Carbon's global `p {
+                    // line-height: 1.5 }` makes the lines 18px (reference render).
                     .child(
                         sans(div(), 12., 400)
+                            .line_height(rem(18.))
                             .mt(rem(-8.))
                             .text_color(color(ColorRole::TextSecondary))
                             .child(self.texts.body.clone()),
@@ -371,8 +373,12 @@ impl RenderOnce for PairConfirmSheet {
             )
             // `.g-sheet h3 { margin: 0; font-size: 1.25rem; font-weight: 400 }`.
             .child(sans(div(), 20., 400).child((self.texts.title)(&d)))
+            // `.g-sheet > p { margin: 0 }` in `.g-dim`: Carbon's global `p {
+            // font-size: 1rem; line-height: 1.5; letter-spacing: 0 }` (reference
+            // render: 16/24).
             .child(
-                div()
+                sans(div(), 16., 400)
+                    .line_height(rem(24.))
                     .text_color(color(ColorRole::TextSecondary))
                     .child(self.texts.body.clone()),
             )
@@ -400,7 +406,9 @@ impl RenderOnce for PairConfirmSheet {
             .child(parts::helper((self.texts.check)(&d)))
             .child(
                 // `.g-sheet-check { margin: var(--spacing-03) 0; align-items: flex-start }`.
-                div().my(tokens::SPACING_03).child(
+                // The label column takes the row's remaining width and wraps
+                // in it (reference render: 344px in the 416px sheet).
+                div().flex().flex_col().my(tokens::SPACING_03).child(
                     InlineCheck::new((id.clone(), "check"))
                         .checked(on)
                         .align_top(true)
@@ -408,6 +416,8 @@ impl RenderOnce for PairConfirmSheet {
                             div()
                                 .flex()
                                 .flex_col()
+                                .flex_1()
+                                .min_w_0()
                                 .gap(gpui_kit::px(2.))
                                 .child(self.texts.control.clone())
                                 .child(
