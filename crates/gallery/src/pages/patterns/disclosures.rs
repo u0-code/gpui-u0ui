@@ -6,8 +6,8 @@ use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
     AnyElement, AnyView, App, AppContext as _, Context, CursorStyle, Entity,
-    InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement, Render, SharedString,
-    StatefulInteractiveElement as _, Styled, Window, div, prelude::FluentBuilder as _, rems,
+    InteractiveElement as _, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
+    prelude::FluentBuilder as _, px, rems,
 };
 use u0ui::components::form::{self, inset_outline};
 use u0ui::components::{
@@ -127,17 +127,21 @@ fn settings(p: &str, page: Option<(&Page, &Entity<Page>)>) -> AnyElement {
     let sort: SharedString = page.map_or("r".into(), |(pg, _)| pg.sort.clone());
     let boxes = STATUS.iter().enumerate().map(|(i, label)| {
         let b = Checkbox::new(id(p, &format!("s{i}"))).label(*label);
+        // `.cds--label + .cds--form-item.cds--checkbox-wrapper {
+        // margin-block-start: -0.125rem }`: the first box tucks 2px under
+        // the legend.
+        let wrap = |b: Checkbox| div().when(i == 0, |d| d.mt(px(-2.))).child(b);
         match page {
             Some((_, e)) => {
                 let e = e.clone();
-                b.checked(status[i]).on_checked_change(move |v, _, cx| {
+                wrap(b.checked(status[i]).on_checked_change(move |v, _, cx| {
                     e.update(cx, |this, cx| {
                         this.status[i] = v;
                         cx.notify();
                     })
-                })
+                }))
             }
-            None => b.default_checked(status[i]),
+            None => wrap(b.default_checked(status[i])),
         }
     });
     let mut radios = RadioGroup::new(id(p, "sort"))
@@ -215,7 +219,10 @@ fn settings(p: &str, page: Option<(&Page, &Entity<Page>)>) -> AnyElement {
                         // Each checkbox brings `.cds--checkbox-wrapper`'s 6px bottom margin.
                         .children(boxes),
                 )
-                .child(radios),
+                // `.cds--radio-button-group--vertical .cds--radio-button-wrapper
+                // { margin-block-end: 0.375rem }`, the last one's too: 22px
+                // from "Name" to the buttons.
+                .child(div().pb(px(6.)).child(radios)),
         )
         .child(
             div()
@@ -268,9 +275,11 @@ fn combo(
 /// The live trigger: a 48px square (`size-lg`) (`触发按钮高 48`) holding the avatar or
 /// the settings icon, `layer-hover-01` on hover, the 2px focus ring;
 /// selected (`layer-selected-01`) while its panel is open.
+#[allow(clippy::too_many_arguments)]
 fn trigger(
     p: &str,
     which: usize,
+    label: &'static str,
     open: bool,
     content: AnyElement,
     entity: &Entity<Page>,
@@ -296,10 +305,13 @@ fn trigger(
             })
         }
     };
-    let on_key = toggle.clone();
-    div()
-        .id(key)
-        .track_focus(&focus.tab_index(0).tab_stop(true))
+    // Base's `Button` owns activation: pointer, Enter and Space each run
+    // `on_click` once. (A plain `on_key_down` loses Enter/Space to any
+    // ancestor key binding, which GPUI dispatches before key listeners.)
+    gpui_kit::base::Button::new(key)
+        .track_focus(&focus)
+        .tab_index(0)
+        .accessibility_label(label)
         .relative()
         .flex()
         .items_center()
@@ -309,12 +321,6 @@ fn trigger(
         .when(open, |d| d.bg(color(ColorRole::LayerSelected01)))
         .hover(|s| s.bg(color(ColorRole::LayerHover01)))
         .on_click(move |_, _, cx| toggle(cx))
-        .on_key_down(move |e: &KeyDownEvent, _, cx| {
-            if matches!(e.keystroke.key.as_str(), "enter" | "space") && !e.is_held {
-                on_key(cx);
-                cx.stop_propagation();
-            }
-        })
         .child(content)
         .when(focused, |d| {
             d.child(inset_outline(2., color(ColorRole::Focus)))
@@ -369,6 +375,7 @@ impl Render for Page {
                     .child(trigger(
                         "disc-live",
                         which,
+                        ["Profile", "Settings"][which],
                         open,
                         content,
                         &entity,
