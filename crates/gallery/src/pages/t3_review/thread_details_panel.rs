@@ -11,6 +11,8 @@ use u0ui::prelude::*;
 use u0ui::t3::review::{
     ChecksStatus, ContextMeter, PullRequestRow, PullRequestState, ThreadDetailsSection,
 };
+use u0ui::t3::workspace::EnvironmentRow;
+use u0ui::t3::{ConnectionStatus, MachineKind};
 
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
@@ -46,7 +48,18 @@ fn panel(prefix: &'static str, used: u64) -> gpui_kit::Div {
             ThreadDetailsSection::new((prefix, 2usize), "Context")
                 .child(ContextMeter::new(used, 200_000)),
         )
-        .child(ThreadDetailsSection::new((prefix, 3usize), "Servers").count(2))
+        // `h(C.EnvironmentRow,{name:'vite dev',kind:'server',transport:':5173',
+        // status:'connected'})`.
+        .child(
+            ThreadDetailsSection::new((prefix, 3usize), "Servers")
+                .count(2)
+                .child(
+                    EnvironmentRow::new((prefix, 5usize), "vite dev")
+                        .kind(MachineKind::Server)
+                        .transport(":5173")
+                        .status(ConnectionStatus::Connected),
+                ),
+        )
         .child(
             ThreadDetailsSection::new((prefix, 4usize), "Linked issues")
                 .count(0)
