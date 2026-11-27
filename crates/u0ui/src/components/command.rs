@@ -11,7 +11,7 @@
 //!   the query. Pointer hover highlights, click runs. [`CommandDialog`] opens
 //!   with an empty query and focus in the search field.
 //! - **Appearance**: `layer-01` box with the floating shadow, max 32rem; the
-//!   search field is 3rem tall with a 16px magnifier, `border-subtle-01`
+//!   search field is 3rem tall (2rem in compact density) with a 16px magnifier, `border-subtle-01`
 //!   bottom line and a clear button; the list scrolls past 18rem; headings
 //!   are label-01 `text-secondary` (0.75rem 1rem 0.25rem); items are
 //!   `size-md` (2.5rem) rows with a 16px `icon-secondary` icon, label, and a
@@ -35,10 +35,13 @@
 use super::dialog::{Dialog, DialogSize};
 use super::overlay::{self, Callback, rem};
 use crate::{
+    density::{self, Density},
     icons::{CarbonIcon, Icon, IconSize},
     motion::{self, Motion},
     theme::color,
-    tokens::{ColorRole, FontFamilyKey, SIZE_LG, SIZE_MD, TypeStyle},
+    tokens::{
+        ColorRole, DENSITY_FIELD_MD, FontFamilyKey, SIZE_LG, SIZE_MD, TokenLength, TypeStyle,
+    },
     typography::{self, TypeStyled as _},
 };
 use gpui_kit::{
@@ -304,6 +307,17 @@ impl Command {
     }
 }
 
+/// The search field's height: `.cds--search--lg` (3rem), or
+/// `density-field-md` (2rem) under compact density
+/// (`[data-density="compact"] .cds--search-input { block-size: var(--density-field-md) }`).
+/// The clear button stays a 3rem square either way (`.cds--search-close`).
+pub fn search_height(density: Density) -> TokenLength {
+    match density {
+        Density::Compact => DENSITY_FIELD_MD,
+        Density::Comfortable => SIZE_LG,
+    }
+}
+
 /// The colors of the palette.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CommandLook {
@@ -425,7 +439,7 @@ impl RenderOnce for Command {
         // `.cds--search--lg`: 3rem; magnifier at 1rem; input padded 3rem.
         let search = div()
             .relative()
-            .h(SIZE_LG.rems())
+            .h(search_height(density::current()).rems())
             .flex()
             .items_center()
             .flex_shrink_0()
@@ -746,6 +760,12 @@ impl RenderOnce for CommandDialog {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn search_is_2rem_in_compact_and_3rem_in_comfortable() {
+        assert_eq!(search_height(Density::Compact).px_value(), 32.);
+        assert_eq!(search_height(Density::Comfortable).px_value(), 48.);
+    }
 
     fn parts() -> Vec<Part> {
         vec![
