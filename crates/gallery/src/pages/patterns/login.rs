@@ -5,9 +5,10 @@
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
-    AnyElement, AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render,
-    SharedString, Styled, Window, component::input::InputState, div, linear_color_stop,
-    linear_gradient, prelude::FluentBuilder as _, px, relative, rems,
+    AnyElement, AnyView, App, AppContext as _, Bounds, Context, Entity, Hsla, IntoElement,
+    ParentElement, Pixels, Render, Rgba, SharedString, Styled, Window, canvas,
+    component::input::InputState, div, linear_color_stop, linear_gradient,
+    prelude::FluentBuilder as _, px, relative, rems,
 };
 use u0ui::components::{Checkbox, FieldSize, Input};
 use u0ui::patterns::Caption;
@@ -112,6 +113,9 @@ struct Form {
     primary: Button,
     remember: Checkbox,
     back: Option<Button>,
+    /// The end rule against the marketing side; off once the split row has
+    /// wrapped and nothing sits beside the form.
+    divider: bool,
 }
 
 /// `.cu-plogin-form`: the form column.
@@ -125,8 +129,10 @@ fn form(f: Form) -> impl IntoElement {
         .px(tokens::SPACING_06)
         // `background: var(--background); border-right: 1px solid var(--border-subtle-01)`.
         .bg(color(ColorRole::Background))
-        .border_r_1()
-        .border_color(color(ColorRole::BorderSubtle01))
+        .when(f.divider, |d| {
+            d.border_r_1()
+                .border_color(color(ColorRole::BorderSubtle01))
+        })
         .child(
             // `.cu-plogin-form h2 { margin: 0 0 var(--spacing-03); font-size: 1.75rem;
             // font-weight: 400; line-height: 1.28 }`.
@@ -181,6 +187,53 @@ fn form(f: Form) -> impl IntoElement {
         )))
 }
 
+/// `.cu-plogin-art { position: absolute; inset: 0 0 45% 0; background:
+/// linear-gradient(135deg, var(--charts-1), var(--charts-2) 60%,
+/// transparent); opacity: .85 }` over the side's `background-inverse`.
+///
+/// GPUI gradients take two stops and its `opacity` does not composite a
+/// group, so the three stops are two stacked layers of opaque colors
+/// pre-blended at 85% over the background: `P2` solid to 60% then fading
+/// to a transparent `P2` at 100%, and over it `P1` fading out by 60%. Over
+/// 0–60% that is `P1·(1−s) + P2·s`, from 60% `P2` thinning to the
+/// background: the CSS result exactly.
+fn art() -> [AnyElement; 2] {
+    let bg = color(ColorRole::BackgroundInverse);
+    let p1 = over(color(ColorRole::Charts1), bg, 0.85);
+    let p2 = over(color(ColorRole::Charts2), bg, 0.85);
+    let layer = |from: Hsla, from_at: f32, to: Hsla, to_at: f32| {
+        div()
+            .absolute()
+            .top_0()
+            .left_0()
+            .right_0()
+            .h(relative(0.55))
+            .bg(linear_gradient(
+                135.,
+                linear_color_stop(from, from_at),
+                linear_color_stop(to, to_at),
+            ))
+            .into_any_element()
+    };
+    [
+        layer(p2, 0.6, p2.opacity(0.), 1.),
+        layer(p1, 0., p1.opacity(0.), 0.6),
+    ]
+}
+
+/// `top` at `alpha` composited over the opaque `bottom`, in sRGB.
+fn over(top: Hsla, bottom: Hsla, alpha: f32) -> Hsla {
+    let (t, b) = (top.to_rgb(), bottom.to_rgb());
+    let mix = |t: f32, b: f32| t * alpha + b * (1. - alpha);
+    Rgba {
+        r: mix(t.r, b.r),
+        g: mix(t.g, b.g),
+        b: mix(t.b, b.b),
+        a: 1.,
+    }
+    .into()
+}
+
 /// `.cu-plogin-side`: marketing, apart from the form.
 fn side() -> impl IntoElement {
     div()
@@ -197,23 +250,7 @@ fn side() -> impl IntoElement {
         // `background: var(--background-inverse); color: var(--text-inverse)`.
         .bg(color(ColorRole::BackgroundInverse))
         .text_color(color(ColorRole::TextInverse))
-        .child(
-            // `.cu-plogin-art { inset: 0 0 45% 0; background: linear-gradient(135deg,
-            // var(--charts-1), var(--charts-2) 60%, transparent); opacity: .85 }`.
-            // GPUI gradients take two stops: charts-1 → charts-2 fading out.
-            div()
-                .absolute()
-                .top_0()
-                .left_0()
-                .right_0()
-                .h(relative(0.55))
-                .opacity(0.85)
-                .bg(linear_gradient(
-                    135.,
-                    linear_color_stop(color(ColorRole::Charts1), 0.),
-                    linear_color_stop(color(ColorRole::Charts2).opacity(0.5), 1.),
-                )),
-        )
+        .children(art())
         .child(
             div()
                 .relative()
@@ -297,6 +334,7 @@ pub fn reference(email: &Entity<InputState>, password: &Entity<InputState>) -> i
                     .icon(CarbonIcon::ArrowRight),
                 remember: Checkbox::new("lg-ref-remember").label("Remember email"),
                 back: None,
+                divider: true,
             })),
         )
         .child(side())
@@ -330,7 +368,7 @@ pub fn thumbnail(_: &mut Window, _: &mut App) -> AnyElement {
 }
 
 impl Render for LoginPage {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let entity = cx.entity();
         let error = error_text(self.step, self.error);
         let field = if self.step == 0 {
@@ -410,6 +448,13 @@ impl Render for LoginPage {
         } else {
             "Forgot password?"
         };
+        // The split row wraps when it is narrower than the form (22rem) and
+        // the side's 15rem minimum: the side drops under the form, and the
+        // form's end rule would face empty space, so it goes.
+        let bounds =
+            window.use_keyed_state("lg-live-bounds", cx, |_, _| Bounds::<Pixels>::default());
+        let width = f32::from(bounds.read(cx).size.width);
+        let wrapped = width > 0. && width < f32::from(window.rem_size()) * (22. + 15.);
         let the_form = form(Form {
             prefix: "lg-live",
             field,
@@ -417,13 +462,31 @@ impl Render for LoginPage {
             primary,
             remember,
             back,
+            divider: !(self.split && wrapped),
         });
+        let measure = canvas(
+            move |b, _, cx| {
+                if *bounds.read(cx) != b {
+                    bounds.update(cx, |s, cx| {
+                        *s = b;
+                        cx.notify();
+                    });
+                }
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full();
         let live = div()
+            .relative()
             .flex()
             .flex_row()
             .flex_wrap()
             .w_full()
             .min_h(rems(31.))
+            .child(measure)
             .when(!self.split, |d| {
                 // Centered on the background.
                 d.justify_center()
