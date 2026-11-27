@@ -9,8 +9,8 @@ use crate::{
     tokens::ColorRole,
 };
 use gpui_kit::{
-    App, ElementId, Hsla, InteractiveElement, IntoElement, ParentElement, RenderOnce, SharedString,
-    Styled, Window, div, prelude::FluentBuilder as _, px,
+    AnyElement, App, ElementId, Hsla, InteractiveElement, IntoElement, ParentElement, RenderOnce,
+    SharedString, Styled, Window, div, prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -170,6 +170,8 @@ pub struct IssueRow {
     assignee: Option<SharedString>,
     time: SharedString,
     linked_threads: usize,
+    selected: bool,
+    trailing: Vec<AnyElement>,
     on_click: Option<Handler>,
 }
 
@@ -190,8 +192,22 @@ impl IssueRow {
             assignee: None,
             time: SharedString::default(),
             linked_threads: 0,
+            selected: false,
+            trailing: Vec::new(),
             on_click: None,
         }
+    }
+
+    /// Mark this row selected (`layer-selected-01` + 3px interactive bar).
+    pub fn selected(mut self, selected: bool) -> Self {
+        self.selected = selected;
+        self
+    }
+
+    /// Append a trailing status pill or badge before assignee/time.
+    pub fn trailing(mut self, element: impl IntoElement) -> Self {
+        self.trailing.push(element.into_any_element());
+        self
     }
 
     /// The state.
@@ -246,6 +262,7 @@ impl RenderOnce for IssueRow {
         let bars = priority_bars(self.priority);
         sans(press(id, &focus), 14., 400)
             .accessibility_label(self.title.clone())
+            .relative()
             .w_full()
             .items_center()
             .gap(rem(12.))
@@ -254,7 +271,20 @@ impl RenderOnce for IssueRow {
             .border_b_1()
             .border_color(color(ColorRole::BorderSubtle01))
             .text_color(color(ColorRole::TextPrimary))
-            .hover(|s| s.bg(color(ColorRole::LayerHover01)))
+            .when(self.selected, |this| {
+                this.bg(color(ColorRole::LayerSelected01)).child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .left_0()
+                        .w(px(3.))
+                        .bg(color(ColorRole::BorderInteractive)),
+                )
+            })
+            .when(!self.selected, |this| {
+                this.hover(|s| s.bg(color(ColorRole::LayerHover01)))
+            })
             .when_some(on_click, |this, f| this.on_click(move |_, w, cx| f(w, cx)))
             .child(
                 craft::titled(
@@ -294,6 +324,7 @@ impl RenderOnce for IssueRow {
                     .map(|l| LabelChip::new(l.name.clone(), l.color)),
             )
             .child(div().flex_1())
+            .children(self.trailing)
             .when(self.linked_threads > 0, |this| {
                 let n = self.linked_threads;
                 this.child(craft::titled(

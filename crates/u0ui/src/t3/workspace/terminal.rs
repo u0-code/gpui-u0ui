@@ -98,9 +98,12 @@ pub struct TerminalDrawer {
     id: ElementId,
     tabs: Vec<TerminalTab>,
     active: usize,
+    controlled: bool,
     lines: Vec<SharedString>,
     exited: Option<i32>,
     texts: TerminalTexts,
+    viewport: Option<AnyElement>,
+    bar_extra: Vec<AnyElement>,
     on_select: Option<IndexHandler>,
     on_close: Option<IndexHandler>,
     on_new: Option<Handler>,
@@ -117,9 +120,12 @@ impl TerminalDrawer {
             id: id.into(),
             tabs: tabs.into_iter().collect(),
             active: 0,
+            controlled: false,
             lines: Vec::new(),
             exited: None,
             texts: TerminalTexts::default(),
+            viewport: None,
+            bar_extra: Vec::new(),
             on_select: None,
             on_close: None,
             on_new: None,
@@ -128,6 +134,25 @@ impl TerminalDrawer {
             on_maximize: None,
             on_hide: None,
         }
+    }
+
+    /// Controlled active tab index.
+    pub fn controlled(mut self, active: usize) -> Self {
+        self.active = active;
+        self.controlled = true;
+        self
+    }
+
+    /// Custom interactive terminal viewport element replacing static `lines`.
+    pub fn viewport(mut self, viewport: impl IntoElement) -> Self {
+        self.viewport = Some(viewport.into_any_element());
+        self
+    }
+
+    /// Extra element placed in the 32px tab strip before the right-hand actions.
+    pub fn bar_extra(mut self, element: impl IntoElement) -> Self {
+        self.bar_extra.push(element.into_any_element());
+        self
     }
 
     /// The tab selected at first (`active`, default 0); the drawer then
@@ -209,8 +234,13 @@ impl RenderOnce for TerminalDrawer {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
         let initial = self.active;
+        let controlled = self.controlled;
         let selected = window.use_keyed_state((id.clone(), "active"), cx, move |_, _| initial);
-        let active = *selected.read(cx);
+        let active = if controlled {
+            self.active
+        } else {
+            *selected.read(cx)
+        };
         let mut bar: Vec<AnyElement> = Vec::new();
         for (i, tab) in self.tabs.iter().enumerate() {
             let on = i == active;
@@ -337,6 +367,7 @@ impl RenderOnce for TerminalDrawer {
             .into_any_element(),
         );
         bar.push(div().flex_1().into_any_element());
+        bar.extend(self.bar_extra);
         for (key, label, glyph, f) in [
             (
                 "split",
@@ -449,20 +480,24 @@ impl RenderOnce for TerminalDrawer {
                     .border_color(color(ColorRole::BorderSubtle01))
                     .children(bar),
             )
-            .child(
-                // `.t3-term-view { flex: 1; padding: spacing-03 spacing-04; overflow: auto;
-                // font-family: mono; font-size: 0.75rem; line-height: 1.33333; white-space: pre-wrap }`.
-                ScrollArea::new((id.clone(), "view"))
-                    .flex_1()
-                    .min_h_0()
-                    .child(
-                        mono(div(), 12., 400)
-                            .line_height(relative(1.33333))
-                            .py(rem(8.))
-                            .px(rem(12.))
-                            .children(view),
-                    ),
-            )
+            .child(match self.viewport {
+                Some(viewport) => viewport,
+                None => {
+                    // `.t3-term-view { flex: 1; padding: spacing-03 spacing-04; overflow: auto;
+                    // font-family: mono; font-size: 0.75rem; line-height: 1.33333; white-space: pre-wrap }`.
+                    ScrollArea::new((id.clone(), "view"))
+                        .flex_1()
+                        .min_h_0()
+                        .child(
+                            mono(div(), 12., 400)
+                                .line_height(relative(1.33333))
+                                .py(rem(8.))
+                                .px(rem(12.))
+                                .children(view),
+                        )
+                        .into_any_element()
+                }
+            })
     }
 }
 

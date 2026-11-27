@@ -152,6 +152,7 @@ fn reference_tabs() -> Vec<SurfaceTab> {
         SurfaceTab::new("b", "localhost:5173", SurfaceKind::Browser).closable(true),
         SurfaceTab::new("t", "Terminal", SurfaceKind::Terminal).closable(true),
         SurfaceTab::new("f", "Files", SurfaceKind::Files),
+        SurfaceTab::new("info", "Details", SurfaceKind::Details),
         SurfaceTab::new("pr", "Pull request", SurfaceKind::Pr)
             .disabled_reason("No pull request on this branch yet."),
         SurfaceTab::new("dev", "Device", SurfaceKind::Device)
