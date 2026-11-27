@@ -167,6 +167,10 @@ pub fn menu_shadow() -> Vec<BoxShadow> {
     vec![BoxShadow::new(px(0.), px(4.), hsla(0., 0., 0., 0.5)).blur_radius(px(8.))]
 }
 
+/// The name's flex-shrink weight against the links' 1: it takes nearly all
+/// of a shortfall until only its padding is left.
+const NAME_SHRINK: f32 = 1000.;
+
 /// The UI shell header. See the module docs.
 #[derive(IntoElement)]
 pub struct NavigationMenu {
@@ -606,6 +610,12 @@ impl RenderOnce for NavigationMenu {
                     .track_focus(&brand_focus)
                     .accessibility_label(self.brand.clone())
                     .h_full()
+                    // In a bar too narrow for everything the name gives way
+                    // first, down to its padding, its text ellipsized, so the
+                    // links (Manage's chevron and focus ring) and the global
+                    // actions still fit; then the links shrink.
+                    .min_w_0()
+                    .flex_shrink(NAME_SHRINK)
                     .flex()
                     .flex_row()
                     .items_center()
@@ -627,10 +637,18 @@ impl RenderOnce for NavigationMenu {
                         }
                     })
                     .when(!self.brand_prefix.is_empty(), |this| {
-                        this.child(div().mr(rem(4.)).child(self.brand_prefix.clone()))
+                        this.child(
+                            div()
+                                .flex_none()
+                                .mr(rem(4.))
+                                .child(self.brand_prefix.clone()),
+                        )
                     })
                     .child(
                         div()
+                            .min_w_0()
+                            .overflow_hidden()
+                            .text_ellipsis()
                             .font_weight(FontWeight::SEMIBOLD)
                             .child(self.brand.clone()),
                     ),
