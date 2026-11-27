@@ -386,14 +386,23 @@ pub struct PaletteNav {
 }
 
 impl PaletteNav {
-    /// Open `page` on top (`push`); the input clears.
+    /// Open `page` on top (`push`); the input clears and takes focus.
     pub fn push(&self, page: PaletteLevel, window: &mut Window, cx: &mut App) {
         self.stack.update(cx, |s, cx| {
             s.push(page);
             cx.notify();
         });
-        self.input.update(cx, |s, cx| s.set_value("", window, cx));
+        fresh_input(&self.input, window, cx);
     }
+}
+
+/// A page change gives the new page an empty, focused input: the reference
+/// recreates it (`<input key={stack.length} autoFocus>`), so typing reaches
+/// the new page and focus is not left on a Back arrow that just went away.
+fn fresh_input(input: &Entity<InputState>, window: &mut Window, cx: &mut App) {
+    input.update(cx, |s, cx| s.set_value("", window, cx));
+    let focus = gpui_kit::Focusable::focus_handle(input.read(cx), cx);
+    focus.focus(window, cx);
 }
 
 /// The palette's user-facing strings (the reference's defaults).
@@ -556,7 +565,7 @@ impl RenderOnce for PalettePage {
                     s.pop();
                     cx.notify();
                 });
-                input.update(cx, |s, cx| s.set_value("", window, cx));
+                fresh_input(&input, window, cx);
                 if let Some(f) = &on_back {
                     f(window, cx);
                 }
