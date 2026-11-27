@@ -292,12 +292,14 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("review-thread-card", "ReviewThreadCard", "T3 · Diff & review", Component::ReviewThreadCard.summary(), pages::t3_review::review_thread_card::build).thumbnail(pages::t3_review::review_thread_card::thumbnail),
     // T3 · Composer (src/t3/composer.jsx)
     PageDef::new("composer-attachment-strip", "ComposerAttachmentStrip", "T3 · Composer", Component::ComposerAttachmentStrip.summary(), pages::t3_composer::composer_attachment_strip::build).thumbnail(pages::t3_composer::composer_attachment_strip::thumbnail),
+    PageDef::new("composer-banner-stack", "ComposerBannerStack", "T3 · Composer", Component::ComposerBannerStack.summary(), pages::t3_composer::composer_banner_stack::build).thumbnail(pages::t3_composer::composer_banner_stack::thumbnail),
     PageDef::new("composer-command-menu", "ComposerCommandMenu", "T3 · Composer", Component::ComposerCommandMenu.summary(), pages::t3_composer::composer_command_menu::build).thumbnail(pages::t3_composer::composer_command_menu::thumbnail),
     PageDef::new("composer-primary-actions", "ComposerPrimaryActions", "T3 · Composer", Component::ComposerPrimaryActions.summary(), pages::t3_composer::composer_primary_actions::build).thumbnail(pages::t3_composer::composer_primary_actions::thumbnail),
     PageDef::new("context-chip", "ContextChip", "T3 · Composer", Component::ContextChip.summary(), pages::t3_composer::context_chip::build).thumbnail(pages::t3_composer::context_chip::thumbnail),
     PageDef::new("effort-glyph", "EffortGlyph", "T3 · Composer", Component::EffortGlyph.summary(), pages::t3_composer::effort_glyph::build).thumbnail(pages::t3_composer::effort_glyph::thumbnail),
     PageDef::new("queued-runs-control", "QueuedRunsControl", "T3 · Composer", Component::QueuedRunsControl.summary(), pages::t3_composer::queued_runs_control::build).thumbnail(pages::t3_composer::queued_runs_control::thumbnail),
     PageDef::new("read-only-composer-bar", "ReadOnlyComposerBar", "T3 · Composer", Component::ReadOnlyComposerBar.summary(), pages::t3_composer::read_only_composer_bar::build).thumbnail(pages::t3_composer::read_only_composer_bar::thumbnail),
+    PageDef::new("voice-input-pill", "VoiceInputPill", "T3 · Composer", Component::VoiceInputPill.summary(), pages::t3_composer::voice_input_pill::build).thumbnail(pages::t3_composer::voice_input_pill::thumbnail),
     // T3 · Timeline (src/t3/timeline.jsx, src/t3/chat.jsx)
     PageDef::new("approval-card", "ApprovalCard", "T3 · Timeline", Component::ApprovalCard.summary(), pages::t3_timeline::approval_card::build).thumbnail(pages::t3_timeline::approval_card::thumbnail),
     PageDef::new("assistant-message", "AssistantMessage", "T3 · Timeline", Component::AssistantMessage.summary(), pages::t3_timeline::assistant_message::build).thumbnail(pages::t3_timeline::assistant_message::thumbnail),
