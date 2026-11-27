@@ -541,7 +541,7 @@ impl RenderOnce for SidebarShelfHeader {
 // ── PullRequestMiniBadge ────────────────────────────────────────────────
 
 /// A compact PR badge (`PullRequestMiniBadge`, `.t3-prmini`): 12px
-/// `PullRequest` glyph and number on a tag-colored pill, titled
+/// `PullRequest` glyph and `#<n>` on a tag-colored pill, titled
 /// `PR #<n> - <State>`.
 #[derive(IntoElement)]
 pub struct PullRequestMiniBadge {
@@ -575,7 +575,9 @@ impl RenderOnce for PullRequestMiniBadge {
             .text_color(fg)
             .tooltip(super::title_tooltip(title))
             .child(icon(CarbonIcon::PullRequest, 12., fg))
-            .child(self.number.to_string())
+            // `bundle.js` prints `"#", number` (the `src/t3/shell.jsx` source
+            // still shows the bare number).
+            .child(format!("#{}", self.number))
     }
 }
 
