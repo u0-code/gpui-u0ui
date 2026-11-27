@@ -14,11 +14,16 @@
 //! | UserInputCard | [`UserInputCard`] |
 mod approval;
 pub(crate) mod card;
+mod navigation;
 mod requests;
 mod thread;
 
 pub use approval::{
     ApprovalCard, ApprovalKind, ApprovalState, ApprovalTexts, approval_look, approval_shortcut,
+};
+pub use navigation::{
+    FIND_BAR_SIZE, FindTexts, MINIMAP_SIZE, MinimapKind, MinimapMark, ScrollToEndButton,
+    ThreadFindBar, TimelineMinimap, scroll_to_end_label,
 };
 pub use requests::{
     Answer, InputKey, InputOption, InputProgress, InputQuestion, PlanStep, PlanTexts,
