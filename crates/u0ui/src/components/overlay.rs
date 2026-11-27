@@ -171,6 +171,21 @@ pub(crate) fn surface_focus(
     window: &mut Window,
     cx: &mut App,
 ) -> FocusHandle {
+    surface_focus_returning(id, open, initial, None, window, cx)
+}
+
+/// [`surface_focus`], returning focus on close to `return_to` when given
+/// instead of whatever had focus when the surface opened (a menubar menu
+/// reached with ←/→ from another menu returns to its own trigger, not to
+/// the menu it replaced).
+pub(crate) fn surface_focus_returning(
+    id: &ElementId,
+    open: bool,
+    initial: Option<FocusHandle>,
+    return_to: Option<FocusHandle>,
+    window: &mut Window,
+    cx: &mut App,
+) -> FocusHandle {
     let state = window.use_keyed_state((id.clone(), "surface-focus"), cx, |_, cx| SurfaceFocus {
         focus: cx.focus_handle(),
         previous: None,
@@ -178,7 +193,7 @@ pub(crate) fn surface_focus(
     });
     let shown = state.read(cx).shown;
     if open && !shown {
-        let previous = window.focused(cx);
+        let previous = return_to.or_else(|| window.focused(cx));
         state.update(cx, |state, _| {
             state.shown = true;
             state.previous = previous;

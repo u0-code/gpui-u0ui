@@ -151,3 +151,39 @@ fn near_the_window_end_the_menu_lines_up_with_the_chevron_end(cx: &mut TestAppCo
     click_page(window, cx, probe);
     assert_eq!(ran(&page, cx), Some("Commit only"));
 }
+
+fn shown(window: AnyWindowHandle, cx: &mut TestAppContext, id: ElementId) -> bool {
+    cx.update_window(window, |_, w, _| w.try_find(id).is_some())
+        .unwrap()
+}
+
+/// Tab closes the menu and returns focus to the chevron (Carbon `Menu`),
+/// so Enter and Escape keep working afterwards (design review FB2, item 1).
+#[gpui_kit::test]
+fn tab_closes_the_menu_and_returns_to_the_chevron(cx: &mut TestAppContext) {
+    let (window, page) = open(cx);
+    wait(window, cx);
+    let trigger = ElementId::from((menu("start"), "trigger"));
+    let surface = ElementId::from((menu("start"), "menu"));
+    act(window, cx, |w, cx| w.click(trigger, cx));
+    assert!(shown(window, cx, surface.clone()));
+    act(window, cx, |w, cx| w.press("tab", cx));
+    assert!(
+        !shown(window, cx, surface.clone()),
+        "Tab left the menu open"
+    );
+    // Back on the chevron: Enter reopens, Escape closes again.
+    act(window, cx, |w, cx| w.press("enter", cx));
+    assert!(
+        shown(window, cx, surface.clone()),
+        "Tab did not return to the chevron"
+    );
+    act(window, cx, |w, cx| w.press("escape", cx));
+    assert!(
+        !shown(window, cx, surface.clone()),
+        "Escape did not close the menu"
+    );
+    act(window, cx, |w, cx| w.press("enter", cx));
+    act(window, cx, |w, cx| w.press("enter", cx));
+    assert_eq!(ran(&page, cx), Some("Commit only"));
+}

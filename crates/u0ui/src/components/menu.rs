@@ -13,8 +13,14 @@
 //!   first enabled item, with its focus ring; ↓/↑ move (wrapping, skipping disabled
 //!   items), Home/End, Enter/Space activate, → or Enter opens a submenu and
 //!   enters it, ←/Escape leaves a submenu, Escape closes the menu (focus
-//!   returns to the trigger), Tab closes, typing jumps to the next item that
-//!   starts with the typed text (type-ahead, 500ms buffer).
+//!   returns to the trigger), typing jumps to the next item that starts
+//!   with the typed text (type-ahead, 500ms buffer).
+//! - **Leaving** (Carbon `Menu`'s `onKeyDown` / `onBlur`): Tab and Shift+Tab
+//!   close the menu and return focus to the element that had it when the
+//!   menu opened (Carbon prevents the Tab, focuses that element and calls
+//!   `onClose`). They need [`init`]'s bindings, which beat Base's
+//!   window-level Tab. A press outside closes it too (focus stays where the
+//!   press put it), and so does focus leaving the menu any other way.
 //! - **Appearance** ([`MenuLook`], [`MenuGeometry`]): `layer-01` with the
 //!   floating shadow, 0.25rem block padding, 10rem–18rem wide (12rem with
 //!   icons or selectable items); items `text-secondary` body-compact-01,
@@ -42,12 +48,34 @@ use gpui_kit::{
     SharedString, StatefulInteractiveElement as _, Styled, Window, canvas, div, point,
     prelude::FluentBuilder as _, px,
 };
+use gpui_kit::{KeyBinding, TestSupportExt as _, actions};
 use std::{
     cell::RefCell,
     collections::HashMap,
     rc::Rc,
     time::{Duration, Instant},
 };
+
+actions!(
+    u0ui_menu,
+    [
+        /// Tab or Shift+Tab inside an open menu: close it (Carbon `Menu`).
+        TabOut
+    ]
+);
+
+/// The key context of an open menu's surface.
+pub(crate) const KEY_CONTEXT: &str = "U0Menu";
+
+/// Bind Tab and Shift+Tab inside menus to [`TabOut`]. A binding in the
+/// menu's own key context is deeper than Base's window-level `root::Tab`,
+/// so it wins: without it the root moves focus and the menu stays open.
+pub(crate) fn init(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("tab", TabOut, Some(KEY_CONTEXT)),
+        KeyBinding::new("shift-tab", TabOut, Some(KEY_CONTEXT)),
+    ]);
+}
 
 /// `.cds--menu-item { transition: background-color 70ms cubic-bezier(0.2, 0, 0.38, 0.9) }`.
 pub const ITEM_MOTION: Motion = Motion::new(Curve::ProductiveStandard, Speed::Fast01);
@@ -603,8 +631,10 @@ pub(crate) struct Menu {
     /// A submenu opened from the keyboard highlights its first enabled item
     /// (Carbon focuses it), then clears the request on its parent level.
     focus_first: Option<Entity<LevelState>>,
-    /// The root menu opened this frame: start over on [`initial_row`].
-    opening: bool,
+    /// Set when the root menu opens and cleared by the first render of the
+    /// menu itself (which may come frames later: an anchored menu waits to be
+    /// measured): start over on [`initial_row`].
+    opening: Option<Entity<bool>>,
 }
 
 impl Menu {
@@ -626,7 +656,7 @@ impl Menu {
             path: String::new(),
             on_key: None,
             focus_first: None,
-            opening: false,
+            opening: None,
         }
     }
 
@@ -728,7 +758,13 @@ impl RenderOnce for Menu {
             Rc::new(rows)
         };
         let state = window.use_keyed_state((id.clone(), "level"), cx, |_, _| LevelState::default());
-        if self.opening {
+        let opening = self.opening.as_ref().is_some_and(|o| *o.read(cx));
+        if let Some(flag) = &self.opening
+            && opening
+        {
+            flag.update(cx, |v, _| *v = false);
+        }
+        if opening {
             // A fresh open forgets the last one (highlight, open submenu,
             // type-ahead) and focuses the first item, keyboard ring included.
             let first = initial_row(&rows);
@@ -824,6 +860,7 @@ impl RenderOnce for Menu {
                         Some((_, close)) => close(window, cx),
                         None => (chain.close)(window, cx),
                     },
+                    // Reached only without [`init`]'s bindings.
                     "tab" => (chain.close)(window, cx),
                     _ => {
                         if let Some(extra) = &extra
@@ -1062,10 +1099,20 @@ impl RenderOnce for Menu {
             }
         }
 
+        let tab_out = {
+            let chain = self.chain.clone();
+            move |_: &TabOut, window: &mut Window, cx: &mut App| {
+                (chain.close)(window, cx);
+                cx.stop_propagation();
+            }
+        };
         div()
             .id(id.clone())
+            .test_support()
+            .key_context(KEY_CONTEXT)
             .track_focus(&self.focus)
             .on_key_down(on_key)
+            .on_action(tab_out)
             .flex()
             .flex_col()
             .py(rem(geometry.padding_block))
@@ -1098,8 +1145,20 @@ pub(crate) fn menu_surface(
     window: &mut Window,
     cx: &mut App,
 ) -> Option<AnyElement> {
+    menu_surface_returning(id, spec, None, window, cx)
+}
+
+/// [`menu_surface`] that returns focus to `return_to` on close (when given)
+/// instead of to whatever had focus when it opened.
+pub(crate) fn menu_surface_returning(
+    id: &ElementId,
+    spec: MenuSpec,
+    return_to: Option<FocusHandle>,
+    window: &mut Window,
+    cx: &mut App,
+) -> Option<AnyElement> {
     let open = spec.open;
-    let focus = overlay::surface_focus(id, open, None, window, cx);
+    let focus = overlay::surface_focus_returning(id, open, None, return_to, window, cx);
     let selections = window.use_keyed_state((id.clone(), "selections"), cx, |_, _| HashMap::new());
     let bounds = window
         .use_keyed_state((id.clone(), "sub-bounds"), cx, |_, _| {
@@ -1112,10 +1171,36 @@ pub(crate) fn menu_surface(
     if open != *was_open.read(cx) {
         was_open.update(cx, |v, _| *v = open);
     }
+    // Whether focus has been inside the open menu (it moves in a frame
+    // after the open); once it has, focus leaving closes the menu (Carbon
+    // `Menu` `onBlur`). Submenus count as inside: they are its children.
+    let had_focus = window.use_keyed_state((id.clone(), "had-focus"), cx, |_, _| false);
     if !open {
+        if *had_focus.read(cx) {
+            had_focus.update(cx, |v, _| *v = false);
+        }
         return None;
     }
     let set_open = spec.set_open;
+    // Focus moves in once the surface has painted. Overlay's open-time
+    // focus can land before that (a menu open on arrival, or one waiting a
+    // frame to be measured), when the handle is in no rendered frame yet and
+    // the focus is lost: the first paint takes it again.
+    let pending = window.use_keyed_state((id.clone(), "focus-pending"), cx, |_, _| false);
+    let fresh = window.use_keyed_state((id.clone(), "fresh"), cx, |_, _| false);
+    if opening {
+        had_focus.update(cx, |v, _| *v = false);
+        pending.update(cx, |v, _| *v = true);
+        fresh.update(cx, |v, _| *v = true);
+    } else if focus.contains_focused(window, cx) {
+        if !*had_focus.read(cx) {
+            had_focus.update(cx, |v, _| *v = true);
+        }
+    } else if *had_focus.read(cx) {
+        had_focus.update(cx, |v, _| *v = false);
+        let set_open = set_open.clone();
+        window.defer(cx, move |window, cx| set_open(false, window, cx));
+    }
     let chain = Chain {
         close: {
             let set_open = set_open.clone();
@@ -1139,12 +1224,33 @@ pub(crate) fn menu_surface(
         .label(spec.label)
         .min_width(spec.min_width);
     menu.on_key = spec.on_unhandled_key;
-    menu.opening = opening;
+    menu.opening = Some(fresh);
+    let take_focus = {
+        let focus = menu.focus.clone();
+        canvas(
+            |_, _, _| {},
+            move |_, _, window, cx| {
+                if !*pending.read(cx) {
+                    return;
+                }
+                pending.update(cx, |v, _| *v = false);
+                let focus = focus.clone();
+                window.defer(cx, move |window, cx| {
+                    if !focus.contains_focused(window, cx) {
+                        focus.focus(window, cx);
+                    }
+                });
+            },
+        )
+        .absolute()
+        .size_0()
+    };
     Some(
         div()
             .id((id.clone(), "surface"))
             .on_mouse_down_out(outside)
             .child(menu)
+            .child(take_focus)
             .into_any_element(),
     )
 }
@@ -1171,27 +1277,40 @@ pub(crate) fn anchored_menu_aligned(
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
-    anchored_menu_impl(id, trigger, spec, end, false, window, cx)
+    anchored_menu_impl(id, trigger, spec, end, false, None, window, cx)
 }
 
 /// [`anchored_menu`] whose trigger fills its parent's height (a menubar
-/// trigger: `.cu-menubar-trigger { height: 100% }`).
+/// trigger: `.cu-menubar-trigger { height: 100% }`). Closing returns focus
+/// to `trigger_focus`, the trigger whose menu was open.
 pub(crate) fn anchored_menu_full_height(
     id: &ElementId,
     trigger: AnyElement,
+    trigger_focus: FocusHandle,
     spec: MenuSpec,
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
-    anchored_menu_impl(id, trigger, spec, false, true, window, cx)
+    anchored_menu_impl(
+        id,
+        trigger,
+        spec,
+        false,
+        true,
+        Some(trigger_focus),
+        window,
+        cx,
+    )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn anchored_menu_impl(
     id: &ElementId,
     trigger: AnyElement,
     spec: MenuSpec,
     end: bool,
     full_height: bool,
+    return_to: Option<FocusHandle>,
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
@@ -1211,7 +1330,7 @@ fn anchored_menu_impl(
             side.anchor()
         })
         .when(full_height, |this| this.h_full());
-    match menu_surface(id, spec, window, cx) {
+    match menu_surface_returning(id, spec, return_to, window, cx) {
         // Not painted until measured on the side it fits (no first-open
         // frame below the trigger before the flip).
         Some(surface) => popup.content(anchor.surface(surface)).into_any_element(),

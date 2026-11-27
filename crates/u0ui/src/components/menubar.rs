@@ -111,6 +111,14 @@ fn set_open(state: &Entity<BarState>, open: Option<usize>, window: &mut Window, 
     window.refresh();
 }
 
+/// Moving to another menu while one is open: focus that menu's trigger
+/// first, so the closing menu sees focus already gone elsewhere and does not
+/// pull it back to its own trigger (whichever of the two renders last would
+/// win), and the opening menu returns to its own trigger when it closes.
+fn switch_focus(trigger: &FocusHandle, window: &mut Window, cx: &mut App) {
+    trigger.focus(window, cx);
+}
+
 impl RenderOnce for Menubar {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
@@ -172,18 +180,24 @@ impl RenderOnce for Menubar {
                 .on_hover({
                     let state = state.clone();
                     move |hovering, window, cx| {
-                        state.update(cx, |s, cx| {
+                        let switched = state.update(cx, |s, cx| {
+                            let mut switched = None;
                             if *hovering {
                                 s.hovered = Some(index);
                                 // A menubar follows the pointer once a menu is open.
                                 if s.open.is_some() && s.open != Some(index) {
                                     s.open = Some(index);
+                                    switched = s.focus.get(index).cloned();
                                 }
                             } else if s.hovered == Some(index) {
                                 s.hovered = None;
                             }
                             cx.notify();
+                            switched
                         });
+                        if let Some(trigger) = switched {
+                            switch_focus(&trigger, window, cx);
+                        }
                         window.refresh();
                     }
                 })
@@ -237,10 +251,13 @@ impl RenderOnce for Menubar {
             };
             let hook: menu::KeyHook = {
                 let state = state.clone();
+                let focus = focus.clone();
                 Rc::new(move |key, window, cx| match key {
                     "left" | "right" => {
                         let dir = if key == "left" { -1 } else { 1 };
-                        set_open(&state, Some(neighbour(index, count, dir)), window, cx);
+                        let next = neighbour(index, count, dir);
+                        switch_focus(&focus[next], window, cx);
+                        set_open(&state, Some(next), window, cx);
                         true
                     }
                     _ => false,
@@ -249,6 +266,7 @@ impl RenderOnce for Menubar {
             bar = bar.child(menu::anchored_menu_full_height(
                 &menu_id,
                 trigger,
+                focus[index].clone(),
                 menu::MenuSpec {
                     items,
                     size: MenuSize::Sm,
