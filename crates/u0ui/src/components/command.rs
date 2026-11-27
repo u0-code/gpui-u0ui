@@ -682,6 +682,8 @@ impl RenderOnce for Command {
 
 /// `CommandDialog`: the palette in a passive Carbon Modal (`size="sm"`, no
 /// heading).
+///
+/// Follows shadcn's `CommandDialog` semantics, which the design's API mirrors.
 #[derive(IntoElement)]
 pub struct CommandDialog {
     id: ElementId,
