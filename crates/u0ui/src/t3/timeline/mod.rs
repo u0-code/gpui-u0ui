@@ -53,6 +53,6 @@ pub use subagents::{
 pub use thread::{DividerKind, ThreadBannerKind, ThreadErrorBanner, TimelineDivider};
 pub use work::{
     CHEVRON_MOTION, SHIMMER_PERIOD, ToolActivityIcon, ToolKind, ToolStatus, WorkEntry, WorkLog,
-    WorkLogTexts, WorkingIndicator, WorkingState, shimmer_intensity,
+    WorkLogTexts, WorkingIndicator, WorkingState, reduced_shimmer_opacity, shimmer_intensity,
 };
 pub use worktree::{StageStatus, WorktreeSetupCard, WorktreeStage, WorktreeState, WorktreeTexts};

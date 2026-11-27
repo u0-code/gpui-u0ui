@@ -316,7 +316,13 @@ impl RenderOnce for WorktreeSetupCard {
         let title: AnyElement = if state == WorktreeState::Running {
             div()
                 .font_weight(FontWeight::SEMIBOLD)
-                .child(shimmer((id.clone(), "shimmer"), head_text.clone(), 600, cx))
+                .child(shimmer(
+                    (id.clone(), "shimmer"),
+                    head_text.clone(),
+                    600,
+                    window,
+                    cx,
+                ))
                 .into_any_element()
         } else {
             card::head_title(head_text.clone()).into_any_element()

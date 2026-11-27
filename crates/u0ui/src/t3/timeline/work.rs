@@ -7,9 +7,13 @@
 //!   turns 90° in 110ms (`.t3-chev`); open, a left-ruled list of 32px tool
 //!   rows; clicking a row with `detail` opens a mono well under it.
 //! - **Shimmer**: a 2.4s linear sweep of `text-primary` across
-//!   `text-secondary` text; reduced motion shows plain `text-secondary`.
+//!   `text-secondary` text; under reduced motion the `text-secondary` text
+//!   pulses instead (`ghost.css` `g-pulse 1.4s`).
 use crate::components::kbd::Kbd;
-use crate::t3::base::{Spin, fmt_elapsed, use_ticker};
+use crate::t3::base::{
+    REDUCED_PULSE_PERIOD, Spin, endless_phase, fmt_elapsed, loop_phase, reduced_pulse_opacity,
+    use_ticker,
+};
 use crate::t3::press::{self, rem};
 use crate::{
     icons::CarbonIcon,
@@ -48,17 +52,37 @@ fn mix(a: Hsla, b: Hsla, k: f32) -> Hsla {
     .into()
 }
 
-/// `text` under the `.t3-shimmer` sweep (per-character colors).
+/// The `.t3-shimmer` text's opacity under reduced motion, `elapsed` into
+/// the loop: `text-secondary` pulsing 1 → 0.35 → 1 every 1.4s.
+///
+/// `t3.css` drops the sweep (`@media (prefers-reduced-motion: reduce) {
+/// .t3-shimmer { animation: none; color: text-secondary; background: none } }`),
+/// but `ghost.css`, later in the cascade, puts an animation back with
+/// `!important` (`.t3-shimmer { animation: g-pulse 1.4s ease-in-out infinite
+/// !important }`).
+pub fn reduced_shimmer_opacity(elapsed: Duration) -> f32 {
+    reduced_pulse_opacity(loop_phase(elapsed, REDUCED_PULSE_PERIOD))
+}
+
+/// `text` under the `.t3-shimmer` sweep (per-character colors); under
+/// reduced motion `text-secondary` pulsing ([`reduced_shimmer_opacity`]).
 pub(crate) fn shimmer(
     id: impl Into<ElementId>,
     text: SharedString,
     weight: u16,
+    window: &mut Window,
     cx: &App,
 ) -> AnyElement {
     let secondary = color(ColorRole::TextSecondary);
     if motion::reduced_motion(cx) {
-        // `@media (prefers-reduced-motion: reduce) { .t3-shimmer { animation: none; color: text-secondary } }`.
-        return div().text_color(secondary).child(text).into_any_element();
+        // GPUI's `with_animation` freezes under reduced motion, so the
+        // pulse runs off the shared loop clock.
+        let opacity = reduced_pulse_opacity(endless_phase(REDUCED_PULSE_PERIOD, window));
+        return div()
+            .text_color(secondary)
+            .opacity(opacity)
+            .child(text)
+            .into_any_element();
     }
     let primary = color(ColorRole::TextPrimary);
     let chars: Vec<(usize, char)> = text.char_indices().collect();
@@ -665,7 +689,7 @@ impl RenderOnce for WorkingIndicator {
             .gap(rem(8.))
             .text_size(rem(14.))
             .line_height(rem(18.))
-            .child(shimmer((id.clone(), "shimmer"), text, 400, cx))
+            .child(shimmer((id.clone(), "shimmer"), text, 400, window, cx))
             // `.t3-working-time { font-variant-numeric: tabular-nums; color: text-helper; font-size: 0.75rem }`.
             .child(
                 div()
@@ -687,6 +711,16 @@ impl RenderOnce for WorkingIndicator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_shimmer_pulses_under_reduced_motion() {
+        // `g-pulse 1.4s ease-in-out`: full at 0 and 1.4s, 0.35 at 0.7s.
+        assert!((reduced_shimmer_opacity(Duration::ZERO) - 1.).abs() < 1e-4);
+        assert!((reduced_shimmer_opacity(Duration::from_millis(700)) - 0.35).abs() < 1e-4);
+        assert!((reduced_shimmer_opacity(Duration::from_millis(1400)) - 1.).abs() < 1e-4);
+        let quarter = reduced_shimmer_opacity(Duration::from_millis(350));
+        assert!(quarter > 0.35 && quarter < 1.);
+    }
 
     #[test]
     fn the_shimmer_peak_sweeps_left_to_right() {
