@@ -5,7 +5,10 @@ use super::parts::{card_sub, child_id, icon_button};
 use crate::{
     components::{
         Button, ButtonSize, ButtonVariant, DropdownMenu, DropdownMenuKind, DropdownMenuSize,
-        MenuItem, floating::Align,
+        MenuItem,
+        floating::Align,
+        menu::{self, MenuSize},
+        overlay,
     },
     icons::{CarbonIcon, Icon},
     motion::{self, cubic_bezier_at},
@@ -96,7 +99,9 @@ struct AddressState {
 /// The built-in browser's toolbar (`PreviewChrome`, `.t3-pchrome`): back,
 /// forward, reload or stop, the address field (a lock when `secure`, a
 /// sliding 2px bar while `loading`), the zoom when not 100%, the viewport
-/// menu, open in the system browser and more. 40px on `layer-01`.
+/// menu, open in the system browser and more. 40px on `layer-01`. In a
+/// narrow column (`narrow`) the viewport menu and open in the system browser
+/// are left out, for the caller to offer elsewhere (in More, and a strip).
 #[derive(IntoElement)]
 pub struct PreviewChrome {
     id: ElementId,
@@ -108,6 +113,8 @@ pub struct PreviewChrome {
     viewport: SharedString,
     can_back: bool,
     can_forward: bool,
+    narrow: bool,
+    more_menu: Vec<MenuItem>,
     texts: PreviewChromeTexts,
     on_back: Option<Handler>,
     on_forward: Option<Handler>,
@@ -132,6 +139,8 @@ impl PreviewChrome {
             viewport: VIEWPORTS[0].into(),
             can_back: true,
             can_forward: false,
+            narrow: false,
+            more_menu: Vec::new(),
             texts: PreviewChromeTexts::default(),
             on_back: None,
             on_forward: None,
@@ -183,6 +192,21 @@ impl PreviewChrome {
     /// Whether Forward is enabled (default false, as in the reference).
     pub fn can_forward(mut self, can: bool) -> Self {
         self.can_forward = can;
+        self
+    }
+
+    /// Leave out the viewport menu and open in the system browser, so the
+    /// address keeps its room in a narrow column (the board's 400px right
+    /// column, `.pv-chrome`). Default false.
+    pub fn narrow(mut self, narrow: bool) -> Self {
+        self.narrow = narrow;
+        self
+    }
+
+    /// What More opens: an overflow menu of these items (hanging from
+    /// its end edge) instead of calling `on_more`.
+    pub fn more_menu(mut self, items: impl IntoIterator<Item = MenuItem>) -> Self {
+        self.more_menu = items.into_iter().collect();
         self
     }
 
@@ -447,23 +471,232 @@ impl RenderOnce for PreviewChrome {
                         .child(SharedString::from(format!("{}%", self.zoom))),
                 )
             })
-            .child(div().flex_none().child(menu))
-            .child(click(
-                icon_button(
-                    (id.clone(), "external"),
-                    self.texts.open_external.clone(),
-                    CarbonIcon::Launch,
-                ),
-                self.on_open_external.clone(),
-            ))
-            .child(click(
-                icon_button(
+            .when(!self.narrow, |this| {
+                this.child(div().flex_none().child(menu)).child(click(
+                    icon_button(
+                        (id.clone(), "external"),
+                        self.texts.open_external.clone(),
+                        CarbonIcon::Launch,
+                    ),
+                    self.on_open_external.clone(),
+                ))
+            })
+            .child(if self.more_menu.is_empty() {
+                click(
+                    icon_button(
+                        (id.clone(), "more"),
+                        self.texts.more.clone(),
+                        CarbonIcon::OverflowMenuVertical,
+                    ),
+                    self.on_more.clone(),
+                )
+                .into_any_element()
+            } else {
+                more_menu(
                     (id.clone(), "more"),
-                    self.texts.more.clone(),
-                    CarbonIcon::OverflowMenuVertical,
-                ),
-                self.on_more.clone(),
-            ))
+                    self.texts.more,
+                    self.more_menu,
+                    window,
+                    cx,
+                )
+            })
+    }
+}
+
+/// More as an overflow menu of `items`, hanging from its end edge: it is
+/// the last control of the bar, at the column's end.
+fn more_menu(
+    id: impl Into<ElementId>,
+    label: SharedString,
+    items: Vec<MenuItem>,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
+    let id = id.into();
+    let openness = overlay::openness(&id, None, false, None, window, cx);
+    let (open, set_open) = (openness.open, openness.setter());
+    let trigger = overlay::trigger_wrapper(
+        (id.clone(), "trigger"),
+        icon_button(
+            (id.clone(), "button"),
+            label.clone(),
+            CarbonIcon::OverflowMenuVertical,
+        )
+        .tooltip(!open)
+        .selected(open)
+        .into_any_element(),
+        {
+            let set_open = set_open.clone();
+            Rc::new(move |window, cx| set_open(!open, window, cx))
+        },
+    )
+    .into_any_element();
+    menu::anchored_menu_aligned(
+        &id,
+        trigger,
+        menu::MenuSpec {
+            items,
+            size: MenuSize::Sm,
+            label,
+            open,
+            set_open,
+            min_width: None,
+            on_unhandled_key: None,
+        },
+        true,
+        window,
+        cx,
+    )
+}
+
+// ── PreviewStrip ────────────────────────────────────────────────────────
+
+/// `.pv-strip { min-height: 36px }`.
+pub const STRIP_HEIGHT: f32 = 36.;
+
+/// The strip under a narrow [`PreviewChrome`] (`.pv-strip`, the
+/// TerminalBrowser board): the dev server the page is of, as a chip whose
+/// menu switches to another, the machine it runs on, and one action (open
+/// in your browser).
+#[derive(IntoElement)]
+pub struct PreviewStrip {
+    id: ElementId,
+    name: SharedString,
+    port: Option<u16>,
+    menu_label: SharedString,
+    servers: Vec<MenuItem>,
+    machine: SharedString,
+    action: Option<(SharedString, Handler)>,
+}
+
+impl PreviewStrip {
+    /// A strip for the server `name` (`dev`), listening on `port`.
+    pub fn new(id: impl Into<ElementId>, name: impl Into<SharedString>, port: Option<u16>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            port,
+            menu_label: SharedString::default(),
+            servers: Vec::new(),
+            machine: SharedString::default(),
+            action: None,
+        }
+    }
+
+    /// The servers the chip's menu offers, and the menu's accessible name.
+    pub fn servers(
+        mut self,
+        label: impl Into<SharedString>,
+        items: impl IntoIterator<Item = MenuItem>,
+    ) -> Self {
+        self.menu_label = label.into();
+        self.servers = items.into_iter().collect();
+        self
+    }
+
+    /// The machine the server runs on (`This Mac`).
+    pub fn machine(mut self, machine: impl Into<SharedString>) -> Self {
+        self.machine = machine.into();
+        self
+    }
+
+    /// The action at the end: a ghost button with the launch icon.
+    pub fn action(
+        mut self,
+        label: impl Into<SharedString>,
+        f: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.action = Some((label.into(), Rc::new(f)));
+        self
+    }
+}
+
+impl RenderOnce for PreviewStrip {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let id = self.id.clone();
+        let openness = overlay::openness(&id, None, false, None, window, cx);
+        let (open, set_open) = (openness.open, openness.setter());
+        let primary = color(ColorRole::TextPrimary);
+        // `.pv-srv { display: inline-flex; align-items: center; gap: 6px; height: 32px;
+        // padding: 0 8px; background: layer-selected-01; font-size: 12px; color:
+        // text-primary; cursor: pointer }`, `b { font-weight: 600 }`, `.pv-dot { 8px;
+        // border-radius: 50%; background: support-success }`.
+        let chip = sans(div(), 12., 400)
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap(px(6.))
+            .h(px(32.))
+            .px(px(8.))
+            .bg(color(ColorRole::LayerSelected01))
+            .text_color(primary)
+            .cursor(CursorStyle::PointingHand)
+            .child(
+                div()
+                    .size(px(8.))
+                    .flex_none()
+                    .rounded_full()
+                    .bg(color(ColorRole::SupportSuccess)),
+            )
+            .child(
+                div()
+                    .flex()
+                    .child(sans(div(), 12., 600).child(self.name.clone()))
+                    .children(self.port.map(|p| SharedString::from(format!(":{p}")))),
+            )
+            .child(press::icon(CarbonIcon::ChevronDown, 16., primary));
+        let trigger = overlay::trigger_wrapper((id.clone(), "server"), chip.into_any_element(), {
+            let set_open = set_open.clone();
+            Rc::new(move |window, cx| set_open(!open, window, cx))
+        })
+        .into_any_element();
+        let server = menu::anchored_menu(
+            &id,
+            trigger,
+            menu::MenuSpec {
+                items: self.servers,
+                size: MenuSize::Sm,
+                label: self.menu_label,
+                open,
+                set_open,
+                min_width: None,
+                on_unhandled_key: None,
+            },
+            window,
+            cx,
+        );
+        // `.pv-strip { display: flex; align-items: center; gap: 4px; min-height: 36px;
+        // padding: 0 4px 0 8px; border-bottom: 1px solid border-subtle-01; font-size:
+        // 12px; line-height: 16px; color: text-secondary }`; the machine
+        // (`.pv-strip > span`) takes the room left and ellipsizes.
+        div()
+            .id(id.clone())
+            .flex()
+            .flex_row()
+            .flex_none()
+            .items_center()
+            .gap(px(4.))
+            .min_h(px(STRIP_HEIGHT))
+            .pl(px(8.))
+            .pr(px(4.))
+            .border_b_1()
+            .border_color(color(ColorRole::BorderSubtle01))
+            .child(server)
+            .child(
+                sans(div(), 12., 400)
+                    .flex_1()
+                    .min_w_0()
+                    .truncate()
+                    .text_color(color(ColorRole::TextSecondary))
+                    .child(self.machine),
+            )
+            .children(self.action.map(|(label, f)| {
+                Button::new((id.clone(), "action"), label)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .icon(CarbonIcon::Launch)
+                    .on_click(move |_, w, cx| f(w, cx))
+            }))
     }
 }
 
@@ -1040,6 +1273,11 @@ impl RenderOnce for DeviceControlsRail {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_strip_under_a_narrow_bar_is_36px_as_the_board_draws_it() {
+        assert_eq!(STRIP_HEIGHT, 36.);
+    }
 
     #[test]
     fn load_bar_slides_from_minus_40_to_100_percent() {
