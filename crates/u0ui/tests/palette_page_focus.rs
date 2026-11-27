@@ -2,7 +2,8 @@
 //! autoFocus onKeyDown=…>` behaves:
 //! - every page change (push, the Back arrow, Backspace) leaves focus in the
 //!   new page's search box (design review FG2B #1);
-//! - the search box has focus as soon as the palette appears (FG2C #1).
+//! - the search box has focus as soon as the palette appears (FG2C #1);
+//! - Esc and Backspace go back only from the search box (FG2C #2).
 use gpui_kit::test::{TestSupportExt as _, TestWindowExt as _};
 use gpui_kit::{
     AnyWindowHandle, AppContext as _, Bounds, Context, ElementId, Entity, FocusHandle,
@@ -159,4 +160,35 @@ fn the_search_box_has_focus_on_mount(cx: &mut TestAppContext) {
     settle(cx, window);
     type_text(cx, window, "co");
     assert_eq!(seen.borrow().clone(), ("Commands".into(), "co".into()));
+}
+
+/// Esc and Backspace belong to the search box (the reference's `onKeyDown`
+/// is on the `<input>`): with focus elsewhere inside the palette they do not
+/// go back.
+#[gpui_kit::test]
+fn keys_elsewhere_in_the_palette_do_not_go_back(cx: &mut TestAppContext) {
+    let seen: Seen = Rc::new(RefCell::new(Default::default()));
+    let (window, page) = open(cx, &seen);
+    settle(cx, window);
+    click(cx, window, "go");
+    assert_eq!(seen.borrow().0, SharedString::from("Page 2"));
+    cx.update_window(window, |_, window, cx| {
+        let focus = page.read(cx).item_focus.clone();
+        focus.focus(window, cx);
+    })
+    .unwrap();
+    settle(cx, window);
+    for key in ["backspace", "escape"] {
+        press(cx, window, key);
+        assert_eq!(seen.borrow().0, SharedString::from("Page 2"), "{key}");
+    }
+    // From the box, the same Esc goes back.
+    click(cx, window, "go");
+    assert_eq!(seen.borrow().0, SharedString::from("Page 3"));
+    press(cx, window, "escape");
+    assert_eq!(
+        seen.borrow().0,
+        SharedString::from("Page 2"),
+        "Esc in the box"
+    );
 }

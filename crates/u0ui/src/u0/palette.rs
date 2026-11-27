@@ -6,7 +6,9 @@
 //!   breadcrumb once a page is pushed; Esc goes back (or closes at the top),
 //!   Backspace in an empty input goes back, and the input clears on every
 //!   page change. Like the reference's `<input autoFocus>`, the input takes
-//!   focus when the palette mounts. The caller renders the results for the current page and
+//!   focus when the palette mounts, and Esc/Backspace act only while it has
+//!   focus (the reference handles them in the input's `onKeyDown`). The
+//!   caller renders the results for the current page and
 //!   pushes pages through the [`PaletteNav`] it is handed.
 //! - [`PaletteItem`]: one result: glyph, title, detail, shortcut keys and a
 //!   chevron when it opens a page; the active row is `layer-selected-01`
@@ -351,7 +353,8 @@ pub fn crumb(stack: &[PaletteLevel]) -> Option<String> {
 }
 
 /// What the palette does on a key: `Esc` goes back, or closes at the top;
-/// Backspace in an empty input goes back when it can.
+/// Backspace in an empty input goes back when it can. Only asked while the
+/// input has focus (the reference's `onKeyDown` sits on the `<input>`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PaletteKey {
     /// Pop a page.
@@ -626,6 +629,12 @@ impl RenderOnce for PalettePage {
             let input = input.clone();
             let close = self.on_close.clone();
             move |e: &KeyDownEvent, window: &mut Window, cx: &mut App| {
+                // The reference's handler is the input's `onKeyDown`: keys on
+                // the Back arrow or a result row are not the palette's.
+                let focus = gpui_kit::Focusable::focus_handle(input.read(cx), cx);
+                if !focus.is_focused(window) {
+                    return;
+                }
                 let empty = input.read(cx).value().is_empty();
                 let depth = stack.read(cx).len();
                 match palette_key(e.keystroke.key.as_str(), depth, empty) {
