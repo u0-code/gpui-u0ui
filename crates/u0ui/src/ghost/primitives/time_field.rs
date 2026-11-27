@@ -72,6 +72,11 @@ pub fn toggle_meridiem(h: u32) -> u32 {
     (h + 12) % 24
 }
 
+/// The focus handle a segment tracks: a tab stop in document order.
+pub fn segment_tab_stop(focus: &FocusHandle) -> FocusHandle {
+    focus.clone().tab_index(0).tab_stop(true)
+}
+
 /// A time segment.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Segment {
@@ -254,7 +259,10 @@ impl RenderOnce for TimeField {
             let disabled = self.disabled;
             div()
                 .id((id.clone(), label.clone()))
-                .when(!disabled, |d| d.track_focus(focus).tab_index(0))
+                // Both segments are tab stops, like the reference's two `<input>`s.
+                // A tracked handle carries its own tab-stop flag; a div's
+                // `.tab_index` does not reach it.
+                .when(!disabled, |d| d.track_focus(&segment_tab_stop(focus)))
                 .flex()
                 .items_center()
                 .justify_center()

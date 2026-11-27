@@ -353,8 +353,9 @@ impl RenderOnce for ColorPicker {
         let clear = Hsla::transparent_black();
         let plane = div()
             .id((id.clone(), "plane"))
-            .track_focus(&plane_focus)
-            .tab_index(0)
+            // A tracked handle carries its own tab-stop flag; the div's
+            // `.tab_index` does not reach it.
+            .track_focus(&plane_focus.clone().tab_index(0).tab_stop(true))
             .role(gpui_kit::Role::Slider)
             .aria_label(plane_label)
             .relative()
@@ -470,8 +471,9 @@ impl RenderOnce for ColorPicker {
         });
         let hue = div()
             .id((id.clone(), "hue"))
-            .track_focus(&hue_focus)
-            .tab_index(0)
+            // A tracked handle carries its own tab-stop flag; the div's
+            // `.tab_index` does not reach it.
+            .track_focus(&hue_focus.clone().tab_index(0).tab_stop(true))
             .role(gpui_kit::Role::Slider)
             .aria_label(hue_label)
             .relative()

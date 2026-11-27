@@ -247,8 +247,9 @@ impl RenderOnce for Dropzone {
         let label = self.label.clone();
         div()
             .id(id.clone())
-            .track_focus(&focus)
-            .tab_index(0)
+            // A tracked handle carries its own tab-stop flag; the div's
+            // `.tab_index` does not reach it.
+            .track_focus(&focus.clone().tab_index(0).tab_stop(true))
             .role(gpui_kit::Role::Button)
             .aria_label(label)
             .relative()
