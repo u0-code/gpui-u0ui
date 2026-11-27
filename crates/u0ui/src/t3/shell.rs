@@ -964,7 +964,10 @@ impl RenderOnce for EnvironmentBadge {
             .min_w_0()
             .overflow_hidden()
             .bg(color(ColorRole::LayerAccent01))
-            .type_style(TypeStyle::Label01)
+            // `.t3-envbadge { font-size: 0.75rem }` sets no weight: it inherits,
+            // semibold in a `.t3-folder-main { font-weight: 600 }` header.
+            .text_size(rem(12.))
+            .line_height(rem(16.))
             .text_color(color(ColorRole::TextPrimary))
             .whitespace_nowrap()
             .child(EnvironmentMachineIcon::new(self.kind).size(14.))

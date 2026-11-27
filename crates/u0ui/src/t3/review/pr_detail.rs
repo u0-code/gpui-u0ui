@@ -40,14 +40,14 @@ impl Default for DetailHeaderTexts {
     }
 }
 
-/// `.t3-ref`: mono 12px on `layer-accent-01`, `1px 4px` padding.
+/// `.t3-ref`: mono 12px on `layer-accent-01`, `1px 4px` padding. It sets no
+/// colour, so it keeps its parent's (`.t3-prhead-meta`'s `text-secondary`).
 pub(crate) fn code_ref(text: impl Into<SharedString>) -> gpui_kit::Div {
     mono(div(), 12., 400)
         .flex_none()
         .px(rem(4.))
         .py(px(1.))
         .bg(color(ColorRole::LayerAccent01))
-        .text_color(color(ColorRole::TextPrimary))
         .child(text.into())
 }
 

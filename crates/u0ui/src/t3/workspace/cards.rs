@@ -6,7 +6,7 @@ use crate::{
     components::{Badge, BadgeSize, BadgeVariant, Button, ButtonSize, ButtonVariant},
     icons::CarbonIcon,
     t3::{
-        craft::{BODY_LINE, mono, sans},
+        craft::{BODY_LINE, mono, sans, sized},
         press::{self, Handler, rem},
         shell::{
             ConnectionStatus, ConnectionStatusDot, EnvironmentMachineIcon, IdentitySize,
@@ -697,9 +697,10 @@ impl StepState {
 }
 
 /// `.t3-guide-bullet { width: 1.25rem; height: 1.25rem; border-radius: 50%;
-/// font-size: 0.6875rem }` holding `content`.
+/// font-size: 0.6875rem }` holding `content`. No weight of its own: the
+/// current step's number is semibold (`.t3-wsteps--on { font-weight: 600 }`).
 pub(crate) fn bullet(fill: Hsla, ink: Hsla, content: AnyElement) -> gpui_kit::Div {
-    sans(div(), 11., 400)
+    sized(div(), 11.)
         .flex()
         .flex_none()
         .items_center()
