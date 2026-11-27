@@ -3,6 +3,7 @@ pub mod approval_card;
 pub mod assistant_message;
 pub mod command_output_block;
 pub mod proposed_plan_card;
+pub mod request_card;
 pub mod secret_request_card;
 pub mod subagent_row;
 pub mod thread_error_banner;

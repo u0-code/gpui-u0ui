@@ -307,6 +307,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("assistant-message", "AssistantMessage", "T3 · Timeline", Component::AssistantMessage.summary(), pages::t3_timeline::assistant_message::build).thumbnail(pages::t3_timeline::assistant_message::thumbnail),
     PageDef::new("command-output-block", "CommandOutputBlock", "T3 · Timeline", Component::CommandOutputBlock.summary(), pages::t3_timeline::command_output_block::build).thumbnail(pages::t3_timeline::command_output_block::thumbnail),
     PageDef::new("proposed-plan-card", "ProposedPlanCard", "T3 · Timeline", Component::ProposedPlanCard.summary(), pages::t3_timeline::proposed_plan_card::build).thumbnail(pages::t3_timeline::proposed_plan_card::thumbnail),
+    PageDef::new("request-card", "RequestCard", "T3 · Timeline", Component::RequestCard.summary(), pages::t3_timeline::request_card::build).thumbnail(pages::t3_timeline::request_card::thumbnail),
     PageDef::new("secret-request-card", "SecretRequestCard", "T3 · Timeline", Component::SecretRequestCard.summary(), pages::t3_timeline::secret_request_card::build).thumbnail(pages::t3_timeline::secret_request_card::thumbnail),
     PageDef::new("subagent-row", "SubagentRow", "T3 · Timeline", Component::SubagentRow.summary(), pages::t3_timeline::subagent_row::build).thumbnail(pages::t3_timeline::subagent_row::thumbnail),
     PageDef::new("thread-error-banner", "ThreadErrorBanner", "T3 · Timeline", Component::ThreadErrorBanner.summary(), pages::t3_timeline::thread_error_banner::build).thumbnail(pages::t3_timeline::thread_error_banner::thumbnail),
