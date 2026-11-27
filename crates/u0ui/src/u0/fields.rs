@@ -214,6 +214,9 @@ impl RenderOnce for InlineCheck {
             .gap(tokens::SPACING_03)
             .min_h(rem(24.))
             .text_size(rem(14.))
+            // The inherited body `line-height: 1.28572` (18px at 14px): the
+            // label's first line sits level with the 2px-nudged box.
+            .line_height(gpui_kit::relative(crate::t3::craft::BODY_LINE))
             .text_color(color(ColorRole::TextPrimary))
             .cursor(CursorStyle::PointingHand)
             .child(
