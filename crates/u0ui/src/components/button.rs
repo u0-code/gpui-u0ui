@@ -554,6 +554,15 @@ impl Button {
         }
     }
 
+    /// Deprecated, does nothing: text-only, non-ghost buttons end at
+    /// [`TEXT_ONLY_END_PADDING`] by default now. Kept only until the last
+    /// callers drop it; it will be removed. (Not `#[deprecated]` so callers
+    /// still pass `clippy -D warnings` meanwhile.)
+    #[doc(hidden)]
+    pub fn balanced(self, _balanced: bool) -> Self {
+        self
+    }
+
     /// Content after the label inside the button, such as a shortcut key
     /// cap (`<Button>Approve<Kbd>⇧⌘↵</Kbd></Button>`).
     pub fn trailing(mut self, element: impl IntoElement) -> Self {
