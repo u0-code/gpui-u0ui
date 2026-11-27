@@ -17,6 +17,8 @@
 //!   an inner `layer` ring when focused; range labels `body-compact-01`; the
 //!   input is a 64px Carbon text field. Disabled: `border-disabled` track and
 //!   thumbs, `not-allowed`.
+//!   Read-only: no thumb, the arrow cursor, a transparent input; focusable,
+//!   but pointer and arrows leave the value alone.
 //!   Range thumbs are Carbon's 16×24 lower/upper handle glyphs
 //!   (`.cds--slider__thumb-wrapper--lower/--upper`, `@carbon/react`
 //!   `LowerHandle`/`UpperHandle`): a wedge with a 0.92px bar on its inner edge,
@@ -247,6 +249,18 @@ struct Inputs {
     was_focused: [bool; 2],
 }
 
+/// The track and thumb cursor: `not-allowed` when disabled, the arrow when
+/// read-only (`.cds--slider--readonly { cursor: default }`), else the pointer.
+pub fn pointer_cursor(disabled: bool, readonly: bool) -> CursorStyle {
+    if disabled {
+        CursorStyle::OperationNotAllowed
+    } else if readonly {
+        CursorStyle::Arrow
+    } else {
+        CursorStyle::PointingHand
+    }
+}
+
 /// A Carbon slider. See the module docs.
 #[derive(IntoElement)]
 pub struct Slider {
@@ -254,6 +268,7 @@ pub struct Slider {
     state: Entity<SliderState>,
     label: Option<SharedString>,
     disabled: bool,
+    readonly: bool,
     hide_input: bool,
     density: Option<Density>,
     level: LayerLevel,
@@ -268,6 +283,7 @@ impl Slider {
             state: state.clone(),
             label: None,
             disabled: false,
+            readonly: false,
             hide_input: false,
             density: None,
             level: LayerLevel::One,
@@ -283,6 +299,17 @@ impl Slider {
     /// Disabled.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
+        self
+    }
+
+    /// Read-only (`readOnly`): the value shows on the track without a thumb
+    /// (`.cds--slider-container--readonly .cds--slider__thumb { block-size: 0;
+    /// inline-size: 0 }`), the arrow cursor (`.cds--slider--readonly { cursor:
+    /// default }`) and a transparent input
+    /// (`.cds--slider-container--readonly .cds--slider-text-input { background-color:
+    /// transparent }`); it keeps focus but pointer and keys do not change it.
+    pub fn readonly(mut self, readonly: bool) -> Self {
+        self.readonly = readonly;
         self
     }
 
@@ -307,6 +334,10 @@ impl Slider {
 
 impl RenderOnce for Slider {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        // Read-only and disabled sliders take no pointer input.
+        let inert = self.disabled || self.readonly;
+        let readonly = self.readonly && !self.disabled;
+        let cursor = pointer_cursor(self.disabled, self.readonly);
         let id = self.id.clone();
         let state = self.state.clone();
         let density = self.density.unwrap_or_else(density::current);
@@ -401,7 +432,7 @@ impl RenderOnce for Slider {
                 let press_pointer = pointer.clone();
                 gpui_kit::base::SliderThumb::new(&state)
                     .start(start)
-                    .disabled(self.disabled)
+                    .disabled(inert)
                     .track_focus(&focus.clone().tab_stop(!self.disabled))
                     .absolute()
                     .top_0()
@@ -417,7 +448,7 @@ impl RenderOnce for Slider {
                     // Kit's thumb stops the press from reaching the track, so it
                     // takes focus here, in the capture phase: a drag that starts
                     // on a thumb leaves it focused (`:focus`) for the arrow keys.
-                    .when(!self.disabled, |this| {
+                    .when(!inert, |this| {
                         this.capture_any_mouse_down(move |event, window, cx| {
                             if event.button != MouseButton::Left {
                                 return;
@@ -434,12 +465,11 @@ impl RenderOnce for Slider {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .cursor(if self.disabled {
-                        CursorStyle::OperationNotAllowed
-                    } else {
-                        CursorStyle::PointingHand
-                    })
+                    .cursor(cursor)
                     .on_key_down(move |event: &KeyDownEvent, window, cx| {
+                        if readonly {
+                            return;
+                        }
                         let sign = match event.keystroke.key.as_str() {
                             "left" | "down" => -1.,
                             "right" | "up" => 1.,
@@ -456,10 +486,10 @@ impl RenderOnce for Slider {
                         });
                         cx.stop_propagation();
                     })
-                    .when(range, |this| {
+                    .when(range && !readonly, |this| {
                         this.child(handle_glyph(upper, handle, background))
                     })
-                    .when(!range, |this| {
+                    .when(!range && !readonly, |this| {
                         this.child(
                             div()
                                 .size(rem(size))
@@ -484,17 +514,13 @@ impl RenderOnce for Slider {
 
         // `.cds--slider { padding: 1rem 0; min-inline-size: 12.5rem; max-inline-size: 40rem }`.
         let track = gpui_kit::base::SliderTrack::new(&state)
-            .disabled(self.disabled)
+            .disabled(inert)
             .relative()
             .flex_1()
             .min_w(rem(200.))
             .max_w(rem(640.))
             .h(rem(32.))
-            .cursor(if self.disabled {
-                CursorStyle::OperationNotAllowed
-            } else {
-                CursorStyle::PointingHand
-            })
+            .cursor(cursor)
             .child(
                 gpui_kit::base::SliderIndicator::new(&state)
                     .absolute()
@@ -579,7 +605,7 @@ impl RenderOnce for Slider {
             }
         };
         let set_pointer = std::rc::Rc::new(set_pointer);
-        let track = track.when(!self.disabled, |this| {
+        let track = track.when(!inert, |this| {
             let set_move = set_pointer.clone();
             let set_down = set_pointer.clone();
             let set_up = set_pointer.clone();
@@ -628,7 +654,7 @@ impl RenderOnce for Slider {
         // track running under the range labels.
         // `.cds--slider-container--two-handles .cds--slider { margin-inline: 0.25rem }`.
         let slider = gpui_kit::base::Slider::new(&state)
-            .disabled(self.disabled)
+            .disabled(inert)
             .when_some(self.label.clone(), |this, label| {
                 this.accessibility_label(label)
             })
@@ -648,6 +674,7 @@ impl RenderOnce for Slider {
                 self.level,
                 FieldState {
                     disabled: self.disabled,
+                    readonly: self.readonly,
                     ..Default::default()
                 },
             );
@@ -675,6 +702,7 @@ impl RenderOnce for Slider {
                         .appearance(false)
                         .with_size(Size::XSmall)
                         .disabled(self.disabled)
+                        .readonly(self.readonly)
                         .p_0()
                         .h_full()
                         .w_full()
@@ -798,6 +826,13 @@ fn commit_input(
 mod tests {
     use super::*;
     use crate::tokens::CarbonTheme;
+
+    #[test]
+    fn read_only_takes_the_arrow_and_disabled_wins() {
+        assert_eq!(pointer_cursor(false, true), CursorStyle::Arrow);
+        assert_eq!(pointer_cursor(true, true), CursorStyle::OperationNotAllowed);
+        assert_eq!(pointer_cursor(false, false), CursorStyle::PointingHand);
+    }
 
     fn hex(c: Hsla) -> String {
         let c = c.to_rgb();

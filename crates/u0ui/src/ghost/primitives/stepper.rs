@@ -10,6 +10,8 @@
 //!   outline when invalid; buttons `density-field-md` square with a 1px
 //!   `border-subtle-01` left rule and `field-hover-01` hover; disabled at 50%
 //!   opacity without the rule.
+//! - **Read-only** (`.cds--number--readonly`): transparent fill, `border-subtle`
+//!   rule, the value focusable and copyable, the buttons `icon-disabled` and inert.
 //!
 //! ```ignore
 //! Stepper::new("parallel").label("Max parallel agents").default_value(3.).min(1.).max(8.).helper_text("1–8")
@@ -111,6 +113,19 @@ pub fn box_look(focused: bool, invalid: bool, disabled: bool) -> (Hsla, Hsla, Hs
     (fill, rule, outline)
 }
 
+/// The read-only box colors (fill, bottom rule, outline): `.cds--number--readonly
+/// input { background: transparent; border-block-end-color: var(--border-subtle) }`,
+/// still outlined in `focus` while focused (read-only fields take focus).
+pub fn readonly_box_look(focused: bool) -> (Hsla, Hsla, Hsla) {
+    let clear = Hsla::transparent_black();
+    let outline = if focused {
+        color(ColorRole::Focus)
+    } else {
+        clear
+    };
+    (clear, color(ColorRole::BorderSubtle01), outline)
+}
+
 type ValueHandler = Rc<dyn Fn(f64, &mut Window, &mut App)>;
 
 struct Model {
@@ -177,6 +192,7 @@ pub struct Stepper {
     step: f64,
     unit: Option<SharedString>,
     disabled: bool,
+    readonly: bool,
     invalid: bool,
     invalid_text: Option<SharedString>,
     helper_text: Option<SharedString>,
@@ -199,6 +215,7 @@ impl Stepper {
             step: 1.,
             unit: None,
             disabled: false,
+            readonly: false,
             invalid: false,
             invalid_text: None,
             helper_text: None,
@@ -256,6 +273,15 @@ impl Stepper {
     /// Disabled.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
+        self
+    }
+
+    /// Read-only (`readOnly`): the value can be focused, selected and copied
+    /// but not changed; the buttons draw in `icon-disabled` and do nothing
+    /// (`.cds--number--readonly .cds--number__control-btn { color: var(--icon-disabled);
+    /// pointer-events: none }`).
+    pub fn readonly(mut self, readonly: bool) -> Self {
+        self.readonly = readonly;
         self
     }
 
@@ -358,13 +384,19 @@ impl RenderOnce for Stepper {
             (m.value, m.input.clone())
         };
         let focused = input.read(cx).focus_handle(cx).is_focused(window);
-        let (fill, rule, outline) = box_look(focused, self.invalid, self.disabled);
+        let (fill, rule, outline) = if self.readonly && !self.disabled {
+            readonly_box_look(focused)
+        } else {
+            box_look(focused, self.invalid, self.disabled)
+        };
+        let readonly = self.readonly;
         let field_h = density::current().field().px_value();
 
         let mut button =
             |key: &'static str, icon: CarbonIcon, label: SharedString, dir: f64, at_bound: bool| {
                 let model = model.clone();
-                let disabled = self.disabled || at_bound;
+                let inert = readonly && !self.disabled;
+                let disabled = self.disabled || at_bound || inert;
                 let hovered = window.use_keyed_state(
                     (ElementId::from((id.clone(), key)), "hover"),
                     cx,
@@ -385,7 +417,9 @@ impl RenderOnce for Stepper {
                     .border_color(color(ColorRole::BorderSubtle01))
                     // `:hover:not(:disabled) { background: var(--field-hover-01) }`.
                     .when(is_hovered, |b| b.bg(color(ColorRole::FieldHover01)))
-                    .cursor(if disabled {
+                    .cursor(if inert {
+                        CursorStyle::Arrow
+                    } else if disabled {
                         CursorStyle::OperationNotAllowed
                     } else {
                         CursorStyle::PointingHand
@@ -452,13 +486,15 @@ impl RenderOnce for Stepper {
             .bg(fill)
             .when(self.disabled, |d| d.opacity(0.5))
             .when(!self.disabled, |this| {
-                this.capture_action(move |_: &MoveUp, window, cx| {
-                    up(window, cx);
-                    cx.stop_propagation();
-                })
-                .capture_action(move |_: &MoveDown, window, cx| {
-                    down(window, cx);
-                    cx.stop_propagation();
+                this.when(!readonly, |this| {
+                    this.capture_action(move |_: &MoveUp, window, cx| {
+                        up(window, cx);
+                        cx.stop_propagation();
+                    })
+                    .capture_action(move |_: &MoveDown, window, cx| {
+                        down(window, cx);
+                        cx.stop_propagation();
+                    })
                 })
                 .on_mouse_down(MouseButton::Left, {
                     let focus = input.read(cx).focus_handle(cx);
@@ -484,6 +520,7 @@ impl RenderOnce for Stepper {
                     .child(
                         parts::editor(&input)
                             .disabled(self.disabled)
+                            .readonly(self.readonly)
                             .when_some(self.label.clone(), |e, l| e.aria_label(l))
                             .text_color(color(ColorRole::TextPrimary)),
                     ),
@@ -557,5 +594,10 @@ mod tests {
         // The invalid rule comes later in the cascade than `:focus-within`.
         assert_eq!(box_look(true, true, false).2, c(ColorRole::SupportError));
         assert_eq!(box_look(false, false, true).1, Hsla::transparent_black());
+        let (fill, rule, outline) = readonly_box_look(false);
+        assert_eq!(fill, Hsla::transparent_black());
+        assert_eq!(rule, c(ColorRole::BorderSubtle01));
+        assert_eq!(outline, Hsla::transparent_black());
+        assert_eq!(readonly_box_look(true).2, c(ColorRole::Focus));
     }
 }
