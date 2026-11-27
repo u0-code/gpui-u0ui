@@ -3,8 +3,8 @@
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
-    AnyView, App, AppContext as _, Context, FontWeight, IntoElement, ParentElement, Render,
-    SharedString, Styled, Window, div,
+    AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
+    Styled, Window, div,
 };
 use u0ui::components::toggle::{Toggle, ToggleSize, ToggleVariant};
 use u0ui::prelude::*;
@@ -74,13 +74,11 @@ impl Render for TogglePage {
                         Toggle::new("ref-bold")
                             .aria_label("Bold")
                             .default_pressed(true)
-                            .child(div().font_weight(FontWeight::BOLD).child("B")),
+                            // `h('b', null, 'B')`: the Carbon reset (`b, i { font: inherit }`) keeps
+                            // it at the toggle's normal weight, upright.
+                            .child("B"),
                     )
-                    .child(
-                        Toggle::new("ref-italic")
-                            .aria_label("Italic")
-                            .child(div().italic().child("I")),
-                    )
+                    .child(Toggle::new("ref-italic").aria_label("Italic").child("I"))
                     .child(
                         Toggle::new("ref-pin")
                             .variant(ToggleVariant::Outline)

@@ -7,8 +7,8 @@
 //! Foundations specimens draw tokens only. Ids are prefixed `thumb-<name>-`;
 //! components with state keep it in `window.use_keyed_state`.
 use gpui_kit::{
-    AnyElement, App, Div, Focusable as _, FontWeight, IntoElement, ParentElement, SharedString,
-    Styled, Window, div, px, relative, rems,
+    AnyElement, App, Div, Focusable as _, IntoElement, ParentElement, SharedString, Styled, Window,
+    div, px, relative, rems,
 };
 use std::rc::Rc;
 use u0ui::components::accordion::{Accordion, AccordionItem};
@@ -279,12 +279,14 @@ pub fn toggle(_: &mut Window, _: &mut App) -> AnyElement {
             Toggle::new("thumb-toggle-bold")
                 .aria_label("Bold")
                 .default_pressed(true)
-                .child(div().font_weight(FontWeight::BOLD).child("B")),
+                // `h('b', null, 'B')`: the Carbon reset (`b, i { font: inherit }`) keeps
+                // it at the toggle's normal weight, upright.
+                .child("B"),
         )
         .child(
             Toggle::new("thumb-toggle-italic")
                 .aria_label("Italic")
-                .child(div().italic().child("I")),
+                .child("I"),
         )
         .child(
             Toggle::new("thumb-toggle-pin")

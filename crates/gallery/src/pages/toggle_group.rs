@@ -3,8 +3,8 @@
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
-    AnyView, App, AppContext as _, Context, FontWeight, IntoElement, ParentElement, Render,
-    SharedString, Styled, Window, div, rems,
+    AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
+    Styled, Window, div, rems,
 };
 use u0ui::components::toggle::ToggleSize;
 use u0ui::components::toggle_group::{
@@ -74,9 +74,11 @@ impl Render for ToggleGroupPage {
                             .default_value(["b"])
                             .item(
                                 ToggleGroupItem::new("b")
-                                    .child(div().font_weight(FontWeight::BOLD).child("B")),
+                                    // `h('b', null, 'B')`: the Carbon reset (`b, i { font: inherit }`) keeps
+                                    // it at the toggle's normal weight, upright.
+                                    .child("B"),
                             )
-                            .item(ToggleGroupItem::new("i").child(div().italic().child("I")))
+                            .item(ToggleGroupItem::new("i").child("I"))
                             .item(ToggleGroupItem::new("u").child(div().underline().child("U"))),
                     ),
             );
