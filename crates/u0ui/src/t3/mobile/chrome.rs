@@ -891,10 +891,15 @@ impl RenderOnce for MobileListSection {
             .flex_col()
             .px(rem(16.))
             .when(!phone, |d| d.pb(rem(24.)))
-            .child(
+            .child(if self.title.is_empty() {
+                // An empty `.t3-mlist-h` has no line box: only its 8px
+                // bottom padding stays (`height: 8px`).
+                div().pb(rem(MLIST_HEADING_GAP))
+            } else {
                 // `.t3-mlist-h { padding: 0 0 8px; 12px uppercase text-secondary }`.
-                craft::text(self.title.to_uppercase(), 12., ColorRole::TextSecondary).pb(rem(8.)),
-            )
+                craft::text(self.title.to_uppercase(), 12., ColorRole::TextSecondary)
+                    .pb(rem(MLIST_HEADING_GAP))
+            })
             .child(
                 div()
                     .flex()
@@ -914,6 +919,17 @@ impl RenderOnce for MobileListSection {
 }
 
 // ── MobileSheet ──────────────────────────────────────────────────────────
+
+/// `.t3-mlist-h { padding-bottom: spacing-03 }` (also the whole height of
+/// an empty heading).
+pub const MLIST_HEADING_GAP: f32 = 8.;
+/// `.t3-msheet-intro { padding-bottom: spacing-04 }`.
+pub const SHEET_INTRO_GAP: f32 = 12.;
+/// The intro `<p>`'s line height (`line-height: 1.5`, 21px at 14px).
+pub const SHEET_INTRO_LINE: f32 = 1.5;
+/// `.t3-msheet-grab { height: 5px; margin-top: spacing-03 }` plus the 44px
+/// head: where the intro (or, without one, the body) starts.
+pub const SHEET_HEAD_HEIGHT: f32 = 8. + 5. + 44.;
 
 /// A bottom sheet (`.t3-msheet`, square per `gemini-MA`): grabber, a
 /// three-column head (Close · title · primary), an optional centred intro
@@ -1060,9 +1076,12 @@ impl RenderOnce for MobileSheet {
             )
             .when_some(self.intro.clone(), |this, intro| {
                 this.child(
+                    // `.t3-msheet-intro { padding: 0 spacing-06 spacing-04 }`;
+                    // a `<p>`, so `line-height: 1.5` (21px, computed).
                     craft::text(intro, 14., ColorRole::TextSecondary)
+                        .line_height(relative(SHEET_INTRO_LINE))
                         .px(rem(24.))
-                        .pb(rem(12.))
+                        .pb(rem(SHEET_INTRO_GAP))
                         .text_center(),
                 )
             })
@@ -1321,6 +1340,18 @@ mod tests {
         let ring = PHONE_RADIUS - (PHONE_RADIUS - PHONE_BEZEL) * FRAC_1_SQRT_2;
         let screen = PHONE_BEZEL + PHONE_SCREEN_RADIUS * (1. - FRAC_1_SQRT_2);
         assert!((ring - screen).abs() < 1., "{ring} vs {screen}");
+    }
+
+    #[test]
+    fn sheet_geometry_follows_the_reference() {
+        // Grabber and head, intro (one 21px line and 12px), and an empty
+        // `.t3-mlist-h` (8px): the list card is 98px under the sheet top.
+        assert_eq!(SHEET_HEAD_HEIGHT, 57.);
+        assert_eq!(14. * SHEET_INTRO_LINE, 21.);
+        assert_eq!(
+            SHEET_HEAD_HEIGHT + 14. * SHEET_INTRO_LINE + SHEET_INTRO_GAP + MLIST_HEADING_GAP,
+            98.
+        );
     }
 
     #[test]
