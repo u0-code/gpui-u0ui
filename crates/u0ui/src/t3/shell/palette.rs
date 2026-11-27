@@ -418,14 +418,19 @@ impl RenderOnce for CommandPalette {
 
         let list = if len == 0 {
             // `.t3-palette-empty { padding: var(--spacing-07) var(--spacing-05);
-            // text-align: center; color: var(--text-secondary) }`.
-            sans(div(), 14., 400)
-                .py(rem(32.))
-                .px(rem(16.))
-                .flex()
-                .justify_center()
-                .text_color(color(ColorRole::TextSecondary))
-                .child(self.empty)
+            // text-align: center; color: var(--text-secondary) }`, inside the
+            // listbox, which keeps its `padding-bottom: var(--spacing-03)`.
+            div()
+                .pb(rem(8.))
+                .child(
+                    sans(div(), 14., 400)
+                        .py(rem(32.))
+                        .px(rem(16.))
+                        .flex()
+                        .justify_center()
+                        .text_color(color(ColorRole::TextSecondary))
+                        .child(self.empty),
+                )
                 .into_any_element()
         } else {
             // `.t3-palette-list { max-height: 20rem; overflow-y: auto; padding-bottom: var(--spacing-03) }`.
