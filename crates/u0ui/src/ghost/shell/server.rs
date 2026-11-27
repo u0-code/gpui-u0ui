@@ -19,11 +19,10 @@ use crate::{
     components::button::{Button, ButtonSize, ButtonVariant},
     density,
     icons::{CarbonIcon, Icon},
-    motion::{self, Motion},
     t3::{
         Spin,
         base::visually_hidden,
-        craft::{focus_handle, focus_ring, focus_visible, press, rem, sans},
+        craft::{focus_handle, focus_ring, focus_visible, press, rem, sans, sized},
         shell::{ConnectionStatus, ConnectionStatusDot, MachineKind},
     },
     theme::color,
@@ -267,7 +266,9 @@ impl RenderOnce for ServerChip {
         ];
         fn pill<E: Styled + ParentElement>(el: E, size: ServerChipSize, look: ServerChipLook) -> E {
             let (height, pad, font, _) = size.geometry();
-            sans(el, font, 400)
+            // `.g-server { font: inherit }` sets no weight: semibold inside an
+            // unread `.g-trow2--unread` row.
+            sized(el, font)
                 .flex()
                 .flex_none()
                 .items_center()
@@ -430,14 +431,23 @@ impl ServerHeader {
     }
 }
 
+/// The disclosure chevron's turn: `.t3-rot { transform: rotate(-90deg) }`
+/// when collapsed. `.g-shead-chev` has no transition, so it snaps.
+pub fn header_chevron_angle(expanded: bool) -> f32 {
+    if expanded { 0. } else { -FRAC_PI_2 }
+}
+
+/// The name as drawn: `.g-shead-main { text-transform: uppercase }`.
+pub fn shead_name(name: &str) -> String {
+    name.to_uppercase()
+}
+
 impl RenderOnce for ServerHeader {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id;
         let focus = focus_handle(&id, window, cx);
         let focused = focus_visible(&focus, window);
-        // `.t3-rot { transform: rotate(-90deg) }` when collapsed.
-        let target = if self.expanded { 0. } else { -FRAC_PI_2 };
-        let turn = motion::animate((id.clone(), "chev"), target, Motion::TOGGLE, window, cx);
+        let turn = header_chevron_angle(self.expanded);
         let label = self
             .state_label
             .unwrap_or_else(|| self.state.label().into());
@@ -447,7 +457,10 @@ impl RenderOnce for ServerHeader {
         // height: var(--density-row-md); padding: 0 var(--spacing-03); color:
         // var(--text-primary); font-size: 0.75rem; font-weight: 600 }`;
         // `.g-shead-main svg { fill: var(--icon-secondary) }`;
-        // `.g-shead-main:hover { background: var(--layer-hover-01) }`.
+        // `.g-shead-main:hover { background: var(--layer-hover-01) }`; then
+        // `.g-shead-main { text-transform: uppercase; letter-spacing: 0.32px;
+        // color: var(--text-secondary) }` (`src/t3.css`, later in cascade
+        // order). GPUI has no tracking control, so the 0.32px is not applied.
         let main = sans(press((id.clone(), "main"), &focus), 12., 600)
             .flex()
             .flex_1()
@@ -456,7 +469,7 @@ impl RenderOnce for ServerHeader {
             .gap(tokens::SPACING_03)
             .h(density::current().row().rems())
             .px(tokens::SPACING_03)
-            .text_color(color(ColorRole::TextPrimary))
+            .text_color(secondary)
             .hover(|s| s.bg(color(ColorRole::LayerHover01)))
             .when_some(self.on_toggle, |b, f| b.on_click(move |_, w, cx| f(w, cx)))
             .child(
@@ -474,12 +487,13 @@ impl RenderOnce for ServerHeader {
                     .flex_none(),
             )
             // `.g-shead-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis }`.
-            .child(div().min_w_0().truncate().child(self.name.clone()))
+            .child(div().min_w_0().truncate().child(shead_name(&self.name)))
             .children(self.count.map(|n| {
                 // `.t3-shelf-count { padding: 0 var(--spacing-02); background:
                 // var(--layer-accent-01); color: var(--text-secondary);
-                // font-size: 0.6875rem; line-height: 1rem; border-radius: 16 }`.
-                sans(div(), 11., 400)
+                // font-size: 0.6875rem; line-height: 1rem; border-radius: 16 }`,
+                // no weight of its own: `.g-shead-main`'s 600.
+                sized(div(), 11.)
                     .flex_none()
                     .line_height(rem(16.))
                     .px(tokens::SPACING_02)
@@ -530,8 +544,10 @@ impl RenderOnce for ServerHeader {
                 .text_color(secondary)
                 .border_l(px(2.))
                 .border_color(reason_rule(self.state))
-                // `.g-shead-reason span { flex: 1 }`.
-                .child(div().flex_1().min_w_0().children(self.reason))
+                // `.g-shead-reason span { flex: 1 }`, then `{ min-width: 0;
+                // overflow: hidden; white-space: nowrap; text-overflow:
+                // ellipsis }` (`src/t3.css`): one line, cut with an ellipsis.
+                .child(div().flex_1().min_w_0().truncate().children(self.reason))
                 .child(
                     Button::new((id.clone(), "reach"), self.reach_label)
                         .variant(ButtonVariant::Ghost)
@@ -649,5 +665,13 @@ mod tests {
                 "Reach again"
             )
         );
+    }
+
+    #[test]
+    fn header_name_is_uppercase_and_the_chevron_snaps() {
+        assert_eq!(shead_name("MacBook Pro"), "MACBOOK PRO");
+        assert_eq!(shead_name("build-box"), "BUILD-BOX");
+        assert_eq!(header_chevron_angle(true), 0.);
+        assert_eq!(header_chevron_angle(false), -FRAC_PI_2);
     }
 }
