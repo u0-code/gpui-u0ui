@@ -212,7 +212,7 @@ impl RenderOnce for ActionButton {
                 disabled: self.disabled,
             }
         };
-        let (bg, ink, frame, ring, inset) = action_look(self.kind, state);
+        let (bg, ink, mut frame, ring, inset) = action_look(self.kind, state);
         let ink = if self.disabled {
             ink
         } else {
@@ -254,21 +254,29 @@ impl RenderOnce for ActionButton {
                     .into_any_element(),
             })
             .collect();
-        let focus_layers: Vec<AnyElement> = [ring.map(|c| (0., c)), inset.map(|c| (1., c))]
-            .into_iter()
-            .flatten()
-            .map(|(at, c)| {
-                div()
-                    .absolute()
-                    .top(px(at))
-                    .left(px(at))
-                    .right(px(at))
-                    .bottom(px(at))
-                    .border_1()
-                    .border_color(c)
-                    .into_any_element()
-            })
-            .collect();
+        // `.cds--btn { border: 1px solid transparent }`: the neutral outline's
+        // `box-shadow: inset 0 0 0 1px` paints inside that border, 1px in
+        // from the edge (a 30px square on a 32px button).
+        let outline = match self.kind {
+            ActionKind::NeutralOutline => frame.take().map(|c| (1., c)),
+            ActionKind::Carbon(_) => None,
+        };
+        let focus_layers: Vec<AnyElement> =
+            [outline, ring.map(|c| (0., c)), inset.map(|c| (1., c))]
+                .into_iter()
+                .flatten()
+                .map(|(at, c)| {
+                    div()
+                        .absolute()
+                        .top(px(at))
+                        .left(px(at))
+                        .right(px(at))
+                        .bottom(px(at))
+                        .border_1()
+                        .border_color(c)
+                        .into_any_element()
+                })
+                .collect();
         let on_click = self.on_click.clone();
         let button = gpui_kit::base::Button::new(id.clone())
             .track_focus(&focus)
