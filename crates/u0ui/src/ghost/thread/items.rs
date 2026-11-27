@@ -22,7 +22,6 @@ use crate::{
         primitives::parts::{focus_ring, focus_visible, keyed_focus},
     },
     icons::{CarbonIcon, Icon},
-    motion::{self, Motion},
     t3::{
         base::{Spin, visually_hidden},
         craft::{rem, sans},
@@ -439,6 +438,13 @@ impl PlanChecklist {
     }
 }
 
+/// The head chevron's turn: `.t3-rot { transform: rotate(-90deg) }` while
+/// folded. It has no transition (computed `transition: all 0s`), so it snaps
+/// instead of animating.
+pub fn plan_chevron_angle(open: bool) -> f32 {
+    if open { 0. } else { -FRAC_PI_2 }
+}
+
 impl RenderOnce for PlanChecklist {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
@@ -449,13 +455,7 @@ impl RenderOnce for PlanChecklist {
         let ring = focus_visible(&focus, window);
         let (done, fraction) = plan_progress(&self.items);
         let secondary = color(ColorRole::IconSecondary);
-        let angle = motion::animate(
-            (id.clone(), "chev"),
-            if open { 0. } else { -FRAC_PI_2 },
-            Motion::TOGGLE,
-            window,
-            cx,
-        );
+        let angle = plan_chevron_angle(open);
         // `.g-plan-head { display: flex; align-items: center; gap:
         // var(--spacing-03); height: var(--density-row-lg); padding: 0
         // var(--spacing-04); font-size: 0.875rem; color: var(--text-primary) }`.
@@ -806,5 +806,12 @@ mod tests {
             (MessageImageTexts::default().open)(""),
             "Open image full size"
         );
+    }
+
+    #[test]
+    fn plan_chevron_snaps_to_the_t3_rot_angle() {
+        // A pure function of the state: no animation in between.
+        assert_eq!(plan_chevron_angle(true), 0.);
+        assert_eq!(plan_chevron_angle(false), -FRAC_PI_2);
     }
 }
