@@ -5,7 +5,7 @@
 //!   Keys: 1…n pick an option, n+1 focuses the free answer, ↑/↓ move the
 //!   choice, Enter submits (Shift+Enter does not).
 //! - [`SecretRequestCard`] (`.t3-secret`): password fields on `field-02`.
-//! - [`ProposedPlanCard`] (`.t3-plan`): numbered steps, copy / download /
+//! - [`ProposedPlanCard`] (`.t3-plan`): its steps (an `<ol>` without markers), copy / download /
 //!   save icon buttons, Keep planning and Implement plan.
 //! - [`RequestCard`] (`.t3-request`): a generic ask with a preview well.
 use super::card;
@@ -1007,33 +1007,21 @@ impl RenderOnce for ProposedPlanCard {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let id = self.id.clone();
         let texts = self.texts.clone();
-        let steps = self.steps.into_iter().enumerate().map(|(i, step)| {
+        let steps = self.steps.into_iter().map(|step| {
             // `.t3-plan-steps { padding-left: spacing-06; font-size: 0.875rem; line-height: 1.42857 }`,
             // `li { margin-bottom: spacing-03 }`, `b { display: block; font-weight: 600 }`,
-            // `span { color: text-secondary }`; the list marker sits in the 24px gutter.
-            div()
-                .flex()
-                .flex_row()
-                .mb(rem(8.))
-                .child(
-                    div()
-                        .flex_none()
-                        .w(rem(24.))
-                        .pr(rem(6.))
-                        .flex()
-                        .justify_end()
-                        .child(SharedString::from(format!("{}.", i + 1))),
-                )
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .min_w_0()
-                        .child(div().font_weight(FontWeight::SEMIBOLD).child(step.title))
-                        .when_some(step.detail, |this, d| {
-                            this.child(div().text_color(color(ColorRole::TextSecondary)).child(d))
-                        }),
-                )
+            // `span { color: text-secondary }`. Carbon's reset (`ol { list-style: none }`)
+            // removes the markers, so the 24px gutter stays empty (the reference render).
+            div().flex().flex_row().mb(rem(8.)).pl(rem(24.)).child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .min_w_0()
+                    .child(div().font_weight(FontWeight::SEMIBOLD).child(step.title))
+                    .when_some(step.detail, |this, d| {
+                        this.child(div().text_color(color(ColorRole::TextSecondary)).child(d))
+                    }),
+            )
         });
         card::frame()
             .child(
