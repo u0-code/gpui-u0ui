@@ -7,6 +7,13 @@
 //! square (`button-disabled` while the text is blank). Enter sends (Kit's
 //! input does not report Enter mid-composition) and clears the field; a
 //! multi-line message belongs in the full composer.
+//!
+//! An app that draws its agents' marks itself puts its own in place of the
+//! provider mark ([`ComposerCompact::lead`]), and holds the line while the
+//! agent answers ([`ComposerCompact::disabled`]: the field reads only, and
+//! the send square is `button-disabled`).
+//! The attach button shows only with an [`ComposerCompact::on_attach`]
+//! to call.
 use crate::{
     density,
     icons::{CarbonIcon, Icon},
@@ -22,8 +29,8 @@ use crate::{
     },
 };
 use gpui_kit::{
-    App, AppContext as _, Context, CursorStyle, ElementId, Entity, Focusable as _, Hsla,
-    InteractiveElement as _, IntoElement, ParentElement, RenderOnce, SharedString, Styled,
+    AnyElement, App, AppContext as _, Context, CursorStyle, ElementId, Entity, Focusable as _,
+    Hsla, InteractiveElement as _, IntoElement, ParentElement, RenderOnce, SharedString, Styled,
     Subscription, Window,
     component::input::{InputEvent, InputState},
     div,
@@ -85,12 +92,11 @@ impl Model {
     /// `onSend(t); setT('')` when the text is not blank.
     fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let text = self.input.read(cx).value().to_string();
-        if text.trim().is_empty() {
+        // Held (no handler while disabled), what is typed stays.
+        let Some(f) = self.on_send.clone().filter(|_| !text.trim().is_empty()) else {
             return;
-        }
-        if let Some(f) = self.on_send.clone() {
-            f(text.into(), window, cx);
-        }
+        };
+        f(text.into(), window, cx);
         self.input.update(cx, |s, cx| s.set_value("", window, cx));
         cx.notify();
     }
@@ -101,6 +107,8 @@ impl Model {
 pub struct ComposerCompact {
     id: ElementId,
     agent: SharedString,
+    lead: Option<AnyElement>,
+    disabled: bool,
     on_send: Option<SendHandler>,
     on_attach: Option<Handler>,
     texts: ComposerCompactTexts,
@@ -112,10 +120,26 @@ impl ComposerCompact {
         Self {
             id: id.into(),
             agent: agent.into(),
+            lead: None,
+            disabled: false,
             on_send: None,
             on_attach: None,
             texts: ComposerCompactTexts::default(),
         }
+    }
+
+    /// What leads the field in place of the provider mark of `agent`: an
+    /// app's own mark for its agent, 16px.
+    pub fn lead(mut self, lead: impl IntoElement) -> Self {
+        self.lead = Some(lead.into_any_element());
+        self
+    }
+
+    /// Hold the line (while the agent answers): the field reads only, and
+    /// nothing is sent.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
     }
 
     /// The placeholder (`placeholder`).
@@ -160,10 +184,13 @@ impl RenderOnce for ComposerCompact {
                 _subscription: subscription,
             }
         });
-        model.update(cx, |m, _| m.on_send = self.on_send.clone());
+        let disabled = self.disabled;
+        model.update(cx, |m, _| {
+            m.on_send = (!disabled).then(|| self.on_send.clone()).flatten();
+        });
         let input = model.read(cx).input.clone();
         let text = input.read(cx).value().to_string();
-        let enabled = !text.trim().is_empty();
+        let enabled = !disabled && !text.trim().is_empty();
         let focused = input.read(cx).focus_handle(cx).is_focused(window);
         let send_focus = keyed_focus((id.clone(), "send-focus"), window, cx);
         let send_ring = focus_visible(&send_focus, window);
@@ -198,11 +225,12 @@ impl RenderOnce for ComposerCompact {
             .bg(color(ColorRole::Field01))
             .border_b_1()
             .border_color(color(ColorRole::BorderStrong01))
-            .child(
+            .child(self.lead.unwrap_or_else(|| {
                 ProviderIcon::new(self.agent.clone())
                     .id((id.clone(), "agent"))
-                    .size(IdentitySize::Xs),
-            )
+                    .size(IdentitySize::Xs)
+                    .into_any_element()
+            }))
             .child(
                 // `.g-ccompact-input { flex: 1; font-size: 0.875rem }`.
                 div()
@@ -213,22 +241,19 @@ impl RenderOnce for ComposerCompact {
                     .min_w_0()
                     .h_full()
                     .children(placeholder)
-                    .child(editor(&input)),
+                    .child(editor(&input).disabled(disabled)),
             )
-            .child(
-                // `.g-ccompact .g-iconbtn { width: 1.5rem; height: 1.5rem }`.
+            .children(attach.map(|f| {
+                // `.g-ccompact .g-iconbtn { width: 1.5rem; height: 1.5rem }`;
+                // with nothing to attach (no `on_attach`), no button.
                 IconButton::new(
                     (id.clone(), "attach"),
                     CarbonIcon::Add,
                     self.texts.attach.clone(),
                 )
                 .size_px(24.)
-                .on_click(move |_, w, cx| {
-                    if let Some(f) = &attach {
-                        f(w, cx);
-                    }
-                }),
-            )
+                .on_click(move |_, w, cx| f(w, cx))
+            }))
             .child(
                 // `.g-ccompact-send { width: 1.5rem; height: 1.5rem; background:
                 // var(--button-primary); color: var(--text-on-color) }`.

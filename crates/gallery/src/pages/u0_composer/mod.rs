@@ -166,7 +166,7 @@ impl Render for ChipPage {
 pub fn compact_thumbnail(_: &mut Window, _: &mut App) -> AnyElement {
     div()
         .w(rems(15.))
-        .child(ComposerCompact::new("ccp-thumb", "Claude"))
+        .child(ComposerCompact::new("ccp-thumb", "Claude").on_attach(|_, _| {}))
         .into_any_element()
 }
 
@@ -197,12 +197,14 @@ impl Render for CompactPage {
             .flex_col()
             .gap(tokens::SPACING_03)
             .child(
-                ComposerCompact::new("ccp-live", AGENTS[self.agent]).on_send(move |text, _, cx| {
-                    send.update(cx, |p, cx| {
-                        p.sent.push(text);
-                        cx.notify();
-                    })
-                }),
+                ComposerCompact::new("ccp-live", AGENTS[self.agent])
+                    .on_attach(|_, _| {})
+                    .on_send(move |text, _, cx| {
+                        send.update(cx, |p, cx| {
+                            p.sent.push(text);
+                            cx.notify();
+                        })
+                    }),
             )
             .child(log(format!(
                 "onSend: {}",
@@ -228,7 +230,16 @@ impl Render for CompactPage {
                 div()
                     .w_full()
                     .max_w(rems(21.25))
-                    .child(ComposerCompact::new("ccp-ref", "Claude")),
+                    .child(ComposerCompact::new("ccp-ref", "Claude").on_attach(|_, _| {})),
+            ))
+            .example(controls::block(
+                "An app's own mark, held while the agent answers",
+                div().w_full().max_w(rems(21.25)).child(
+                    ComposerCompact::new("ccp-held", "Claude")
+                        .lead(Icon::carbon(CarbonIcon::Bot).size(IconSize::S16))
+                        .disabled(true)
+                        .placeholder("Ask Sonnet on the side…"),
+                ),
             ))
     }
 }
