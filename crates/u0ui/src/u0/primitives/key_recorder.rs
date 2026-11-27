@@ -315,10 +315,21 @@ impl RenderOnce for KeyRecorder {
                         })
                     }),
             );
+        // Where focus rests once the clear button is gone: Chromium keeps the
+        // Tab starting point where a removed focused element was.
+        let anchor = parts::keyed_focus((id.clone(), "anchor-focus"), window, cx);
         let clear = (!value.is_empty() && !recording).then(|| {
             let set = set.clone();
-            IconButton::new((id.clone(), "clear"), CarbonIcon::Close, clear_label)
-                .on_click(move |_, window, cx| set(SharedString::default(), window, cx))
+            let anchor = anchor.clone();
+            IconButton::new((id.clone(), "clear"), CarbonIcon::Close, clear_label).on_click(
+                move |_, window, cx| {
+                    // A press focuses the button, which then disappears.
+                    if window.focused(cx).is_some() {
+                        anchor.focus(window, cx);
+                    }
+                    set(SharedString::default(), window, cx)
+                },
+            )
         });
         let message = match &self.conflict {
             Some(c) => parts::error(format!("Already used by “{c}”")),
@@ -332,7 +343,8 @@ impl RenderOnce for KeyRecorder {
                     .items_center()
                     .gap(rem(4.))
                     .child(button)
-                    .children(clear),
+                    .children(clear)
+                    .child(parts::nav_anchor((id.clone(), "anchor"), &anchor, None, cx)),
             )
             .child(message)
     }

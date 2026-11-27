@@ -10,8 +10,9 @@ use crate::{
     typography::TypeStyled as _,
 };
 use gpui_kit::{
-    App, ClickEvent, CursorStyle, Div, ElementId, Entity, FocusHandle, Hsla, IntoElement,
-    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window,
+    App, ClickEvent, CursorStyle, Div, ElementId, Entity, FocusHandle, Hsla, InteractiveElement,
+    IntoElement, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
+    Window,
     component::{
         Sizable as _, Size,
         input::{Input as KitInput, InputState},
@@ -77,6 +78,42 @@ pub fn keyed_focus(id: impl Into<ElementId>, window: &mut Window, cx: &mut App) 
         .use_keyed_state(id, cx, |_, cx| cx.focus_handle())
         .read(cx)
         .clone()
+}
+
+/// A zero-size, non-tab-stop focus target that keeps the sequential focus
+/// navigation starting point where a focused element blurred or vanished.
+///
+/// Chromium keeps that starting point at an element that loses focus through
+/// `blur()` or removal, so the next Tab goes to the stop after it and
+/// Shift+Tab to the one before. GPUI's Tab starts from the focused handle, and
+/// from the top of the window when nothing (or a handle no longer painted) is
+/// focused. GPUI orders every tracked handle, tab stop or not, so focusing
+/// this anchor instead of blurring keeps the place, with no visible focus.
+///
+/// Put it right after the element (it is absolutely positioned, so it takes
+/// no room or flex gap). When that element is still there (an input blurred
+/// by Enter), pass it as `after`: Shift+Tab then moves back from it, so focus
+/// lands on the stop before it, not on it.
+pub fn nav_anchor(
+    id: impl Into<ElementId>,
+    handle: &FocusHandle,
+    after: Option<FocusHandle>,
+    cx: &App,
+) -> gpui_kit::Stateful<Div> {
+    let anchor = div()
+        .id(id)
+        .track_focus(&handle.clone().tab_stop(false))
+        .absolute()
+        .size_0();
+    // Kit's root binds Shift+Tab to `root::TabPrev`, which is not exported.
+    match (after, cx.build_action("root::TabPrev", None)) {
+        (Some(after), Ok(tab_prev)) => anchor.on_boxed_action(&*tab_prev, move |a, window, cx| {
+            after.focus(window, cx);
+            after.dispatch_action(a, window, cx);
+            cx.stop_propagation();
+        }),
+        _ => anchor,
+    }
 }
 
 /// The Kit single-line editor without chrome, in the primitives' 14px body

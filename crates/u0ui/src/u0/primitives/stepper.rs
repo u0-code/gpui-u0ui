@@ -26,9 +26,9 @@ use crate::{
     tokens::ColorRole,
 };
 use gpui_kit::{
-    App, AppContext as _, Context, CursorStyle, ElementId, Entity, Focusable as _, Hsla,
-    InteractiveElement, IntoElement, MouseButton, ParentElement, Rems, RenderOnce, SharedString,
-    StatefulInteractiveElement as _, Styled, Subscription, Window,
+    App, AppContext as _, Context, CursorStyle, ElementId, Entity, FocusHandle, Focusable as _,
+    Hsla, InteractiveElement, IntoElement, MouseButton, ParentElement, Rems, RenderOnce,
+    SharedString, StatefulInteractiveElement as _, Styled, Subscription, Window,
     component::input::{InputEvent, InputState, MoveDown, MoveUp},
     div,
     prelude::FluentBuilder as _,
@@ -156,6 +156,8 @@ struct Model {
     step: f64,
     controlled: bool,
     on_change: Option<ValueHandler>,
+    /// Where Enter leaves focus (see [`parts::nav_anchor`]).
+    anchor: FocusHandle,
     _subscription: Subscription,
 }
 
@@ -371,9 +373,11 @@ impl RenderOnce for Stepper {
                         }
                         InputEvent::Blur => this.commit(window, cx),
                         InputEvent::PressEnter { .. } => {
-                            // `if (e.key === 'Enter') e.currentTarget.blur()`.
+                            // `if (e.key === 'Enter') e.currentTarget.blur()`. Chromium
+                            // keeps the Tab starting point at the blurred input, so
+                            // focus rests on an anchor beside it instead of nowhere.
                             this.commit(window, cx);
-                            window.blur(cx);
+                            this.anchor.focus(window, cx);
                         }
                         InputEvent::Focus => {}
                     }
@@ -387,6 +391,7 @@ impl RenderOnce for Stepper {
                 step: 1.,
                 controlled: false,
                 on_change: None,
+                anchor: cx.focus_handle(),
                 _subscription: subscription,
             }
         });
@@ -407,9 +412,9 @@ impl RenderOnce for Stepper {
                 }
             }
         });
-        let (value, input) = {
+        let (value, input, anchor) = {
             let m = model.read(cx);
-            (m.value, m.input.clone())
+            (m.value, m.input.clone(), m.anchor.clone())
         };
         let focused = input.read(cx).focus_handle(cx).is_focused(window);
         let level = self.level;
@@ -562,6 +567,12 @@ impl RenderOnce for Stepper {
                             .text_color(color(ColorRole::TextPrimary)),
                     ),
             )
+            .child(parts::nav_anchor(
+                (id.clone(), "anchor"),
+                &anchor,
+                Some(input.read(cx).focus_handle(cx)),
+                cx,
+            ))
             .when_some(self.unit.clone(), |this, unit| {
                 // `.g-stepper-unit { padding-right: spacing-03; font-size: 0.75rem; color: text-secondary }`.
                 this.child(
