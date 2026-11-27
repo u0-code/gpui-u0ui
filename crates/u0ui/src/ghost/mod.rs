@@ -3,6 +3,7 @@
 //! mirrors one reference file, `src/ghost/<name>.jsx`.
 pub mod composer;
 pub mod foundations;
+pub mod palette;
 pub mod panels;
 pub mod primitives;
 pub mod settings;

@@ -392,6 +392,9 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("composer-compact", "ComposerCompact", "Ghost · Composer", Component::ComposerCompact.summary(), pages::ghost_composer::build_composer_compact).thumbnail(pages::ghost_composer::compact_thumbnail),
     PageDef::new("mention-list", "MentionList", "Ghost · Composer", Component::MentionList.summary(), pages::ghost_composer::build_mention_list).thumbnail(pages::ghost_composer::mention_thumbnail),
     PageDef::new("mode-menu", "ModeMenu", "Ghost · Composer", Component::ModeMenu.summary(), pages::ghost_composer::build_mode_menu).thumbnail(pages::ghost_composer::mode_thumbnail),
+    // Ghost · Palette (src/ghost/workspace.jsx)
+    PageDef::new("file-result-row", "FileResultRow", "Ghost · Palette", Component::FileResultRow.summary(), pages::ghost_palette::build_file_result_row).thumbnail(pages::ghost_palette::file_thumbnail),
+    PageDef::new("palette-page", "PalettePage", "Ghost · Palette", Component::PalettePage.summary(), pages::ghost_palette::build_palette_page).thumbnail(pages::ghost_palette::palette_thumbnail),
     // Ghost · Right column (src/ghost/panels.jsx)
     PageDef::new("code-viewer", "CodeViewer", GHOST_RIGHT, Component::CodeViewer.summary(), pages::ghost_panels::code_viewer::build).thumbnail(pages::ghost_panels::code_viewer::thumbnail),
     PageDef::new("commit-composer", "CommitComposer", GHOST_RIGHT, Component::CommitComposer.summary(), pages::ghost_panels::git::build_commit_composer).thumbnail(pages::ghost_panels::git::composer_thumbnail),

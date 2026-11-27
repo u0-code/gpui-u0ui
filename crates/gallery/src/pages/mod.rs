@@ -32,6 +32,7 @@ pub mod empty;
 pub mod field;
 pub mod ghost_composer;
 pub mod ghost_foundations;
+pub mod ghost_palette;
 pub mod ghost_panels;
 pub mod ghost_primitives;
 pub mod ghost_settings;
