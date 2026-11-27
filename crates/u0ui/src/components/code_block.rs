@@ -28,9 +28,18 @@
 //!   `cubic-bezier(0.2, 0, 0.38, 0.9)`; opacity only, so reduced motion keeps it).
 //! - **Behavior**: Base `Button` (focus, Enter/Space, pointer) and GPUI's
 //!   clipboard. Kit's `Clipboard` button has no Carbon feedback, so it is drawn here.
+//! - **Snippet focus**: the code area (single: `.cds--snippet-container`;
+//!   multi: its `pre`) is a horizontal [`ScrollArea`] with Carbon's 8px bar
+//!   and a tab stop before the copy button (`tabIndex={0}` unless disabled,
+//!   Carbon's DOM order: code, copy, "Show more"). A press focuses it,
+//!   Left/Right scroll it, a vertical wheel scrolls the page. Single draws
+//!   `:focus { outline: 2px solid focus; outline-offset: -2px }` and drops its
+//!   end fade on `:focus-within`; multi draws the container's `:focus-within`
+//!   outline at offset 0. "Show more" draws `:focus { outline: 2px solid
+//!   focus; outline-offset: -2px }`.
 use super::form::rem;
 use super::overlay::floating_shadow;
-use super::scroll_area::{ScrollArea, ScrollAxes};
+use super::scroll_area::{ScrollArea, ScrollAxes, ScrollFocusRing};
 use crate::{
     icons::{CarbonIcon, Icon, IconSize},
     motion::{self, Curve, Motion, Speed},
@@ -39,9 +48,10 @@ use crate::{
     typography::{TypeStyled as _, font},
 };
 use gpui_kit::{
-    AnyElement, App, ClipboardItem, CursorStyle, ElementId, Hsla, InteractiveElement as _,
-    IntoElement, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
-    Window, deferred, div, prelude::FluentBuilder as _, px, relative,
+    AnyElement, App, ClipboardItem, CursorStyle, ElementId, FocusHandle, Hsla,
+    InteractiveElement as _, IntoElement, ParentElement, RenderOnce, ScrollHandle, SharedString,
+    StatefulInteractiveElement as _, Styled, Window, deferred, div, prelude::FluentBuilder as _,
+    px, relative,
 };
 use std::time::{Duration, Instant};
 
@@ -130,6 +140,19 @@ fn feedback_box(text: SharedString, opacity: f32, below: bool) -> impl IntoEleme
     deferred(anchor).with_priority(6000)
 }
 
+/// A focus handle kept under `(id, key)`.
+fn keyed_focus(
+    id: &ElementId,
+    key: &'static str,
+    window: &mut Window,
+    cx: &mut App,
+) -> FocusHandle {
+    window
+        .use_keyed_state((id.clone(), key), cx, |_, cx| cx.focus_handle())
+        .read(cx)
+        .clone()
+}
+
 /// Keyed copy state plus the current feedback opacity.
 fn copy_state(
     id: &ElementId,
@@ -186,6 +209,7 @@ pub struct CopyButton {
     level: LayerLevel,
     disabled: bool,
     quiet: bool,
+    focus: Option<FocusHandle>,
 }
 
 impl CopyButton {
@@ -200,7 +224,15 @@ impl CopyButton {
             level: LayerLevel::One,
             disabled: false,
             quiet: false,
+            focus: None,
         }
+    }
+
+    /// Use a caller-owned focus handle (a snippet reads it for its
+    /// `:focus-within` rules).
+    pub fn track_focus(mut self, handle: &FocusHandle) -> Self {
+        self.focus = Some(handle.clone());
+        self
     }
 
     /// No fill at rest, `background-hover` under the pointer, for a copy
@@ -246,10 +278,10 @@ impl RenderOnce for CopyButton {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
         let (state, opacity) = copy_state(&id, window, cx);
-        let focus = window
-            .use_keyed_state((id.clone(), "focus"), cx, |_, cx| cx.focus_handle())
-            .read(cx)
-            .clone();
+        let focus = self
+            .focus
+            .clone()
+            .unwrap_or_else(|| keyed_focus(&id, "focus", window, cx));
         let focused = focus.is_focused(window);
         let (hovered, pressed) = {
             let s = state.read(cx);
@@ -786,6 +818,8 @@ pub struct CodeSnippet {
     copy_feedback: SharedString,
     show_more: SharedString,
     show_less: SharedString,
+    focus: Option<FocusHandle>,
+    scroll: Option<ScrollHandle>,
 }
 
 impl CodeSnippet {
@@ -802,7 +836,23 @@ impl CodeSnippet {
             copy_feedback: SharedString::default(),
             show_more: SharedString::default(),
             show_less: SharedString::default(),
+            focus: None,
+            scroll: None,
         }
+    }
+
+    /// Use a caller-owned focus handle for the code area (single: the
+    /// `.cds--snippet-container`; multi: its `pre`), e.g. to focus it.
+    pub fn track_focus(mut self, handle: &FocusHandle) -> Self {
+        self.focus = Some(handle.clone());
+        self
+    }
+
+    /// Use a caller-owned scroll handle for the code area's horizontal
+    /// scroller (single and multi), e.g. to read or set its offset.
+    pub fn track_scroll(mut self, handle: &ScrollHandle) -> Self {
+        self.scroll = Some(handle.clone());
+        self
     }
 
     /// The layer it sits on (paints `layer`).
@@ -924,8 +974,46 @@ impl RenderOnce for CodeSnippet {
                     .into_any_element()
             }
             SnippetType::Single => {
+                let focus = self
+                    .focus
+                    .clone()
+                    .unwrap_or_else(|| keyed_focus(&id, "code-focus", window, cx));
+                let copy_focus = keyed_focus(&id, "copy-focus", window, cx);
+                let focus_within = focus.is_focused(window) || copy_focus.is_focused(window);
+                // `.cds--snippet--single .cds--snippet-container { display: flex;
+                // align-items: center; block-size: 100%; overflow-x: auto;
+                // padding-inline-start: 1rem }`: the code area is a Carbon
+                // horizontal scroller, a tab stop (`tabIndex={0}` unless
+                // disabled) before the copy button, scrolled by Left/Right.
+                // A vertical wheel passes through to the page.
+                let container = code_scroller((id.clone(), "scroll"))
+                    .focusable(!self.disabled)
+                    .track_focus(&focus)
+                    // `.cds--snippet--single .cds--snippet-container:focus
+                    // { outline: 2px solid var(--focus); outline-offset: -2px }`.
+                    .focus_ring(ScrollFocusRing::Focus)
+                    .when_some(self.scroll.clone(), |this, handle| {
+                        this.track_scroll(&handle)
+                    })
+                    .flex_1()
+                    .min_w_0()
+                    .h_full()
+                    .child(
+                        div()
+                            .flex_1()
+                            .flex()
+                            .items_center()
+                            .pl(rem(16.))
+                            // `.cds--snippet--single pre { padding-inline-end: 2rem }`.
+                            .pr(rem(32.))
+                            .font(mono)
+                            .text_size(size)
+                            .line_height(lh)
+                            .whitespace_nowrap()
+                            .child(self.code.clone()),
+                    );
                 // `.cds--snippet--single { block-size: 2.5rem; padding-inline-end: 2.5rem;
-                // max-inline-size: 48rem; background: layer }`, container `padding-inline-start: 1rem`.
+                // max-inline-size: 48rem; background: layer }`.
                 div()
                     .relative()
                     .flex()
@@ -934,34 +1022,16 @@ impl RenderOnce for CodeSnippet {
                     .max_w(rem(768.))
                     .h(rem(40.))
                     .pr(rem(40.))
-                    // The container's `padding-inline-start: 1rem`, kept outside the
-                    // scroller so the code never loses its start inset.
-                    .pl(rem(16.))
                     .bg(layer)
                     .text_color(text_color)
-                    .child(
-                        div()
-                            .id((id.clone(), "scroll"))
-                            .flex_1()
-                            .min_w_0()
-                            .h_full()
-                            .flex()
-                            .items_center()
-                            // Only a horizontal wheel (or shift-wheel) scrolls the
-                            // code; a vertical wheel scrolls the page.
-                            .overflow_x_scroll()
-                            .restrict_scroll_to_axis()
-                            .font(mono)
-                            .text_size(size)
-                            .line_height(lh)
-                            .whitespace_nowrap()
-                            // `.cds--snippet--single pre { padding-inline-end: 2rem }`.
-                            .child(div().pr(rem(32.)).child(self.code.clone())),
-                    )
-                    .child(fade_end(layer))
+                    .child(container)
+                    // `.cds--snippet--single:focus-within .cds--snippet-container
+                    // { mask-image: none }`.
+                    .when(!focus_within, |this| this.child(fade_end(layer)))
                     .child(
                         div().absolute().top_0().right_0().child(
                             CopyButton::new((id.clone(), "copy"), self.code.clone())
+                                .track_focus(&copy_focus)
                                 .label(self.copy_label.clone())
                                 .feedback(self.copy_feedback.clone())
                                 .layer(self.level)
@@ -1001,7 +1071,15 @@ impl RenderOnce for CodeSnippet {
                     cx,
                 );
                 let wrap = self.wrap;
+                let disabled = self.disabled;
+                let focus = self
+                    .focus
+                    .clone()
+                    .unwrap_or_else(|| keyed_focus(&id, "code-focus", window, cx));
+                let code_focused = focus.is_focused(window);
                 let expand_button = collapsed.map(|_| {
+                    let expand_focus = keyed_focus(&id, "expand-focus", window, cx);
+                    let expand_focused = expand_focus.is_focused(window);
                     let hovered =
                         window.use_keyed_state((id.clone(), "expand-hover"), cx, |_, _| false);
                     let bg = motion::animate_color(
@@ -1014,7 +1092,11 @@ impl RenderOnce for CodeSnippet {
                     let toggle = expanded_state.clone();
                     // `.cds--snippet-btn--expand { position: absolute; inset: auto 0 0 auto;
                     // padding: 0.5rem 1rem; block-size: 2rem; body-compact-01; background: layer }`.
+                    // Base `Button`: a tab stop after the copy button (DOM
+                    // order), toggled by click, Enter and Space.
                     gpui_kit::base::Button::new((id.clone(), "expand"))
+                        .track_focus(&expand_focus)
+                        .disabled(disabled)
                         .absolute()
                         .bottom_0()
                         .right_0()
@@ -1051,6 +1133,20 @@ impl RenderOnce for CodeSnippet {
                                     .rotate(gpui_kit::radians(rotation)),
                             ),
                         )
+                        // `.cds--snippet-btn--expand:focus { outline: 2px solid
+                        // var(--focus); outline-offset: -2px }` (over the ghost
+                        // button's inset focus shadows, which it covers).
+                        .when(expand_focused, |this| {
+                            this.child(
+                                div()
+                                    .absolute()
+                                    .top_0()
+                                    .left_0()
+                                    .size_full()
+                                    .border_2()
+                                    .border_color(color(ColorRole::Focus)),
+                            )
+                        })
                 });
                 // `.cds--snippet--multi { padding: 1rem; display: flex }`; `pre { padding-block-end:
                 // 1.5rem; padding-inline-end: 1.5rem }`; expanded container `padding-block-end: 1rem`.
@@ -1062,35 +1158,67 @@ impl RenderOnce for CodeSnippet {
                     .bg(layer)
                     .text_color(text_color)
                     .child(
-                        // `.cds--snippet-container { max-height; overflow-y: auto }`
-                        // clips the rows; its `pre { overflow: auto }` scrolls
-                        // them sideways under a Carbon bar.
+                        // `.cds--snippet--multi .cds--snippet-container:focus-within
+                        // { outline: 2px solid var(--focus); outline-offset: 0 }`:
+                        // drawn just outside the container, which clips.
                         div()
+                            .relative()
                             .w_full()
-                            .h(rem(height))
-                            .overflow_hidden()
-                            .flex()
-                            .flex_col()
                             .child(
-                                code_scroller((id.clone(), "scroll")).h_full().child(
+                                // `.cds--snippet-container { max-height; overflow-y: auto }`
+                                // clips the rows; its `pre { overflow: auto }` scrolls
+                                // them sideways under a Carbon bar. The `pre` is the tab
+                                // stop (`tabIndex={0}` unless disabled), before the copy
+                                // button; Left/Right scroll it.
+                                div()
+                                    .w_full()
+                                    .h(rem(height))
+                                    .overflow_hidden()
+                                    .flex()
+                                    .flex_col()
+                                    .child(
+                                        code_scroller((id.clone(), "scroll"))
+                                            .focusable(!disabled)
+                                            .track_focus(&focus)
+                                            .focus_ring(ScrollFocusRing::Hidden)
+                                            .when_some(self.scroll.clone(), |this, handle| {
+                                                this.track_scroll(&handle)
+                                            })
+                                            .h_full()
+                                            .child(
+                                                div()
+                                                    .flex()
+                                                    .flex_col()
+                                                    .pr(rem(24.))
+                                                    .font(mono)
+                                                    .text_size(size)
+                                                    .line_height(lh)
+                                                    .children(lines.into_iter().map(move |l| {
+                                                        div()
+                                                            .when(!wrap, |this| {
+                                                                this.whitespace_nowrap()
+                                                            })
+                                                            .child(if l.is_empty() {
+                                                                SharedString::from(" ")
+                                                            } else {
+                                                                l
+                                                            })
+                                                    })),
+                                            ),
+                                    ),
+                            )
+                            .when(code_focused, |this| {
+                                this.child(
                                     div()
-                                        .flex()
-                                        .flex_col()
-                                        .pr(rem(24.))
-                                        .font(mono)
-                                        .text_size(size)
-                                        .line_height(lh)
-                                        .children(lines.into_iter().map(move |l| {
-                                            div()
-                                                .when(!wrap, |this| this.whitespace_nowrap())
-                                                .child(if l.is_empty() {
-                                                    SharedString::from(" ")
-                                                } else {
-                                                    l
-                                                })
-                                        })),
-                                ),
-                            ),
+                                        .absolute()
+                                        .top(px(-2.))
+                                        .left(px(-2.))
+                                        .right(px(-2.))
+                                        .bottom(px(-2.))
+                                        .border_2()
+                                        .border_color(color(ColorRole::Focus)),
+                                )
+                            }),
                     )
                     .child(
                         div().absolute().top(rem(8.)).right(rem(8.)).child(
