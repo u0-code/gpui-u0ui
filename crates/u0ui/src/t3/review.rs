@@ -10,3 +10,16 @@ pub use diff::{
 };
 pub mod review_thread;
 pub use review_thread::{ReviewComment, ReviewThreadCard, ReviewThreadTexts};
+pub mod pull_request;
+pub use pull_request::{
+    Check, ChecksGlyph, ChecksList, ChecksStatus, DetailHeaderTexts, GuideRail, GuideStop, Label,
+    LabelChip, PullRequestDetailHeader, PullRequestRow, PullRequestStack, PullRequestState,
+    PullRequestStateGlyph, ReviewDecision, ReviewDecisionBadge, StackLayer, StopState,
+};
+pub mod discussion;
+pub use discussion::{
+    EventKind, PullRequestTimeline, Reaction, ReactionBar, ReviewForm, ReviewFormTexts,
+    ReviewVerdict, TimelineEvent,
+};
+pub mod issue;
+pub use issue::{IssueRow, IssueState, IssueStateGlyph, Priority};

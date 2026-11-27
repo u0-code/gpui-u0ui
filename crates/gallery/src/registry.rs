@@ -286,6 +286,14 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("provider-icon", "ProviderIcon", "T3 · Identity & status", Component::ProviderIcon.summary(), pages::t3_shell::identity::build_provider_icon).thumbnail(pages::t3_shell::identity::provider_thumbnail),
     PageDef::new("project-identity", "ProjectIdentity", "T3 · Identity & status", Component::ProjectIdentity.summary(), pages::t3_shell::identity::build_project_identity).thumbnail(pages::t3_shell::identity::identity_thumbnail),
     PageDef::new("status-indicators", "StatusIndicators", "T3 · Identity & status", Component::StatusIndicators.summary(), pages::t3_shell::identity::build_status_indicators).thumbnail(pages::t3_shell::identity::status_thumbnail),
+    PageDef::new("checks-list", "ChecksList", "T3 · Pull requests & issues", Component::ChecksList.summary(), pages::t3_review::checks_list::build).thumbnail(pages::t3_review::checks_list::thumbnail),
+    PageDef::new("guide-rail", "GuideRail", "T3 · Pull requests & issues", Component::GuideRail.summary(), pages::t3_review::guide_rail::build).thumbnail(pages::t3_review::guide_rail::thumbnail),
+    PageDef::new("issue-row", "IssueRow", "T3 · Pull requests & issues", Component::IssueRow.summary(), pages::t3_review::issue_row::build).thumbnail(pages::t3_review::issue_row::thumbnail),
+    PageDef::new("pull-request-detail-header", "PullRequestDetailHeader", "T3 · Pull requests & issues", Component::PullRequestDetailHeader.summary(), pages::t3_review::pull_request_detail_header::build).thumbnail(pages::t3_review::pull_request_detail_header::thumbnail),
+    PageDef::new("pull-request-row", "PullRequestRow", "T3 · Pull requests & issues", Component::PullRequestRow.summary(), pages::t3_review::pull_request_row::build).thumbnail(pages::t3_review::pull_request_row::thumbnail),
+    PageDef::new("pull-request-stack", "PullRequestStack", "T3 · Pull requests & issues", Component::PullRequestStack.summary(), pages::t3_review::pull_request_stack::build).thumbnail(pages::t3_review::pull_request_stack::thumbnail),
+    PageDef::new("pull-request-timeline", "PullRequestTimeline", "T3 · Pull requests & issues", Component::PullRequestTimeline.summary(), pages::t3_review::pull_request_timeline::build).thumbnail(pages::t3_review::pull_request_timeline::thumbnail),
+    PageDef::new("review-form", "ReviewForm", "T3 · Pull requests & issues", Component::ReviewForm.summary(), pages::t3_review::review_form::build).thumbnail(pages::t3_review::review_form::thumbnail),
 ];
 
 /// Look a page up by id.

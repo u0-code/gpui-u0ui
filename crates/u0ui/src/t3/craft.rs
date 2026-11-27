@@ -65,6 +65,11 @@ pub(crate) fn focus_ring_offset(offset: f32) -> AnyElement {
         .into_any_element()
 }
 
+/// A child id `name-i` under `id`.
+pub(crate) fn sub(id: &ElementId, name: &str, i: usize) -> ElementId {
+    (id.clone(), SharedString::from(format!("{name}-{i}"))).into()
+}
+
 /// A keyed focus handle for `id`.
 pub(crate) fn focus_handle(id: &ElementId, window: &mut Window, cx: &mut App) -> FocusHandle {
     window
