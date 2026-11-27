@@ -426,8 +426,9 @@ impl RenderOnce for AgentRow {
             };
             // `.g-agent-prog { display: inline-flex; align-items: center; gap:
             // var(--spacing-03); font-variant-numeric: tabular-nums }`.
-            // The status stays beside the bar and wraps its words; the bar
-            // shrinks with it (it never drops under the bar).
+            // The status stays beside the bar on one line (`.wl-ag-inst
+            // .g-agent-sub { white-space: nowrap }`): in a narrow row the bar
+            // gives way (`.g-bar { flex: 1 }`), never a word broken in two.
             sub.child(
                 div()
                     .flex()
@@ -437,8 +438,8 @@ impl RenderOnce for AgentRow {
                     .child(progress_bar(id.clone(), self.progress, window, cx))
                     .child(
                         div()
-                            .flex_shrink(1.)
-                            .min_w_0()
+                            .flex_none()
+                            .whitespace_nowrap()
                             .child(format!("{word} {}%", self.progress.round() as i64)),
                     ),
             )
