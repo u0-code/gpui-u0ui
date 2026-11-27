@@ -3,6 +3,8 @@
 //! compositions themselves live in the gallery; only the reusable parts are
 //! here.
 //!
+//! - [`actionable_toast`]: [`ActionableToast`], the toast with one tertiary
+//!   action (`.cds--actionable-notification--toast`).
 //! - [`badge`]: count and dot badges on icon buttons (`.cds--badge-indicator`, `.cu-pdot`).
 //! - [`caption`]: the examples' caption line (`.cu-pcap`).
 //! - [`combo_button`]: [`ComboButton`] (`.cds--combo-button`), a primary
@@ -20,6 +22,7 @@
 //! - [`row`]: [`PatternRow`] (`.cu-prow`), a list row with trailing actions.
 //! - [`search`]: [`PatternSearch`] (`.cds--search`), the search field.
 //! - [`text_toolbar`]: the rich-text formatting toolbar (`.cu-ptbar`).
+pub mod actionable_toast;
 pub mod badge;
 pub mod caption;
 pub mod combo_button;
@@ -33,6 +36,7 @@ pub mod row;
 pub mod search;
 pub mod text_toolbar;
 
+pub use actionable_toast::ActionableToast;
 pub use badge::{BadgeIndicator, Badged};
 pub use caption::Caption;
 pub use combo_button::{ComboButton, ComboButtonSize};

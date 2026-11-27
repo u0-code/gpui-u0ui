@@ -426,6 +426,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("pattern-global-header", "PatternGlobalHeader", "Carbon · Patterns", Component::PatternGlobalHeader.summary(), pages::patterns::global_header::build).thumbnail(pages::patterns::global_header::thumbnail),
     PageDef::new("pattern-loading", "PatternLoading", "Carbon · Patterns", Component::PatternLoading.summary(), pages::patterns::loading::build).thumbnail(pages::patterns::loading::thumbnail),
     PageDef::new("pattern-login", "PatternLogin", "Carbon · Patterns", Component::PatternLogin.summary(), pages::patterns::login::build).thumbnail(pages::patterns::login::thumbnail),
+    PageDef::new("pattern-notifications", "PatternNotifications", "Carbon · Patterns", Component::PatternNotifications.summary(), pages::patterns::notifications::build).thumbnail(pages::patterns::notifications::thumbnail),
     PageDef::new("pattern-text-toolbar", "PatternTextToolbar", "Carbon · Patterns", Component::PatternTextToolbar.summary(), pages::patterns::text_toolbar::build).thumbnail(pages::patterns::text_toolbar::thumbnail),
     // T3 · Files & preview, Settings, Usage & workflows, Onboarding & feedback (src/t3/workspace.jsx)
     PageDef::new("device-controls-rail", "DeviceControlsRail", "T3 · Files & preview", Component::DeviceControlsRail.summary(), pages::t3_workspace::files::build_device_controls_rail).thumbnail(pages::t3_workspace::files::device_controls_rail_thumbnail),

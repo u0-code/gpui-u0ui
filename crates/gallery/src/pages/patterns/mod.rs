@@ -8,4 +8,5 @@ pub mod disclosures;
 pub mod global_header;
 pub mod loading;
 pub mod login;
+pub mod notifications;
 pub mod text_toolbar;
