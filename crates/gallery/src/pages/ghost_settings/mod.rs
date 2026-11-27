@@ -9,6 +9,7 @@ pub mod scope_header;
 pub mod script_row;
 pub mod settings_dialog;
 pub mod settings_list_row;
+pub mod settings_row_overridden;
 pub mod telemetry_preview;
 pub mod theme_editor;
 

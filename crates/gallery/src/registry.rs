@@ -469,6 +469,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("read-aloud-control", "ReadAloudControl", "Ghost · Settings", Component::ReadAloudControl.summary(), pages::ghost_settings::read_aloud_control::build).thumbnail(pages::ghost_settings::read_aloud_control::thumbnail),
     PageDef::new("scope-header", "ScopeHeader", "Ghost · Settings", Component::ScopeHeader.summary(), pages::ghost_settings::scope_header::build).thumbnail(pages::ghost_settings::scope_header::thumbnail),
     PageDef::new("settings-dialog", "SettingsDialog", "Ghost · Settings", Component::SettingsDialog.summary(), pages::ghost_settings::settings_dialog::build).thumbnail(pages::ghost_settings::settings_dialog::thumbnail),
+    PageDef::new("settings-row-overridden", "SettingsRowOverridden", "Ghost · Settings", Component::SettingsRowOverridden.summary(), pages::ghost_settings::settings_row_overridden::build).thumbnail(pages::ghost_settings::settings_row_overridden::thumbnail),
     // Ghost · Devices (src/ghost/admin.jsx)
     PageDef::new("device-row", "DeviceRow", "Ghost · Devices", Component::DeviceRow.summary(), pages::ghost_devices::device_row::build).thumbnail(pages::ghost_devices::device_row::thumbnail),
     PageDef::new("mac-row", "MacRow", "Ghost · Devices", Component::MacRow.summary(), pages::ghost_devices::mac_row::build).thumbnail(pages::ghost_devices::mac_row::thumbnail),

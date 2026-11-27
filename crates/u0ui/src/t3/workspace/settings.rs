@@ -733,6 +733,18 @@ impl RenderOnce for SettingsRow {
             .min_h(rem(64.))
             .py(rem(16.))
             .px(rem(20.))
+            .when(self.overridden, |this| {
+                // `.t3-srow--over { box-shadow: inset 2px 0 0 var(--interactive) }`.
+                this.relative().child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .left_0()
+                        .w(px(2.))
+                        .bg(color(ColorRole::Interactive)),
+                )
+            })
             .child(
                 // `.t3-srow-text { display: flex; flex: 1; min-width: 0; flex-direction: column;
                 // gap: spacing-02 }`.
