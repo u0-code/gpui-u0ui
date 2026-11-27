@@ -72,6 +72,15 @@ impl Render for StripPage {
                         })
                     }
                 })
+                .on_open({
+                    let entity = entity.clone();
+                    move |name, _, cx| {
+                        entity.update(cx, |this, cx| {
+                            this.last = format!("onOpen({name})").into();
+                            cx.notify();
+                        })
+                    }
+                })
                 .on_retry({
                     let entity = entity.clone();
                     move |name, _, cx| {

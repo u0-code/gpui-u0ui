@@ -9,6 +9,8 @@
 //!   error icon, name, message, Retry and ×, on
 //!   `notification-background-error` framed by `support-error`.
 //! - **Files**: [`ContextChip`] bubbles with their size.
+//! - **Opening** ([`ComposerAttachmentStrip::on_open`]): a done image's
+//!   thumbnail is a button that opens it, named by `texts.open`.
 //! - **In the composer** ([`ComposerAttachmentStrip::in_composer`], gemini-A
 //!   and r2-gal): 2rem thumbs with a hairline, the × hung off the corner,
 //!   a 55% upload scrim, and 32px file chips.
@@ -17,9 +19,10 @@ use crate::t3::base::Spin;
 use crate::t3::press::{self, rem};
 use crate::{icons::CarbonIcon, theme::color, tokens::ColorRole};
 use gpui_kit::{
-    AnyElement, App, BoxShadow, CursorStyle, ElementId, Hsla, ImageSource, IntoElement, ObjectFit,
-    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
-    StyledImage as _, Window, div, img, prelude::FluentBuilder as _, px, rgba,
+    AnyElement, App, BoxShadow, CursorStyle, ElementId, Hsla, ImageSource, InteractiveElement as _,
+    IntoElement, ObjectFit, ParentElement, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled, StyledImage as _, Window, div, img,
+    prelude::FluentBuilder as _, px, rgba,
 };
 use std::rc::Rc;
 
@@ -132,6 +135,8 @@ pub struct AttachmentTexts {
     pub uploading: SharedString,
     /// The remove ×'s name: `"Remove {name}"`.
     pub remove: Rc<dyn Fn(&str) -> SharedString>,
+    /// An openable thumbnail's name: `"Open {name}"`.
+    pub open: Rc<dyn Fn(&str) -> SharedString>,
 }
 
 impl Default for AttachmentTexts {
@@ -141,6 +146,7 @@ impl Default for AttachmentTexts {
             retry: "Retry".into(),
             uploading: "Uploading".into(),
             remove: Rc::new(|name| format!("Remove {name}").into()),
+            open: Rc::new(|name| format!("Open {name}").into()),
         }
     }
 }
@@ -174,6 +180,7 @@ pub struct ComposerAttachmentStrip {
     texts: AttachmentTexts,
     on_remove: Option<NameHandler>,
     on_retry: Option<NameHandler>,
+    on_open: Option<NameHandler>,
 }
 
 impl ComposerAttachmentStrip {
@@ -191,6 +198,7 @@ impl ComposerAttachmentStrip {
             texts: AttachmentTexts::default(),
             on_remove: None,
             on_retry: None,
+            on_open: None,
         }
     }
 
@@ -209,6 +217,13 @@ impl ComposerAttachmentStrip {
     /// `onRemove(name)`: adds the × to files (images always have one).
     pub fn on_remove(mut self, f: impl Fn(SharedString, &mut Window, &mut App) + 'static) -> Self {
         self.on_remove = Some(Rc::new(f));
+        self
+    }
+
+    /// A done image's thumbnail opened (`onOpen(name)`): the thumbnail is a
+    /// button, the × above it still removes.
+    pub fn on_open(mut self, f: impl Fn(SharedString, &mut Window, &mut App) + 'static) -> Self {
+        self.on_open = Some(Rc::new(f));
         self
     }
 
@@ -372,6 +387,11 @@ impl RenderOnce for ComposerAttachmentStrip {
                 continue;
             }
             let uploading = image.state == AttachmentImageState::Uploading;
+            let open = self.on_open.clone().filter(|_| !uploading).map(|f| {
+                let name = image.name.clone();
+                Rc::new(move |w: &mut Window, cx: &mut App| f(name.clone(), w, cx))
+                    as Rc<dyn Fn(&mut Window, &mut App)>
+            });
             let picture: AnyElement = match image.source.clone() {
                 Some(source) => img(source)
                     .size_full()
@@ -408,9 +428,6 @@ impl RenderOnce for ComposerAttachmentStrip {
                 window,
                 cx,
             )
-            .absolute()
-            .top(px(x_at))
-            .right(px(x_at))
             .p(px(x_pad))
             .bg(color(ColorRole::BackgroundInverse))
             .when(self.in_composer, |this| {
@@ -430,7 +447,23 @@ impl RenderOnce for ComposerAttachmentStrip {
                             .absolute()
                             .inset_0()
                             .overflow_hidden()
-                            .child(picture)
+                            .child(match open {
+                                Some(f) => bare_button(
+                                    key("open"),
+                                    (texts.open)(&image.name),
+                                    Fill {
+                                        hover: None,
+                                        focus: None,
+                                    },
+                                    |_| picture,
+                                    Some(f),
+                                    window,
+                                    cx,
+                                )
+                                .size_full()
+                                .into_any_element(),
+                                None => picture,
+                            })
                             .when(uploading, |this| {
                                 // `.t3-thumb-over { background: rgba(22,22,22,.5) }` with a white spinner
                                 // on a 30% white track (`.t3-thumb-over .t3-spin`).
@@ -461,7 +494,15 @@ impl RenderOnce for ComposerAttachmentStrip {
                                 .border_color(color(ColorRole::BorderSubtle01)),
                         )
                     })
-                    .child(x)
+                    // The × blocks the pointer, so pressing it never opens the thumbnail under it.
+                    .child(
+                        div()
+                            .absolute()
+                            .top(px(x_at))
+                            .right(px(x_at))
+                            .occlude()
+                            .child(x),
+                    )
                     .into_any_element(),
             );
         }
@@ -508,6 +549,43 @@ mod tests {
     fn composer_thumbs_are_32px_with_a_hanging_x() {
         assert_eq!(thumb_geometry(false), (64., 2., 2.));
         assert_eq!(thumb_geometry(true), (32., -6., 1.));
+    }
+
+    /// What a strip's handlers were called with, in order.
+    struct Strip {
+        heard: Rc<std::cell::RefCell<Vec<String>>>,
+    }
+
+    impl gpui_kit::Render for Strip {
+        fn render(&mut self, _: &mut Window, _: &mut gpui_kit::Context<Self>) -> impl IntoElement {
+            let (opened, removed) = (self.heard.clone(), self.heard.clone());
+            div().size_full().child(
+                ComposerAttachmentStrip::new("strip", vec![AttachmentImage::new("a.png")], vec![])
+                    .on_open(move |name, _, _| opened.borrow_mut().push(format!("open {name}")))
+                    .on_remove(move |name, _, _| {
+                        removed.borrow_mut().push(format!("remove {name}"));
+                    }),
+            )
+        }
+    }
+
+    #[gpui_kit::test]
+    fn a_thumbnail_opens_and_its_x_only_removes(cx: &mut gpui_kit::TestAppContext) {
+        let heard = Rc::new(std::cell::RefCell::new(Vec::new()));
+        let (_, window) = cx.add_window_view({
+            let heard = heard.clone();
+            |_, _| Strip { heard }
+        });
+        // The 64px thumb at the origin; its × 2px in from the top right corner.
+        window.simulate_click(
+            gpui_kit::point(px(16.), px(48.)),
+            gpui_kit::Modifiers::none(),
+        );
+        window.simulate_click(
+            gpui_kit::point(px(56.), px(8.)),
+            gpui_kit::Modifiers::none(),
+        );
+        assert_eq!(*heard.borrow(), ["open a.png", "remove a.png"]);
     }
 
     #[test]
