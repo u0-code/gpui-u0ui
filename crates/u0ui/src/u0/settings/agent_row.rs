@@ -3,6 +3,8 @@
 //! name and version, then the install / update progress, "Not installed", or
 //! the sign-in state with the account count and a newer version; Install,
 //! Update and Sign in buttons as the state calls for, and an on/off switch.
+//! While it installs or updates, a row given [`AgentRow::on_cancel`] shows
+//! Cancel in the switch's place (`Welcome`'s `.wl-ag-inst`).
 //!
 //! The switch keeps its own state seeded from [`AgentRow::enabled`] (the
 //! reference's `useState(enabled)`); a switched-off agent greys its name.
@@ -94,6 +96,8 @@ pub struct AgentRowTexts {
     pub update: SharedString,
     /// `"Sign in"`.
     pub sign_in: SharedString,
+    /// `"Cancel"`.
+    pub cancel: SharedString,
     /// The switch's accessible name: `"{name} enabled"`.
     pub enabled: Rc<dyn Fn(&str) -> SharedString>,
 }
@@ -111,6 +115,7 @@ impl Default for AgentRowTexts {
             install: "Install".into(),
             update: "Update".into(),
             sign_in: "Sign in".into(),
+            cancel: "Cancel".into(),
             enabled: Rc::new(|name| format!("{name} enabled").into()),
         }
     }
@@ -174,6 +179,8 @@ pub enum AgentButton {
     Update,
     /// Ghost "Sign in" (installed, not signed in).
     SignIn,
+    /// Ghost "Cancel" (installing or updating, with [`AgentRow::on_cancel`]).
+    Cancel,
 }
 
 type Handler = Rc<dyn Fn(&mut Window, &mut App)>;
@@ -196,6 +203,7 @@ pub struct AgentRow {
     on_install: Option<Handler>,
     on_update: Option<Handler>,
     on_sign_in: Option<Handler>,
+    on_cancel: Option<Handler>,
     on_toggle: Option<ToggleHandler>,
 }
 
@@ -217,6 +225,7 @@ impl AgentRow {
             on_install: None,
             on_update: None,
             on_sign_in: None,
+            on_cancel: None,
             on_toggle: None,
         }
     }
@@ -293,6 +302,18 @@ impl AgentRow {
         self
     }
 
+    /// Cancel pressed: while installing or updating, Cancel takes the
+    /// switch's place.
+    pub fn on_cancel(mut self, f: impl Fn(&mut Window, &mut App) + 'static) -> Self {
+        self.on_cancel = Some(Rc::new(f));
+        self
+    }
+
+    /// Whether Cancel shows in the switch's place.
+    fn cancels(&self) -> bool {
+        self.state.in_progress() && self.on_cancel.is_some()
+    }
+
     /// The switch was flipped.
     pub fn on_toggle(mut self, f: impl Fn(bool, &mut Window, &mut App) + 'static) -> Self {
         self.on_toggle = Some(Rc::new(f));
@@ -316,6 +337,9 @@ impl AgentRow {
         }
         if !self.signed_in && self.state == AgentState::Installed {
             out.push(AgentButton::SignIn);
+        }
+        if self.cancels() {
+            out.push(AgentButton::Cancel);
         }
         out
     }
@@ -404,14 +428,15 @@ impl RenderOnce for AgentRow {
 
         let buttons = self.buttons();
         let texts = self.texts.clone();
-        let (on_install, on_update, on_sign_in) = (
+        let (on_install, on_update, on_sign_in, on_cancel) = (
             self.on_install.clone(),
             self.on_update.clone(),
             self.on_sign_in.clone(),
+            self.on_cancel.clone(),
         );
         let on_toggle = self.on_toggle.clone();
         let switch_label = (self.texts.enabled)(&self.name);
-        let missing = self.state == AgentState::Missing;
+        let switched = self.state != AgentState::Missing && !self.cancels();
 
         row::frame()
             .child(
@@ -453,6 +478,12 @@ impl RenderOnce for AgentRow {
                         on_sign_in.clone(),
                         "sign-in",
                     ),
+                    AgentButton::Cancel => (
+                        texts.cancel.clone(),
+                        ButtonVariant::Ghost,
+                        on_cancel.clone(),
+                        "cancel",
+                    ),
                 };
                 row::tail(
                     Button::new((id.clone(), key), label)
@@ -461,7 +492,7 @@ impl RenderOnce for AgentRow {
                         .when_some(handler, |b, f| b.on_click(move |_, w, cx| f(w, cx))),
                 )
             }))
-            .when(!missing, |this| {
+            .when(switched, |this| {
                 this.child(row::tail(
                     Switch::new((id.clone(), "toggle"))
                         .size(SwitchSize::Sm)
@@ -501,6 +532,14 @@ mod tests {
         let r = AgentRow::new("a", "Gemini")
             .state(AgentState::Installing)
             .progress(64.);
+        assert!(r.buttons().is_empty());
+        let r = AgentRow::new("a", "Gemini")
+            .state(AgentState::Installing)
+            .on_cancel(|_, _| {});
+        assert_eq!(r.buttons(), vec![AgentButton::Cancel]);
+        let r = AgentRow::new("a", "Gemini")
+            .signed_in(true)
+            .on_cancel(|_, _| {});
         assert!(r.buttons().is_empty());
         let r = AgentRow::new("a", "Claude")
             .version("2.1.0")
