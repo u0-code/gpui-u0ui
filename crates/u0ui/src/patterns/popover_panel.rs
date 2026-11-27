@@ -154,8 +154,12 @@ impl RenderOnce for PatternLink {
             .type_style(TypeStyle::BodyCompact01)
             .cursor(CursorStyle::PointingHand)
             .hover(move |s| s.bg(look.hover))
-            .on_click(move |_, window, cx| {
-                if let Some(f) = &on_click {
+            // GPUI already turns Enter/Space on a focused clickable element into a
+            // click (on key up). The key handler below follows Enter itself (a
+            // link ignores Space), so a keyboard click is ignored here or the
+            // link would follow twice.
+            .on_click(move |e, window, cx| {
+                if let Some(f) = on_click.as_ref().filter(|_| !e.is_keyboard()) {
                     f(window, cx)
                 }
             })

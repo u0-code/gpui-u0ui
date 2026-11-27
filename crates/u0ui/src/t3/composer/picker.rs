@@ -525,7 +525,14 @@ impl RenderOnce for ModelPicker {
                     .cursor_pointer()
                     .when_some(row_fill(on, hovered), |this, bg| this.bg(bg))
                     .on_hover(press::track_hover(hover))
-                    .on_click(move |_, w, cx| choose(w, cx))
+                    // GPUI already turns Enter/Space on a focused clickable element into a
+                    // click (on key up); the key handler below acts on the key itself, so a
+                    // keyboard click is ignored here or the action would run twice.
+                    .on_click(move |e, w, cx| {
+                        if !e.is_keyboard() {
+                            choose(w, cx)
+                        }
+                    })
                     .on_key_down(move |e: &KeyDownEvent, w, cx| {
                         if matches!(e.keystroke.key.as_str(), "enter" | "space") {
                             cx.stop_propagation();

@@ -324,8 +324,9 @@ impl RenderOnce for ModeList {
                 // var(--spacing-04) }`.
                 option(on, over)
                     .id(rid)
-                    .track_focus(&focus)
-                    .tab_stop(true)
+                    // A tracked handle carries its own tab-stop flag; the div's
+                    // `.tab_stop` does not reach it.
+                    .track_focus(&focus.clone().tab_index(0).tab_stop(true))
                     .items_start()
                     .py(tokens::SPACING_03)
                     .cursor(CursorStyle::PointingHand)
@@ -337,7 +338,14 @@ impl RenderOnce for ModeList {
                             }
                         })
                     })
-                    .on_click(move |_, w, cx| pick(mid.clone(), w, cx))
+                    // GPUI already turns Enter/Space on a focused clickable element into a
+                    // click (on key up); the key handler below acts on the key itself, so a
+                    // keyboard click is ignored here or the action would run twice.
+                    .on_click(move |e, w, cx| {
+                        if !e.is_keyboard() {
+                            pick(mid.clone(), w, cx)
+                        }
+                    })
                     .on_key_down(move |e: &KeyDownEvent, w, cx| {
                         if matches!(e.keystroke.key.as_str(), "enter" | "space") {
                             key_pick(key_id.clone(), w, cx);

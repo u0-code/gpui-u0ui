@@ -431,7 +431,14 @@ impl RenderOnce for FluidDropdown {
             .hover(move |s| s.bg(look.hover))
             .cursor(CursorStyle::PointingHand)
             .type_style(TypeStyle::BodyCompact01)
-            .on_click(move |_, window, cx| toggle(window, cx))
+            // GPUI already turns Enter/Space on a focused clickable element into a
+            // click (on key up); the key handler below acts on the key itself, so a
+            // keyboard click is ignored here or the action would run twice.
+            .on_click(move |e, window, cx| {
+                if !e.is_keyboard() {
+                    toggle(window, cx)
+                }
+            })
             .on_key_down(move |e: &KeyDownEvent, window, cx| {
                 if matches!(e.keystroke.key.as_str(), "enter" | "space" | "down") && !e.is_held {
                     on_key(window, cx);

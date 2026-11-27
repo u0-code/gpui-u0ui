@@ -395,8 +395,9 @@ impl RenderOnce for TerminalView {
             .child(
                 mono(div(), 12., 400)
                     .id(id)
-                    .track_focus(&focus)
-                    .tab_stop(true)
+                    // A tracked handle carries its own tab-stop flag; the div's
+                    // `.tab_stop` does not reach it.
+                    .track_focus(&focus.clone().tab_index(0).tab_stop(true))
                     .size_full()
                     .overflow_y_scroll()
                     .bg(color(ColorRole::TerminalBackground))

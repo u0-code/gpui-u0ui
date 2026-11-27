@@ -7,8 +7,9 @@
 //! `Math.min(8, s * 1.5)`); "Fit" contains the image in the stage. The stage
 //! background cycles checkerboard → dark → light, for transparent images.
 //! When zoomed past the stage, the image pans with the wheel or by dragging.
-//! Without a `src` a placeholder of the image's aspect ratio is painted in
-//! `color` (the reference's `.g-imgv-ph`).
+//! Without a `src` a placeholder is painted in `color` (the reference's
+//! `.g-imgv-ph`): zoomed, the image's size; fitted, 70% of the stage wide at
+//! the image's ratio, its height clamped to the stage.
 use super::head::{code_head, dim, ghost_icon, grow, head_icon, head_name};
 use crate::{
     icons::CarbonIcon,
@@ -125,8 +126,8 @@ pub const STAGE_PAD: f32 = 16.;
 
 /// The image's drawn size at `zoom` for a `width`×`height` image: the
 /// actual size times the scale, or, fitted, the largest size that keeps
-/// the ratio inside a stage `inner_h` px tall (the placeholder's width is
-/// capped at 70% of the stage by the caller).
+/// the ratio inside a stage `inner_h` px tall (a fitted placeholder is
+/// laid out by the stage instead).
 pub fn drawn_size(zoom: Zoom, width: f32, height: f32, inner_h: f32) -> (f32, f32) {
     let ratio = if height > 0. { width / height } else { 1. };
     match zoom {
@@ -392,14 +393,22 @@ impl RenderOnce for ImageViewer {
                     .h(rem(h))
                     .into_any_element(),
             },
-            // `.g-imgv-ph { width: scale ? width * scale : '70%'; aspect-ratio }`.
-            None => div()
-                .flex_none()
-                .w(rem(w))
-                .h(rem(h))
-                .when(z == Zoom::Fit, |d| d.max_w(relative(0.7)))
-                .when_some(self.placeholder, |d, f| d.bg(f))
-                .into_any_element(),
+            // `.g-imgv-ph { display: block; max-width: 100%; max-height: 100% }`
+            // with `width: scale ? width * scale : '70%'; aspectRatio: W / H`.
+            // Fitted, the width stays 70% of the stage and `max-height` clamps
+            // only the height, so the box is not kept to the ratio (reference
+            // render: 605×192 in a 896px stage).
+            None => match z {
+                Zoom::Fit => div()
+                    .flex_none()
+                    .w(relative(0.7))
+                    .aspect_ratio(self.width.max(1) as f32 / self.height.max(1) as f32)
+                    .max_w_full()
+                    .max_h_full(),
+                Zoom::Scale(_) => div().flex_none().w(rem(w)).h(rem(h)),
+            }
+            .when_some(self.placeholder, |d, f| d.bg(f))
+            .into_any_element(),
         };
         let zoomed = z != Zoom::Fit;
         let down = drag.clone();
