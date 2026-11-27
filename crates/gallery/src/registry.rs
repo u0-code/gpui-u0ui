@@ -389,8 +389,12 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("list-toolbar", "ListToolbar", "T3 · Shell", Component::ListToolbar.summary(), pages::t3_shell::palette::build_list_toolbar).thumbnail(pages::t3_shell::palette::toolbar_thumbnail),
     // Ghost · Right column (src/ghost/panels.jsx)
     PageDef::new("code-viewer", "CodeViewer", GHOST_RIGHT, Component::CodeViewer.summary(), pages::ghost_panels::code_viewer::build).thumbnail(pages::ghost_panels::code_viewer::thumbnail),
+    PageDef::new("commit-composer", "CommitComposer", GHOST_RIGHT, Component::CommitComposer.summary(), pages::ghost_panels::git::build_commit_composer).thumbnail(pages::ghost_panels::git::composer_thumbnail),
+    PageDef::new("commit-row", "CommitRow", GHOST_RIGHT, Component::CommitRow.summary(), pages::ghost_panels::git::build_commit_row).thumbnail(pages::ghost_panels::git::commit_thumbnail),
     PageDef::new("image-viewer", "ImageViewer", GHOST_RIGHT, Component::ImageViewer.summary(), pages::ghost_panels::image_viewer::build).thumbnail(pages::ghost_panels::image_viewer::thumbnail),
+    PageDef::new("linked-items-section", "LinkedItemsSection", GHOST_RIGHT, Component::LinkedItemsSection.summary(), pages::ghost_panels::git::build_linked_items).thumbnail(pages::ghost_panels::git::linked_thumbnail),
     PageDef::new("pdf-viewer", "PdfViewer", GHOST_RIGHT, Component::PdfViewer.summary(), pages::ghost_panels::pdf_viewer::build).thumbnail(pages::ghost_panels::pdf_viewer::thumbnail),
+    PageDef::new("stash-row", "StashRow", GHOST_RIGHT, Component::StashRow.summary(), pages::ghost_panels::git::build_stash_row).thumbnail(pages::ghost_panels::git::stash_thumbnail),
     PageDef::new("terminal-view", "TerminalView", GHOST_RIGHT, Component::TerminalView.summary(), pages::ghost_panels::terminal_view::build).thumbnail(pages::ghost_panels::terminal_view::thumbnail),
     // Ghost · Tasks & workflows (src/ghost/admin.jsx)
     PageDef::new("task-row", "TaskRow", "Ghost · Tasks & workflows", Component::TaskRow.summary(), pages::ghost_tasks::task_row::build).thumbnail(pages::ghost_tasks::task_row::thumbnail),
