@@ -8,6 +8,8 @@
 //! - [`review`]: diffs and review threads (`review.jsx`).
 //! - [`timeline`]: the thread timeline (`timeline.jsx`).
 //! - [`chat`]: chat extensions (`chat.jsx`): [`chat::TurnChanges`].
+//! - [`workspace`]: files, preview, terminal, settings, usage, workflows and
+//!   onboarding (`workspace.jsx`).
 mod action;
 pub mod base;
 pub mod chat;
@@ -18,6 +20,7 @@ mod press;
 pub mod review;
 pub mod shell;
 pub mod timeline;
+pub mod workspace;
 
 pub use base::{Spin, Status, Tone, fmt_elapsed};
 pub use shell::{

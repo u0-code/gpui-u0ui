@@ -71,6 +71,7 @@ pub mod t3_mobile;
 pub mod t3_review;
 pub mod t3_shell;
 pub mod t3_timeline;
+pub mod t3_workspace;
 pub mod table;
 pub mod tabs;
 pub mod textarea;

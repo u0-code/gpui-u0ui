@@ -382,6 +382,14 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("server-header", "ServerHeader", GHOST_SHELL, Component::ServerHeader.summary(), pages::ghost_shell::server::build_server_header).thumbnail(pages::ghost_shell::server::header_thumbnail),
     // Carbon · Patterns (src/patterns.css)
     PageDef::new("pattern-text-toolbar", "PatternTextToolbar", "Carbon · Patterns", Component::PatternTextToolbar.summary(), pages::patterns::text_toolbar::build).thumbnail(pages::patterns::text_toolbar::thumbnail),
+    // T3 · Files & preview, Settings, Usage & workflows, Onboarding & feedback (src/t3/workspace.jsx)
+    PageDef::new("device-controls-rail", "DeviceControlsRail", "T3 · Files & preview", Component::DeviceControlsRail.summary(), pages::t3_workspace::files::build_device_controls_rail).thumbnail(pages::t3_workspace::files::device_controls_rail_thumbnail),
+    PageDef::new("file-browser-panel", "FileBrowserPanel", "T3 · Files & preview", Component::FileBrowserPanel.summary(), pages::t3_workspace::files::build_file_browser_panel).thumbnail(pages::t3_workspace::files::file_browser_panel_thumbnail),
+    PageDef::new("file-surface-state", "FileSurfaceState", "T3 · Files & preview", Component::FileSurfaceState.summary(), pages::t3_workspace::files::build_file_surface_state).thumbnail(pages::t3_workspace::files::file_surface_state_thumbnail),
+    PageDef::new("mini-player", "MiniPlayer", "T3 · Files & preview", Component::MiniPlayer.summary(), pages::t3_workspace::files::build_mini_player).thumbnail(pages::t3_workspace::files::mini_player_thumbnail),
+    PageDef::new("preview-chrome", "PreviewChrome", "T3 · Files & preview", Component::PreviewChrome.summary(), pages::t3_workspace::files::build_preview_chrome).thumbnail(pages::t3_workspace::files::preview_chrome_thumbnail),
+    PageDef::new("preview-empty-state", "PreviewEmptyState", "T3 · Files & preview", Component::PreviewEmptyState.summary(), pages::t3_workspace::files::build_preview_empty_state).thumbnail(pages::t3_workspace::files::preview_empty_state_thumbnail),
+    PageDef::new("terminal-drawer", "TerminalDrawer", "T3 · Files & preview", Component::TerminalDrawer.summary(), pages::t3_workspace::files::build_terminal_drawer).thumbnail(pages::t3_workspace::files::terminal_drawer_thumbnail),
 ];
 
 /// Look a page up by id.
