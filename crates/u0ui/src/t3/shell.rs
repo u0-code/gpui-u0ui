@@ -189,8 +189,9 @@ impl ProviderMark {
 }
 
 /// The Material symbol an unknown agent draws (`.t3-provider-generic`:
-/// "one neutral generic glyph, never a two-letter tile").
-pub const GENERIC_PROVIDER_SYMBOL: &str = "smart_toy";
+/// "one neutral generic glyph, never a two-letter tile"). `bundle.js`
+/// renders the Carbon `Terminal` icon there (`ie("terminal","Terminal")`).
+pub const GENERIC_PROVIDER_SYMBOL: &str = "terminal";
 
 /// `.t3-provider-spin { animation: cu-spin 0.8s linear infinite }`.
 pub const PROVIDER_SPIN_PERIOD: Duration = Duration::from_millis(800);
@@ -1250,6 +1251,7 @@ mod tests {
         assert_eq!(hex(ProviderMark::of("Kiro").ink()), "#525252");
         assert!(asset_svg("provider-Codex").unwrap().contains("evenodd"));
         assert!(asset_svg("provider-Kiro").is_none());
+        assert_eq!(GENERIC_PROVIDER_SYMBOL, "terminal");
         assert!(gpui_material_symbols::Symbol::named(GENERIC_PROVIDER_SYMBOL).is_some());
         assert!(gpui_material_symbols::Symbol::named("dns").is_some());
         assert!(gpui_material_symbols::Symbol::named("phone_iphone").is_some());
