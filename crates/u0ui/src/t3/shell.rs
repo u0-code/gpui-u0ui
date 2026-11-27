@@ -1071,7 +1071,11 @@ impl RenderOnce for StatusPill {
 
 /// An icon-only menu trigger (`IconMenu`, the chevron half of a split
 /// button): a Carbon `IconButton` (tooltip = `label`) whose `Menu` hangs
-/// from the trigger's bottom-end corner (`menuAlignment="bottom-end"`).
+/// from the trigger's bottom-start corner. The JSX passes
+/// `menuAlignment="bottom-end"`, but Carbon's `Menu` only honours it with a
+/// `containerRef`; given `x: [left, right]` it starts at the trigger's left
+/// edge and lines up with its right edge only near the window's end
+/// ([`overlay::menu_hangs_from_end`]).
 #[derive(IntoElement)]
 pub struct IconMenu {
     id: ElementId,
@@ -1158,6 +1162,18 @@ impl RenderOnce for IconMenu {
             .tooltip(!open)
             .into_any_element();
         let disabled = self.disabled;
+        // The same keyed placement state the anchored menu measures into.
+        let end =
+            match overlay::drop_anchor((id.clone(), "drop"), window, cx).hangs_from_end(window) {
+                Some(end) => end,
+                None => {
+                    // Measured while the first open frame lays out: look again.
+                    if open && !self.items.is_empty() {
+                        window.request_animation_frame();
+                    }
+                    false
+                }
+            };
         let trigger = overlay::trigger_wrapper((id.clone(), "trigger"), button, {
             let set_open = set_open.clone();
             Rc::new(move |window, cx| {
@@ -1179,7 +1195,7 @@ impl RenderOnce for IconMenu {
                 min_width: None,
                 on_unhandled_key: None,
             },
-            true,
+            end,
             window,
             cx,
         )

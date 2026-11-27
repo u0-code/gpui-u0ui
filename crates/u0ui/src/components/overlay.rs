@@ -314,6 +314,17 @@ impl DropSide {
     }
 }
 
+/// Which edge of its trigger a Carbon `Menu` given the trigger's
+/// `x: [left, right]` lines up with (`Menu`'s `calculatePosition` in
+/// `bundle.js`): the trigger's start edge when the menu fits before the
+/// window's end, keeping [`WINDOW_MARGIN`]; else its end edge when the menu
+/// fits there; else the start edge, clamped into the window.
+pub fn menu_hangs_from_end(left: f32, right: f32, width: f32, viewport: f32) -> bool {
+    let start_fits = viewport - WINDOW_MARGIN - width - left >= 0.;
+    let end_fits = right - width >= 0.;
+    !start_fits && end_fits
+}
+
 /// Per-instance dropdown placement state: the trigger's window bounds and
 /// the surface's size, both recorded while painting, and the side the
 /// surface was last placed on.
@@ -386,6 +397,23 @@ impl DropAnchor {
         let side = DropSide::choose(top, bottom, height, viewport);
         self.side.set(side);
         (side, side.room(top, bottom, viewport))
+    }
+
+    /// Whether the surface, at its last measured width, hangs from the
+    /// trigger's end edge ([`menu_hangs_from_end`]); `None` until the
+    /// surface has been measured once.
+    pub fn hangs_from_end(&self, window: &Window) -> Option<bool> {
+        let width = f32::from(self.surface.get().width);
+        if width <= 0. {
+            return None;
+        }
+        let trigger = self.trigger.get();
+        Some(menu_hangs_from_end(
+            f32::from(trigger.left()),
+            f32::from(trigger.right()),
+            width,
+            f32::from(window.viewport_size().width),
+        ))
     }
 
     /// The side for the surface's last measured size (below until it has
@@ -600,6 +628,19 @@ impl Element for Translate {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn menus_hang_from_the_trigger_start_unless_the_window_end_is_near() {
+        // A 188px menu under a chevron at 146..178 in a 960px window.
+        assert!(!menu_hangs_from_end(146., 178., 188., 960.));
+        // Near the end edge it lines up with the trigger's end instead.
+        assert!(menu_hangs_from_end(900., 932., 188., 960.));
+        // Exactly fitting before the 8px margin still starts at the start.
+        assert!(!menu_hangs_from_end(764., 796., 188., 960.));
+        assert!(menu_hangs_from_end(765., 796., 188., 960.));
+        // No room either way: the start edge, clamped by the popup.
+        assert!(!menu_hangs_from_end(100., 132., 400., 300.));
+    }
 
     #[test]
     fn floating_shadow_is_carbons() {
