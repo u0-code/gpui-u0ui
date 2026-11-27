@@ -34,7 +34,7 @@ use crate::{
 use gpui_kit::{
     App, ElementId, FontWeight, Hsla, ImageSource, InteractiveElement, IntoElement, ObjectFit,
     ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
-    StyledImage as _, Window, canvas, div, img, px,
+    StyledImage as _, TestSupportExt as _, Window, canvas, div, img, px,
 };
 use std::rc::Rc;
 use std::time::Duration;
@@ -1182,6 +1182,7 @@ impl RenderOnce for IconMenu {
                 }
             })
         })
+        .test_support()
         .into_any_element();
         menu::anchored_menu_aligned(
             &id,
