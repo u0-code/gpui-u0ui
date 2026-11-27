@@ -1,6 +1,7 @@
 //! T3 · Files & preview, T3 · Settings, T3 · Usage & workflows and T3 ·
 //! Onboarding & feedback pages (`src/t3/workspace.jsx`).
 pub mod files;
+pub mod settings;
 
 use gpui_kit::{ParentElement, SharedString, Styled, div, px};
 use u0ui::prelude::*;

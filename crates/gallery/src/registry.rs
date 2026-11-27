@@ -109,6 +109,10 @@ pub const GHOST_PRIMITIVES: &str = "Ghost · Primitives";
 /// `Ghost · Shell`: the sidebar pieces Ghost adds to the T3 shell.
 pub const GHOST_SHELL: &str = "Ghost · Shell";
 
+/// `RichText` is new in the reference and has no card folder (so no generated
+/// summary): its `index.d.ts` doc comment.
+const RICH_TEXT: &str = "Renders `value` as-is: a string or an element (inline code, links), for parts whose text holes would stringify an element, such as a SettingsRow description.";
+
 /// The reference artifact's group order (`components/index.d.ts` sections).
 /// Other groups (`T3 · …`, `Ghost · …`, `Carbon · Patterns`) follow in
 /// first-use order.
@@ -390,6 +394,15 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("preview-chrome", "PreviewChrome", "T3 · Files & preview", Component::PreviewChrome.summary(), pages::t3_workspace::files::build_preview_chrome).thumbnail(pages::t3_workspace::files::preview_chrome_thumbnail),
     PageDef::new("preview-empty-state", "PreviewEmptyState", "T3 · Files & preview", Component::PreviewEmptyState.summary(), pages::t3_workspace::files::build_preview_empty_state).thumbnail(pages::t3_workspace::files::preview_empty_state_thumbnail),
     PageDef::new("terminal-drawer", "TerminalDrawer", "T3 · Files & preview", Component::TerminalDrawer.summary(), pages::t3_workspace::files::build_terminal_drawer).thumbnail(pages::t3_workspace::files::terminal_drawer_thumbnail),
+    PageDef::new("environment-row", "EnvironmentRow", "T3 · Settings", Component::EnvironmentRow.summary(), pages::t3_workspace::settings::build_environment_row).thumbnail(pages::t3_workspace::settings::environment_row_thumbnail),
+    PageDef::new("keybinding-row", "KeybindingRow", "T3 · Settings", Component::KeybindingRow.summary(), pages::t3_workspace::settings::build_keybinding_row).thumbnail(pages::t3_workspace::settings::keybinding_row_thumbnail),
+    PageDef::new("provider-instance-card", "ProviderInstanceCard", "T3 · Settings", Component::ProviderInstanceCard.summary(), pages::t3_workspace::settings::build_provider_instance_card).thumbnail(pages::t3_workspace::settings::provider_instance_card_thumbnail),
+    PageDef::new("settings-nav", "SettingsNav", "T3 · Settings", Component::SettingsNav.summary(), pages::t3_workspace::settings::build_settings_nav).thumbnail(pages::t3_workspace::settings::settings_nav_thumbnail),
+    PageDef::new("settings-row", "SettingsRow", "T3 · Settings", Component::SettingsRow.summary(), pages::t3_workspace::settings::build_settings_row).thumbnail(pages::t3_workspace::settings::settings_row_thumbnail),
+    PageDef::new("stats-grid", "StatsGrid", "T3 · Settings", Component::StatsGrid.summary(), pages::t3_workspace::settings::build_stats_grid).thumbnail(pages::t3_workspace::settings::stats_grid_thumbnail),
+    PageDef::new("theme-card", "ThemeCard", "T3 · Settings", Component::ThemeCard.summary(), pages::t3_workspace::settings::build_theme_card).thumbnail(pages::t3_workspace::settings::theme_card_thumbnail),
+    PageDef::new("wizard", "Wizard", "T3 · Settings", Component::Wizard.summary(), pages::t3_workspace::settings::build_wizard).thumbnail(pages::t3_workspace::settings::wizard_thumbnail),
+    PageDef::new("rich-text", "RichText", "T3 · Settings", RICH_TEXT, pages::t3_workspace::settings::build_rich_text).thumbnail(pages::t3_workspace::settings::rich_text_thumbnail),
 ];
 
 /// Look a page up by id.
