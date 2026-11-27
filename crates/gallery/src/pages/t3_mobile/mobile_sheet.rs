@@ -8,6 +8,7 @@ use gpui_kit::{
 };
 use u0ui::components::{Button, ButtonSize, ButtonVariant};
 use u0ui::prelude::*;
+use u0ui::t3::mobile::chrome::PHONE_SCREEN_RADIUS;
 use u0ui::t3::mobile::{ListRow, MobileListSection, MobileSheet, PhoneFrame};
 
 /// Build the page.
@@ -48,10 +49,13 @@ fn rows(prefix: &'static str) -> MobileListSection {
 
 fn backdrop() -> gpui_kit::Div {
     // `flex: 1; background: var(--overlay); display: flex; flex-direction: column`.
+    // It fills to the screen's bottom edge, so it follows the screen's
+    // curve there (see `screen_bottom_radius`).
     div()
         .flex()
         .flex_col()
         .flex_1()
+        .rounded_b(rems(PHONE_SCREEN_RADIUS / 16.))
         .bg(color(ColorRole::Overlay))
 }
 

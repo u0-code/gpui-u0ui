@@ -38,7 +38,7 @@ pub mod controls;
 
 pub use chrome::{
     BarAction, DockTab, Leading, ListRow, MobileAppBar, MobileListSection, MobileSheet,
-    MobileTabDock, PhoneFrame, RowKind, home_indicator,
+    MobileTabDock, PhoneFrame, RowKind, home_indicator, in_phone_screen, screen_bottom_radius,
 };
 pub use controls::{
     ControlPill, FloatingActionButton, FloatingWorkingControl, LoadingStrip, MobileNotice,

@@ -9,14 +9,15 @@ use crate::{
     tokens::ColorRole,
 };
 use gpui_kit::{
-    AnyElement, App, AppContext as _, BoxShadow, ElementId, InteractiveElement, IntoElement,
-    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window,
+    AnyElement, App, AppContext as _, Bounds, BoxShadow, Element, ElementId, GlobalElementId,
+    InspectorElementId, InteractiveElement, IntoElement, LayoutId, ParentElement, Pixels,
+    RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window,
     component::{Sizable as _, Size, input::Input as KitInput, input::InputState},
     div,
     prelude::FluentBuilder as _,
     px, relative,
 };
-use std::rc::Rc;
+use std::{cell::Cell, rc::Rc};
 
 type BoolHandler = Rc<dyn Fn(bool, &mut Window, &mut App)>;
 type ValueHandler = Rc<dyn Fn(SharedString, &mut Window, &mut App)>;
@@ -67,6 +68,96 @@ impl ParentElement for PhoneFrame {
     }
 }
 
+thread_local! {
+    /// How many [`PhoneFrame`] screens are laying out their children now.
+    static SCREEN_DEPTH: Cell<u32> = const { Cell::new(0) };
+}
+
+/// Whether the component rendering now sits on a [`PhoneFrame`]'s screen.
+/// Read it in `render` (GPUI renders components while their parent lays
+/// out, so the frame marks its subtree then).
+pub fn in_phone_screen() -> bool {
+    SCREEN_DEPTH.with(|d| d.get() > 0)
+}
+
+fn with_phone_screen<R>(f: impl FnOnce() -> R) -> R {
+    SCREEN_DEPTH.with(|d| d.set(d.get() + 1));
+    struct Pop;
+    impl Drop for Pop {
+        fn drop(&mut self) {
+            SCREEN_DEPTH.with(|d| d.set(d.get().saturating_sub(1)));
+        }
+    }
+    let _pop = Pop;
+    f()
+}
+
+/// The bottom corner radius a full-bleed child of the screen takes, in px:
+/// [`PHONE_SCREEN_RADIUS`] on a [`PhoneFrame`]'s screen, else none.
+///
+/// `.t3-phone-screen { border-radius: 36px; overflow: hidden }` clips a
+/// child to the screen's curve, but GPUI clips overflow to a rectangle, and
+/// a rectangle's corner (10px in from the frame's) lies outside the bezel's
+/// own 44px curve. A child that fills to the screen's bottom edge (a sheet,
+/// a backdrop) rounds its own bottom corners to the screen's instead.
+pub fn screen_bottom_radius() -> Option<f32> {
+    in_phone_screen().then_some(PHONE_SCREEN_RADIUS)
+}
+
+/// The phone screen, laid out with [`in_phone_screen`] set.
+struct ScreenScope(AnyElement);
+
+impl Element for ScreenScope {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, ()) {
+        let child = &mut self.0;
+        (with_phone_screen(|| child.request_layout(window, cx)), ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        let child = &mut self.0;
+        with_phone_screen(|| child.prepaint(window, cx));
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        let child = &mut self.0;
+        with_phone_screen(|| child.paint(window, cx));
+    }
+}
+
 impl RenderOnce for PhoneFrame {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         div()
@@ -78,7 +169,7 @@ impl RenderOnce for PhoneFrame {
             .rounded(rem(PHONE_RADIUS))
             .bg(color(ColorRole::BackgroundInverse))
             .shadow(float_shadow(2.))
-            .child(
+            .child(ScreenScope(
                 div()
                     .relative()
                     .flex()
@@ -88,15 +179,17 @@ impl RenderOnce for PhoneFrame {
                     .pt(rem(44.))
                     .rounded(rem(PHONE_SCREEN_RADIUS))
                     .bg(color(ColorRole::Background))
-                    .children(self.children),
-            )
+                    .children(self.children)
+                    .into_any_element(),
+            ))
             // `.t3-phone-screen { border-radius: 36px; overflow: hidden }`:
             // GPUI clips overflow to a rectangle, so the screen's content (a
-            // sheet's square corners) would paint over the rounded corners
-            // and out past the bezel's own curve. The bezel again, as a
-            // ring over the screen (inner edge: its radius less the 10px
-            // border, within a pixel of the screen's 36px curve), masks
-            // whatever lies outside the screen.
+            // sheet's square corners) would paint over the rounded corners.
+            // The bezel again, as a ring over the screen (inner edge: its
+            // radius less the 10px border, within a pixel of the screen's
+            // 36px curve), masks whatever lies between the two curves; what
+            // lies past the bezel's outer curve, children keep clear of
+            // themselves (see [`screen_bottom_radius`]).
             .child(
                 div()
                     .absolute()
@@ -1040,6 +1133,9 @@ impl RenderOnce for MobileSheet {
             .flex_col()
             .w_full()
             .when(self.inline, |d| d.mt_auto())
+            // Square (`gemini-MA`), but on a phone screen its bottom
+            // corners follow the screen's curve.
+            .when_some(screen_bottom_radius(), |d, r| d.rounded_b(rem(r)))
             .bg(color(ColorRole::Layer01))
             // `box-shadow: 0 -2px 6px var(--shadow)`.
             .shadow(float_shadow(-2.))
@@ -1340,6 +1436,33 @@ mod tests {
         let ring = PHONE_RADIUS - (PHONE_RADIUS - PHONE_BEZEL) * FRAC_1_SQRT_2;
         let screen = PHONE_BEZEL + PHONE_SCREEN_RADIUS * (1. - FRAC_1_SQRT_2);
         assert!((ring - screen).abs() < 1., "{ring} vs {screen}");
+    }
+
+    #[test]
+    fn full_bleed_corners_stay_in_the_bezel() {
+        // A square child's corner, where the screen's rectangle starts
+        // (10, 10) in from the frame's, lies past the bezel's outer curve
+        // (radius 44 about (44, 44)): the sliver the review saw.
+        let centre = PHONE_RADIUS;
+        let corner = (centre - PHONE_BEZEL) * std::f32::consts::SQRT_2;
+        assert!(corner > PHONE_RADIUS, "{corner}");
+        // Rounded to the screen's 36px, its farthest point from the
+        // bezel's centre stays inside the outer curve.
+        let r = screen_bottom_radius_px();
+        let child_centre = PHONE_BEZEL + r;
+        let farthest = (child_centre - centre) * std::f32::consts::SQRT_2 + r;
+        assert!(farthest <= PHONE_RADIUS, "{farthest}");
+        // Only a frame's screen asks for it.
+        assert_eq!(screen_bottom_radius(), None);
+        assert_eq!(
+            with_phone_screen(screen_bottom_radius),
+            Some(PHONE_SCREEN_RADIUS)
+        );
+        assert!(!in_phone_screen());
+    }
+
+    fn screen_bottom_radius_px() -> f32 {
+        with_phone_screen(screen_bottom_radius).unwrap()
     }
 
     #[test]
