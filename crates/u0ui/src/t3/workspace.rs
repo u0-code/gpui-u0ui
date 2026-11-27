@@ -36,6 +36,7 @@ pub use preview::{
 pub use settings::{
     KeybindingPill, KeybindingRow, KeybindingTexts, RichText, SettingsBadgeTone, SettingsNav,
     SettingsNavItem, SettingsNavSection, SettingsRow, SettingsRowTexts, SettingsSection, ThemeCard,
+    keybinding_min_width,
 };
 pub use terminal::{TerminalDrawer, TerminalTab, TerminalTexts};
 pub use usage::{Pace, ShareSegment, UsageShareBar, UsageTexts, UsageWindowBar};

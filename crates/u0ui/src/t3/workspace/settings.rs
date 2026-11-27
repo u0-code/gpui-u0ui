@@ -945,6 +945,32 @@ impl Default for KeybindingTexts {
 /// fixed columns after the command, in px.
 pub const KEYBINDING_COLUMNS: [f32; 4] = [144., 192., 24., 32.];
 
+/// `.t3-kbrow { gap: spacing-04; padding: 0 spacing-02 0 spacing-05 }`:
+/// the column gap and the inline padding (start, end), in px.
+pub const KEYBINDING_GAP: f32 = 12.;
+/// See [`KEYBINDING_GAP`].
+pub const KEYBINDING_PADDING: (f32, f32) = (16., 4.);
+
+/// The narrowest a [`KeybindingRow`] gets, in px, for a command column
+/// `command_min` wide: the padding, the four gaps, the keys, warning and
+/// edit columns, and none of the `when` column.
+///
+/// The reference grid keeps all five columns at full size and runs past
+/// the row when they do not fit, carrying the warning glyph and Edit out
+/// with them (and, in a clipping parent, out of sight). Here the `when`
+/// column, which already ellipsizes, gives way first; past that, the row
+/// itself grows to this width, so its controls stay on its own surface.
+pub fn keybinding_min_width(command_min: f32) -> f32 {
+    let [keys, _, warn, edit] = KEYBINDING_COLUMNS;
+    KEYBINDING_PADDING.0
+        + KEYBINDING_PADDING.1
+        + 4. * KEYBINDING_GAP
+        + command_min
+        + keys
+        + warn
+        + edit
+}
+
 /// One keybinding (`KeybindingRow`, `.t3-kbrow`): command (with a Custom
 /// badge), keys, the `when` clause in mono, a warning glyph with its
 /// tooltip, and Edit, in a five-column grid over a bottom hairline.
@@ -1053,6 +1079,7 @@ impl RenderOnce for KeybindingRow {
             word
         };
         let [keys_w, when_w, warn_w, edit_w] = KEYBINDING_COLUMNS;
+        let row_min = command_min + rem(keybinding_min_width(0.)).to_pixels(window.rem_size());
         let on_edit = self.on_edit.clone();
         // `.t3-kbrow { display: grid; align-items: center; gap: spacing-04;
         // min-height: size-md; padding: 0 spacing-02 0 spacing-05;
@@ -1062,10 +1089,11 @@ impl RenderOnce for KeybindingRow {
             .flex()
             .flex_row()
             .items_center()
-            .gap(rem(12.))
+            .gap(rem(KEYBINDING_GAP))
             .min_h(rem(40.))
-            .pl(rem(16.))
-            .pr(rem(4.))
+            .min_w(row_min)
+            .pl(rem(KEYBINDING_PADDING.0))
+            .pr(rem(KEYBINDING_PADDING.1))
             .border_b_1()
             .border_color(color(ColorRole::BorderSubtle01))
             .text_color(color(ColorRole::TextPrimary))
@@ -1100,9 +1128,12 @@ impl RenderOnce for KeybindingRow {
             .child(
                 // `.t3-kbrow-when { overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
                 // font-family: mono; font-size: 0.75rem; color: text-secondary }`.
+                // It gives way first in a narrow row (see
+                // `keybinding_min_width`).
                 mono(div(), 12., 400)
-                    .flex_none()
-                    .w(rem(when_w))
+                    .flex_shrink(1.)
+                    .flex_basis(rem(when_w))
+                    .min_w_0()
                     .overflow_hidden()
                     .text_ellipsis()
                     .whitespace_nowrap()
@@ -1377,6 +1408,12 @@ mod tests {
     fn keybinding_columns_follow_the_grid() {
         // `grid-template-columns: 1fr 9rem 12rem 1.5rem 2rem`.
         assert_eq!(KEYBINDING_COLUMNS, [144., 192., 24., 32.]);
+        // `gap: spacing-04; padding: 0 spacing-02 0 spacing-05`.
+        assert_eq!((KEYBINDING_GAP, KEYBINDING_PADDING), (12., (16., 4.)));
+        // Narrowest: padding 20 + gaps 48 + keys 144 + warning 24 + edit
+        // 32 beside the command; the `when` column has given way.
+        assert_eq!(keybinding_min_width(0.), 268.);
+        assert_eq!(keybinding_min_width(100.), 368.);
     }
 
     #[test]
