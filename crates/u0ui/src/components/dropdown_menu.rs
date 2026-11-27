@@ -119,6 +119,10 @@ impl DropdownMenuSize {
 /// `.cds--menu-button__trigger:not(.cds--btn--ghost) { min-inline-size: 12rem }`.
 pub const TRIGGER_MIN_WIDTH: f32 = 192.;
 
+/// How far a breadcrumb's overflow menu sits before its trigger's start
+/// edge and below its bottom edge, px.
+pub const BREADCRUMB_MENU_SHIFT: (f32, f32) = (13., 10.);
+
 /// A dropdown menu. See the module docs.
 #[derive(IntoElement)]
 pub struct DropdownMenu {
@@ -336,6 +340,20 @@ impl RenderOnce for DropdownMenu {
             // Carbon `MenuButton`: centred under the trigger, as wide as it
             // within the menu's 10rem (12rem with icons) to 18rem.
             menu::anchored_button_menu(&id, trigger, spec, trigger_width, window, cx)
+        } else if self.in_breadcrumb {
+            // The breadcrumb's `OverflowMenu`: 13px before the trigger and
+            // 10px below it, under its caret (computed in
+            // PatternOverflowContent: trigger x 566, y 56..74;
+            // `.cds--breadcrumb-menu-options` x 553, y 84).
+            menu::anchored_menu_offset(
+                &id,
+                trigger,
+                spec,
+                -BREADCRUMB_MENU_SHIFT.0,
+                BREADCRUMB_MENU_SHIFT.1,
+                window,
+                cx,
+            )
         } else {
             // `OverflowMenu`: hangs from the trigger's start edge, sized by
             // its items.

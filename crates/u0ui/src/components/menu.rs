@@ -1291,7 +1291,49 @@ pub(crate) fn anchored_menu_aligned(
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
-    anchored_menu_impl(id, trigger, spec, end, false, None, None, window, cx)
+    anchored_menu_impl(
+        id,
+        trigger,
+        spec,
+        end,
+        false,
+        None,
+        None,
+        Shift::NONE,
+        window,
+        cx,
+    )
+}
+
+/// [`anchored_menu`] moved `dx` px along the trigger's start edge (only a
+/// negative shift, toward the start) and `gap` px away from it: a
+/// breadcrumb's overflow menu (`.cds--breadcrumb-menu-options`, placed 13px
+/// before its trigger and 10px below it to leave room for its caret).
+pub(crate) fn anchored_menu_offset(
+    id: &ElementId,
+    trigger: AnyElement,
+    spec: MenuSpec,
+    dx: f32,
+    gap: f32,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
+    anchored_menu_impl(
+        id,
+        trigger,
+        spec,
+        false,
+        false,
+        None,
+        None,
+        Shift {
+            dx: dx.min(0.),
+            gap,
+            caret: true,
+        },
+        window,
+        cx,
+    )
 }
 
 /// [`anchored_menu`] whose trigger fills its parent's height (a menubar
@@ -1313,6 +1355,7 @@ pub(crate) fn anchored_menu_full_height(
         true,
         Some(trigger_focus),
         None,
+        Shift::NONE,
         window,
         cx,
     )
@@ -1341,6 +1384,7 @@ pub(crate) fn anchored_button_menu(
         false,
         None,
         Some(width),
+        Shift::NONE,
         window,
         cx,
     )
@@ -1361,6 +1405,55 @@ pub fn button_menu_width(items: &[MenuItem], trigger_width: f32) -> f32 {
         .max(geometry.min_width)
 }
 
+/// Where an anchored menu sits against its trigger, beyond the anchor.
+#[derive(Clone, Copy)]
+struct Shift {
+    /// Toward the start edge (px, zero or negative).
+    dx: f32,
+    /// Away from the trigger (px).
+    gap: f32,
+    /// Draw the breadcrumb caret.
+    caret: bool,
+}
+
+impl Shift {
+    const NONE: Self = Self {
+        dx: 0.,
+        gap: 0.,
+        caret: false,
+    };
+}
+
+/// `.cds--breadcrumb-menu-options.cds--overflow-menu-options::after`: a
+/// 0.4375rem-tall triangle in `field` standing on the menu's top edge,
+/// 0.875rem from its start (`border-block-end: 0.4375rem solid var(--field);
+/// border-inline: 0.4375rem solid transparent; inset-block-start: -0.4375rem;
+/// inset-inline-start: 0.875rem`).
+fn breadcrumb_caret() -> impl IntoElement {
+    let fill = color(ColorRole::Field01);
+    canvas(
+        |_, _, _| {},
+        move |bounds, _, window, _| {
+            let o = bounds.origin;
+            let w = bounds.size.width;
+            let h = bounds.size.height;
+            let mut path = gpui_kit::PathBuilder::fill();
+            path.move_to(gpui_kit::point(o.x, o.y + h));
+            path.line_to(gpui_kit::point(o.x + w / 2., o.y));
+            path.line_to(gpui_kit::point(o.x + w, o.y + h));
+            path.close();
+            if let Ok(path) = path.build() {
+                window.paint_path(path, fill);
+            }
+        },
+    )
+    .absolute()
+    .top(rem(-7.))
+    .left(rem(14.))
+    .w(rem(14.))
+    .h(rem(7.))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn anchored_menu_impl(
     id: &ElementId,
@@ -1370,6 +1463,7 @@ fn anchored_menu_impl(
     full_height: bool,
     return_to: Option<FocusHandle>,
     centered_width: Option<f32>,
+    offset: Shift,
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
@@ -1390,7 +1484,15 @@ fn anchored_menu_impl(
         } else {
             side.anchor()
         })
-        .when(full_height, |this| this.h_full());
+        .when(full_height, |this| this.h_full())
+        // A start-edge shift: the measured box reaches `-dx` px before the
+        // trigger and pads it back, so the trigger stays put and the surface
+        // hangs from the box's start edge.
+        .when(offset.dx < 0., |this| {
+            this.ml(gpui_kit::px(offset.dx))
+                .pl(gpui_kit::px(-offset.dx))
+        })
+        .offset(gpui_kit::px(offset.gap));
     let surface =
         menu_surface_returning(id, spec, return_to, window, cx).map(
             |surface| match centered_width {
@@ -1399,6 +1501,19 @@ fn anchored_menu_impl(
                 None => surface,
             },
         );
+    // The caret points at the trigger from the menu's top edge; a menu
+    // flipped above its trigger has none.
+    let surface = surface.map(|surface| {
+        if offset.caret && side == super::overlay::DropSide::Below {
+            div()
+                .relative()
+                .child(surface)
+                .child(breadcrumb_caret())
+                .into_any_element()
+        } else {
+            surface
+        }
+    });
     match surface {
         // Not painted until measured on the side it fits (no first-open
         // frame below the trigger before the flip).
