@@ -3,6 +3,8 @@
 //! submodule per card; everything is re-exported here, so callers write
 //! `u0ui::ghost::tasks::WorkflowRow`.
 mod row;
+mod task_row;
 mod workflow_row;
 
+pub use task_row::{EnabledState, TaskRow, TaskRowTexts, TaskStatus};
 pub use workflow_row::{WorkflowRow, WorkflowRowTexts};

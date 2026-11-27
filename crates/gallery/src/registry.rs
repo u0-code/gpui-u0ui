@@ -338,6 +338,7 @@ pub static PAGES: &[PageDef] = &[
     PageDef::new("command-palette", "CommandPalette", "T3 · Shell", Component::CommandPalette.summary(), pages::t3_shell::palette::build_command_palette).thumbnail(pages::t3_shell::palette::palette_thumbnail),
     PageDef::new("list-toolbar", "ListToolbar", "T3 · Shell", Component::ListToolbar.summary(), pages::t3_shell::palette::build_list_toolbar).thumbnail(pages::t3_shell::palette::toolbar_thumbnail),
     // Ghost · Tasks & workflows (src/ghost/admin.jsx)
+    PageDef::new("task-row", "TaskRow", "Ghost · Tasks & workflows", Component::TaskRow.summary(), pages::ghost_tasks::task_row::build).thumbnail(pages::ghost_tasks::task_row::thumbnail),
     PageDef::new("workflow-row", "WorkflowRow", "Ghost · Tasks & workflows", Component::WorkflowRow.summary(), pages::ghost_tasks::workflow_row::build).thumbnail(pages::ghost_tasks::workflow_row::thumbnail),
 ];
 
