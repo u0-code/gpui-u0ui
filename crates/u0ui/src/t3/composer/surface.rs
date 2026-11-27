@@ -2,13 +2,16 @@
 //! and r2-gal passes): the message box.
 //!
 //! - **Box**: a closed square `field-01` box with a 1px `border-subtle-01`
-//!   frame that turns `focus` while the input has focus.
+//!   frame that turns `focus` while anything inside it has focus
+//!   (`:focus-within`: the input, a chip ×, a footer control, Send).
 //! - **Context row** (16px in): context chips and the attachment strip in
 //!   their 32px composer forms.
 //! - **Input**: Kit's multi-line text, 14/20, two rows (72px with padding),
-//!   `text-helper` placeholder. Enter sends (Shift+Enter is a new line);
-//!   while running Enter queues and ⌘/Ctrl+Enter steers. A `suggestion`
-//!   shows as italic ghost text with a "Tab to accept" hint; Tab accepts it.
+//!   `text-helper` placeholder, at least 72px tall. Enter sends (Shift+Enter
+//!   is a new line); while running Enter queues and ⌘/Ctrl+Enter steers.
+//!   Tab and Shift+Tab move focus as in a plain `<textarea>` (no indenting).
+//!   A `suggestion` shows as italic ghost text with a "Tab to accept" hint;
+//!   while it shows, Tab accepts it instead.
 //! - **Footer** (40px): attach, model, effort and permissions controls on
 //!   the left; the meter, the voice pill or the mic, and the primary actions
 //!   on the right.
@@ -19,14 +22,16 @@ use super::controls::{ComposerControl, EffortGlyph, EffortLevel};
 use super::voice::VoiceInputPill;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::kbd::Kbd;
-use crate::t3::press::{Handler, inset_frame, rem};
+use crate::t3::press::{Handler, rem};
 use crate::t3::shell::{IdentitySize, ProviderIcon};
 use crate::{icons::CarbonIcon, theme::color, tokens::ColorRole};
 use gpui_kit::component::Sizable as _;
-use gpui_kit::component::input::{Textarea as KitTextarea, TextareaState};
+use gpui_kit::component::input::{
+    Enter, IndentInline, OutdentInline, Textarea as KitTextarea, TextareaState,
+};
 use gpui_kit::{
-    AnyElement, App, AppContext as _, ElementId, Entity, Focusable as _, InteractiveElement as _,
-    IntoElement, KeyDownEvent, ParentElement, RenderOnce, SharedString, Styled, Window, div,
+    AnyElement, App, AppContext as _, ElementId, Entity, InteractiveElement as _, IntoElement,
+    MouseButton, ParentElement, RenderOnce, SharedString, Styled, Window, div,
     prelude::FluentBuilder as _,
 };
 use std::rc::Rc;
@@ -92,11 +97,49 @@ pub fn enter_action(shift: bool, command: bool, running: bool, can_steer: bool) 
     }
 }
 
+/// What Tab does in the input: accept the showing suggestion, or move focus
+/// (`forward` = Tab, otherwise Shift+Tab). The input never indents.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TabAction {
+    /// Put the suggestion into the input.
+    Accept,
+    /// Move focus to the next stop.
+    FocusNext,
+    /// Move focus to the previous stop.
+    FocusPrev,
+}
+
+/// Tab accepts only while a suggestion is showing (`suggestion && !text`);
+/// otherwise Tab and Shift+Tab move focus, as in a plain `<textarea>`.
+pub fn tab_action(forward: bool, suggestion_showing: bool) -> TabAction {
+    match (forward, suggestion_showing) {
+        (true, true) => TabAction::Accept,
+        (true, false) => TabAction::FocusNext,
+        (false, _) => TabAction::FocusPrev,
+    }
+}
+
+/// Move focus one stop through Base's `root::Tab` / `root::TabPrev`, so an
+/// open dialog's focus trap still holds; plain GPUI traversal otherwise.
+fn move_focus(forward: bool, window: &mut Window, cx: &mut App) {
+    let name = if forward {
+        "root::Tab"
+    } else {
+        "root::TabPrev"
+    };
+    match cx.build_action(name, None) {
+        Ok(action) => window.dispatch_action(action, cx),
+        Err(_) if forward => window.focus_next(cx),
+        Err(_) => window.focus_prev(cx),
+    }
+}
+
 /// The composer. See the module docs.
 #[derive(IntoElement)]
 pub struct Composer {
     id: ElementId,
     value: SharedString,
+    input: Option<Entity<TextareaState>>,
     contexts: Vec<ContextChip>,
     attachments: Option<(Vec<AttachmentImage>, Vec<AttachmentFile>)>,
     model: SharedString,
@@ -131,6 +174,7 @@ impl Composer {
         Self {
             id: id.into(),
             value: SharedString::default(),
+            input: None,
             contexts: Vec::new(),
             attachments: None,
             model: "Model".into(),
@@ -162,6 +206,14 @@ impl Composer {
     /// `value`: the initial text.
     pub fn value(mut self, value: impl Into<SharedString>) -> Self {
         self.value = value.into();
+        self
+    }
+
+    /// The input's text state, when the caller owns it (to read or set the
+    /// text, or to focus it). Without it the composer keeps its own, keyed
+    /// by the composer's id and seeded from [`Self::value`].
+    pub fn input(mut self, state: Entity<TextareaState>) -> Self {
+        self.input = Some(state);
         self
     }
 
@@ -335,15 +387,23 @@ impl RenderOnce for Composer {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
         let seed = self.value.clone();
-        let input = window
-            .use_keyed_state((id.clone(), "input"), cx, move |window, cx| {
-                cx.new(|cx| TextareaState::new(window, cx).default_value(seed))
-            })
-            .read(cx)
-            .clone();
+        let input = match self.input.clone() {
+            Some(input) => input,
+            None => window
+                .use_keyed_state((id.clone(), "input"), cx, move |window, cx| {
+                    cx.new(|cx| TextareaState::new(window, cx).default_value(seed))
+                })
+                .read(cx)
+                .clone(),
+        };
         let text = input.read(cx).value().to_string();
         let empty = text.trim().is_empty();
-        let focused = input.read(cx).focus_handle(cx).contains_focused(window, cx);
+        // `:focus-within`: a handle on the box that is never a tab stop itself.
+        let within = window
+            .use_keyed_state((id.clone(), "within"), cx, |_, cx| cx.focus_handle())
+            .read(cx)
+            .clone();
+        let focused = within.contains_focused(window, cx);
         let texts = self.texts.clone();
         let running = self.state == ComposerState::Running;
         let has_ctx = !self.contexts.is_empty() || self.attachments.is_some();
@@ -365,43 +425,43 @@ impl RenderOnce for Composer {
                 as Handler
         });
 
-        let on_key = {
+        // Kit's input binds Enter (new line) and Tab (indent) as actions,
+        // which GPUI dispatches before any key-down listener, so the box
+        // intercepts the actions in the capture phase instead.
+        let on_enter = {
             let (send, queue, steer) = (send.clone(), queue.clone(), steer.clone());
+            move |action: &Enter, window: &mut Window, cx: &mut App| {
+                let Some(steering) =
+                    enter_action(action.shift, action.secondary, running, steer.is_some())
+                else {
+                    return;
+                };
+                cx.stop_propagation();
+                if steering {
+                    if let Some(f) = steer.as_ref() {
+                        f(window, cx)
+                    }
+                } else if running {
+                    queue(window, cx)
+                } else {
+                    send(window, cx)
+                }
+            }
+        };
+        let on_tab = {
             let suggestion = self.suggestion.clone();
             let input = input.clone();
-            move |e: &KeyDownEvent, window: &mut Window, cx: &mut App| {
-                let m = &e.keystroke.modifiers;
-                match e.keystroke.key.as_str() {
-                    "enter" => {
-                        let Some(steering) = enter_action(
-                            m.shift,
-                            m.platform || m.control,
-                            running,
-                            steer.is_some(),
-                        ) else {
-                            return;
-                        };
-                        cx.stop_propagation();
-                        if steering {
-                            if let Some(f) = steer.as_ref() {
-                                f(window, cx)
-                            }
-                        } else if running {
-                            queue(window, cx)
-                        } else {
-                            send(window, cx)
+            move |forward: bool, window: &mut Window, cx: &mut App| {
+                cx.stop_propagation();
+                let showing = suggestion.is_some() && input.read(cx).value().is_empty();
+                match tab_action(forward, showing) {
+                    TabAction::Accept => {
+                        if let Some(s) = suggestion.clone() {
+                            input.update(cx, |state, cx| state.insert(s, window, cx));
                         }
                     }
-                    "tab" if !m.shift => {
-                        if let Some(s) = suggestion.as_ref()
-                            && input.read(cx).value().is_empty()
-                        {
-                            cx.stop_propagation();
-                            let s = s.clone();
-                            input.update(cx, |state, cx| state.set_value(s, window, cx));
-                        }
-                    }
-                    _ => {}
+                    TabAction::FocusNext => move_focus(true, window, cx),
+                    TabAction::FocusPrev => move_focus(false, window, cx),
                 }
             }
         };
@@ -435,6 +495,7 @@ impl RenderOnce for Composer {
         let pad_top = if has_ctx { 12. } else { 16. };
         let editor = div()
             .relative()
+            .min_h(rem(72.))
             .pt(rem(pad_top - 2.))
             .pb(rem(8. - 2.))
             .px(rem(16. - 4.))
@@ -458,7 +519,8 @@ impl RenderOnce for Composer {
                     .appearance(false)
                     .with_size(gpui_kit::component::Size::XSmall)
                     .aria_label(texts.message.clone())
-                    .h(rem(40. + 4.))
+                    // The rest of the 72px `min-height` after the padding.
+                    .h(rem(72. - pad_top - 8. + 4.))
                     .w_full()
                     .text_size(rem(14.))
                     .line_height(rem(20.)),
@@ -468,7 +530,7 @@ impl RenderOnce for Composer {
         let suggestion = show_suggestion.then(|| {
             div()
                 .absolute()
-                .top(rem(if has_ctx { 0. } else { 16. }))
+                .top(rem(pad_top))
                 .left(rem(16.))
                 .right(rem(16.))
                 .flex()
@@ -616,18 +678,36 @@ impl RenderOnce for Composer {
         } else {
             ColorRole::BorderSubtle01
         });
+        let tab = Rc::new(on_tab);
         let content = div()
             .id((id.clone(), "box"))
+            .track_focus(&within)
             .relative()
             .flex()
             .flex_col()
             .w_full()
             .bg(color(ColorRole::Field01))
-            .shadow(inset_frame(frame))
-            .capture_key_down(on_key)
-            .children(ctx_row)
-            .child(div().relative().child(editor).children(suggestion))
-            .child(foot);
+            // A real 1px border (outside the 48 + 72 + 40px content), not an inset line.
+            .border_1()
+            .border_color(frame)
+            .capture_action(on_enter)
+            .capture_action({
+                let tab = tab.clone();
+                move |_: &IndentInline, window, cx| tab(true, window, cx)
+            })
+            .capture_action(move |_: &OutdentInline, window, cx| tab(false, window, cx))
+            .child(
+                // A press on the box's own padding takes no focus (`<div>`),
+                // so `track_focus` above only observes focus within.
+                div()
+                    .flex()
+                    .flex_col()
+                    .w_full()
+                    .on_mouse_down(MouseButton::Left, |_, window, _| window.prevent_default())
+                    .children(ctx_row)
+                    .child(div().relative().child(editor).children(suggestion))
+                    .child(foot),
+            );
         // `.t3-composer { display: flex; flex-direction: column; gap: spacing-03; width: 100% }`.
         div()
             .flex()
@@ -643,6 +723,14 @@ impl RenderOnce for Composer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tab_accepts_only_a_showing_suggestion() {
+        assert_eq!(tab_action(true, true), TabAction::Accept);
+        assert_eq!(tab_action(true, false), TabAction::FocusNext);
+        assert_eq!(tab_action(false, true), TabAction::FocusPrev);
+        assert_eq!(tab_action(false, false), TabAction::FocusPrev);
+    }
 
     #[test]
     fn enter_sends_queues_or_steers() {

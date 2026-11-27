@@ -44,5 +44,5 @@ pub use picker::{
     filter_models,
 };
 pub use queue::{QueuedRun, QueuedRunsControl, QueuedRunsTexts};
-pub use surface::{Composer, ComposerMenu, ComposerTexts, enter_action};
+pub use surface::{Composer, ComposerMenu, ComposerTexts, TabAction, enter_action, tab_action};
 pub use voice::{VoiceInputPill, VoiceState, VoiceTexts, WAVE_PERIOD, wave_delay, wave_scale};

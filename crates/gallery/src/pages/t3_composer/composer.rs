@@ -246,7 +246,7 @@ impl Render for ComposerPage {
             ));
         Body::new()
             .playground(live)
-            .hint("Enter sends, Shift+Enter adds a line; running, Enter queues and ⌘↵ steers.")
+            .hint("Enter sends, Shift+Enter adds a line, Tab moves focus; running, Enter queues and ⌘↵ steers.")
             .config(config)
             .example(controls::block("Reference preview", reference()))
     }
