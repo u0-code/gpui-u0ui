@@ -172,6 +172,18 @@ impl ComposerControl {
     }
 }
 
+/// Kit's `Selectable`, so the control can be the trigger of a Kit `Popover`:
+/// the popover marks it selected (`active`) while it is open.
+impl gpui_kit::base::Selectable for ComposerControl {
+    fn selected(self, selected: bool) -> Self {
+        self.active(selected)
+    }
+
+    fn is_selected(&self) -> bool {
+        self.active
+    }
+}
+
 impl ParentElement for ComposerControl {
     fn extend(&mut self, elements: impl IntoIterator<Item = AnyElement>) {
         self.children.extend(elements);
@@ -328,6 +340,16 @@ mod tests {
         assert_eq!(EffortLevel::Max.bars(), 5);
         assert_eq!(hex(effort_bar_color(true)), "#161616");
         assert!((effort_bar_color(false).a - 0.26).abs() < 1e-3);
+    }
+
+    #[test]
+    fn composer_control_is_selected_while_its_popover_is_open() {
+        use gpui_kit::base::Selectable as _;
+        let control = ComposerControl::new("model", "Model");
+        assert!(!control.is_selected());
+        let open = control.open(true);
+        assert!(open.is_selected() && open.is_open() && open.active);
+        assert!(!open.selected(false).is_selected());
     }
 
     #[test]
