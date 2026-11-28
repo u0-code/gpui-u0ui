@@ -102,5 +102,28 @@ impl Render for Page {
                     controls::setter(&entity, |this: &mut Page, t: SharedString| this.ref_tab = t),
                 ),
             ))
+            .example(controls::block(
+                "A long title wraps; the top action keeps its place (u0's page)",
+                div().w(gpui_kit::px(560.)).child(
+                    PullRequestDetailHeader::new(
+                        "pdh-long",
+                        4005,
+                        "text: custom HTML block extension point (html_block_parser / html_block_renderer)",
+                    )
+                    .repo("acme/carbon-ui")
+                    .author("ana")
+                    .branches("ana/html-blocks", "main")
+                    .tabs(Vec::<SharedString>::new())
+                    .show_crumbs(false)
+                    .title_large(true)
+                    .divided(false)
+                    .top_action(
+                        Button::new("pdh-long-worktree", "Check out in a worktree")
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::Sm)
+                            .icon(CarbonIcon::Branch),
+                    ),
+                ),
+            ))
     }
 }
