@@ -30,8 +30,8 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     App, AppContext as _, Div, ElementId, Entity, Hsla, InteractiveElement as _, IntoElement,
-    ParentElement, RenderOnce, Rgba, SharedString, StatefulInteractiveElement as _, Styled, Window,
-    canvas, div, prelude::FluentBuilder as _, px,
+    ParentElement, RenderOnce, Rgba, SharedString, StatefulInteractiveElement as _, Styled,
+    TestSupportExt as _, Window, canvas, div, prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -421,6 +421,7 @@ impl RenderOnce for ThemeEditor {
             let focus = gpui_kit::Focusable::focus_handle(picker.read(cx), cx);
             let ring = focus.is_focused(window) && crate::focus::focus_visible_mode(window);
             let open = picker.clone();
+            let open_focus = focus.clone();
             tiles.push(
                 div()
                     .id(tile_id.clone())
@@ -464,10 +465,19 @@ impl RenderOnce for ThemeEditor {
                         // `.g-sw-text span { font-size: 0.6875rem }`, both mono.
                         div()
                             .id((tile_id, "text"))
+                            .test_support()
                             .flex()
                             .flex_col()
                             .min_w_0()
-                            .on_click(move |_, _, cx| {
+                            // `<label className="g-sw">` around the
+                            // `<input type=color>`: a click on the label
+                            // focuses the input and opens its picker, and the
+                            // input keeps focus. Focusing first makes the
+                            // picker's popover take this swatch as the focus
+                            // to give back when it closes (Escape or a pick),
+                            // instead of whatever had focus before the click.
+                            .on_click(move |_, window, cx| {
+                                open_focus.focus(window, cx);
                                 open.update(cx, |s, cx| s.set_open(true, cx));
                             })
                             .child(
