@@ -515,8 +515,9 @@ fn write_kit_projection(kit: &mut KitTheme, theme: CarbonTheme) {
     // Kit's font size doubles as the window rem size (Root::prepare), and every
     // Carbon length is in 16px rems; body text sets its own 14px type style.
     kit.font_size = px(REM_PX);
-    // `code-02`: 0.875rem.
-    kit.mono_font_size = px(crate::tokens::TypeStyle::Code02.spec().font_size_px());
+    // `code-01`: 0.75rem, the size of code everywhere else at desktop
+    // density; Kit's diff and editor take their text from it.
+    kit.mono_font_size = px(crate::tokens::TypeStyle::Code01.spec().font_size_px());
     // `border-radius-00`: Carbon is square.
     kit.radius = px(0.);
     kit.radius_lg = px(0.);
@@ -603,6 +604,7 @@ mod tests {
             assert_eq!(kit.radius, px(0.));
             assert_eq!(kit.font_family.as_ref(), "IBM Plex Sans");
             assert_eq!(kit.font_size, px(16.));
+            assert_eq!(kit.mono_font_size, px(12.));
         }
     }
 
