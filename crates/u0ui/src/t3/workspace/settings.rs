@@ -895,9 +895,10 @@ impl RenderOnce for SettingsRow {
 
 // ── Keybindings ─────────────────────────────────────────────────────────
 
-/// The keys of a binding (`keys.split('+')`).
+/// The keys of a binding (`keys.split('+')`); none for a binding with no
+/// keys, which draws no empty key cap.
 pub fn split_keys(keys: &str) -> Vec<&str> {
-    keys.split('+').collect()
+    keys.split('+').filter(|k| !k.is_empty()).collect()
 }
 
 /// A key combination as key caps (`KeybindingPill`, `.t3-kbpill`: 2px apart).
@@ -1377,6 +1378,7 @@ mod tests {
             vec!["\u{2318}", "\u{21e7}", "Y"]
         );
         assert_eq!(split_keys("\u{2325}+S"), vec!["\u{2325}", "S"]);
+        assert!(split_keys("").is_empty());
     }
 
     #[test]

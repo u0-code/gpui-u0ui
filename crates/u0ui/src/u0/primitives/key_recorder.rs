@@ -3,8 +3,11 @@
 //!
 //! - **Behavior**: pressing the button starts recording. Held modifiers show
 //!   live; the first non-modifier key completes the shortcut (`⌘+⇧+K`,
-//!   modifiers as ⌃⌥⇧⌘ in that order). Escape without ⌘ cancels; Tab still
-//!   moves focus; losing focus stops recording. The clear button empties it.
+//!   modifiers as ⌃⌥⇧⌘ in that order), even one the app has bound: while
+//!   recording, the keys are taken before the keymap sees them. Escape
+//!   without ⌘ cancels; Tab still moves focus; losing focus stops
+//!   recording. The clear button empties it. [`keystroke`] writes a
+//!   shortcut as GPUI's keymap reads it (`shift-cmd-k`).
 //! - **Appearance** (`.g-keyrec`): a `field-01` field at least 9rem wide with
 //!   a `border-strong-01` rule; recording adds a 2px `focus` outline on
 //!   `highlight`, a conflict a 2px `support-error` outline and an error line
@@ -18,9 +21,9 @@ use crate::{
     tokens::ColorRole,
 };
 use gpui_kit::{
-    App, CursorStyle, ElementId, Hsla, InteractiveElement, IntoElement, KeyDownEvent, Modifiers,
-    ModifiersChangedEvent, ParentElement, RenderOnce, SharedString, Styled, Window, div,
-    prelude::FluentBuilder as _, px,
+    App, CursorStyle, ElementId, Entity, FocusHandle, Hsla, InteractiveElement, IntoElement,
+    KeystrokeEvent, Modifiers, ModifiersChangedEvent, ParentElement, RenderOnce, SharedString,
+    Styled, Subscription, Window, div, prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -60,6 +63,32 @@ pub fn key_name(key: &str) -> Option<String> {
     )
 }
 
+/// A shortcut as [`combo`] writes it (`⇧+⌘+K`), as GPUI's keymap reads one
+/// (`shift-cmd-k`): [`modifier_glyphs`] and [`key_name`] undone.
+pub fn keystroke(combo: &str) -> String {
+    combo
+        .split('+')
+        .filter(|part| !part.is_empty())
+        .map(|part| match part {
+            "⌃" => "ctrl".to_string(),
+            "⌥" => "alt".to_string(),
+            "⇧" => "shift".to_string(),
+            "⌘" => "cmd".to_string(),
+            "↑" => "up".to_string(),
+            "↓" => "down".to_string(),
+            "←" => "left".to_string(),
+            "→" => "right".to_string(),
+            "↵" => "enter".to_string(),
+            "Esc" => "escape".to_string(),
+            "⌫" => "backspace".to_string(),
+            "Space" => "space".to_string(),
+            "Plus" => "+".to_string(),
+            key => key.to_lowercase(),
+        })
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
 /// `[...mods, k].join('+')`.
 pub fn combo(m: &Modifiers, key: Option<&str>) -> String {
     let mut parts: Vec<String> = modifier_glyphs(m).into_iter().map(String::from).collect();
@@ -91,9 +120,13 @@ pub fn look(recording: bool, conflict: bool) -> (Hsla, Hsla) {
 struct Rec {
     recording: bool,
     live: String,
+    /// While recording, the keys are taken here before the keymap sees
+    /// them, so a shortcut the app has bound is recorded, not run.
+    taking: Option<Subscription>,
 }
 
 type Handler = Rc<dyn Fn(SharedString, &mut Window, &mut App)>;
+type ConflictText = Rc<dyn Fn(&str) -> SharedString>;
 
 /// A shortcut recorder. See the module docs.
 #[derive(IntoElement)]
@@ -104,6 +137,7 @@ pub struct KeyRecorder {
     default_value: SharedString,
     conflict: Option<SharedString>,
     texts: [SharedString; 5],
+    conflict_text: ConflictText,
     on_value_change: Option<Handler>,
 }
 
@@ -124,6 +158,7 @@ impl KeyRecorder {
                 "Click, then press the keys".into(),
                 "Clear shortcut".into(),
             ],
+            conflict_text: Rc::new(|c| format!("Already used by “{c}”").into()),
             on_value_change: None,
         }
     }
@@ -156,6 +191,13 @@ impl KeyRecorder {
     /// clear button label.
     pub fn texts(mut self, texts: [SharedString; 5]) -> Self {
         self.texts = texts;
+        self
+    }
+
+    /// The error line for a conflict, from the command's name (`Already
+    /// used by “{command}”`).
+    pub fn conflict_text(mut self, f: impl Fn(&str) -> SharedString + 'static) -> Self {
+        self.conflict_text = Rc::new(f);
         self
     }
 
@@ -241,38 +283,6 @@ impl RenderOnce for KeyRecorder {
                 .collect()
         };
 
-        let on_key = {
-            let rec = rec.clone();
-            let set = set.clone();
-            move |e: &KeyDownEvent, window: &mut Window, cx: &mut App| {
-                if !rec.read(cx).recording || e.keystroke.key == "tab" {
-                    return;
-                }
-                cx.stop_propagation();
-                let m = e.keystroke.modifiers;
-                if e.keystroke.key == "escape" && !m.platform {
-                    rec.update(cx, |r, cx| {
-                        *r = Rec::default();
-                        cx.notify();
-                    });
-                    return;
-                }
-                let k = key_name(&e.keystroke.key);
-                let c = combo(&m, k.as_deref());
-                if k.is_some() {
-                    rec.update(cx, |r, cx| {
-                        *r = Rec::default();
-                        cx.notify();
-                    });
-                    set(c.into(), window, cx);
-                } else {
-                    rec.update(cx, |r, cx| {
-                        r.live = c;
-                        cx.notify();
-                    });
-                }
-            }
-        };
         let on_mods = {
             let rec = rec.clone();
             move |e: &ModifiersChangedEvent, _: &mut Window, cx: &mut App| {
@@ -285,9 +295,9 @@ impl RenderOnce for KeyRecorder {
             }
         };
         let start = rec.clone();
+        let taken = (focus.clone(), set.clone());
         let button = div()
             .id((id.clone(), "rec"))
-            .capture_key_down(on_key)
             .on_modifiers_changed(on_mods)
             .child(
                 gpui_kit::base::Button::new((id.clone(), "button"))
@@ -308,9 +318,14 @@ impl RenderOnce for KeyRecorder {
                     .child(form::bottom_rule(color(ColorRole::BorderStrong01)))
                     .child(form::inset_outline(2., outline))
                     .when(ring, |b| b.child(parts::focus_ring()))
-                    .on_click(move |_, _, cx| {
+                    .on_click(move |_, window, cx| {
+                        // A pointer press does not focus the button; the keys
+                        // are taken only while it has focus.
+                        taken.0.focus(window, cx);
+                        let taking = take_keys(&start, taken.0.clone(), taken.1.clone(), cx);
                         start.update(cx, |r, cx| {
                             r.recording = true;
+                            r.taking = Some(taking);
                             cx.notify();
                         })
                     }),
@@ -332,7 +347,7 @@ impl RenderOnce for KeyRecorder {
             )
         });
         let message = match &self.conflict {
-            Some(c) => parts::error(format!("Already used by “{c}”")),
+            Some(c) => parts::error((self.conflict_text)(c)),
             None => parts::helper(if recording { rec_help } else { idle_help }),
         };
         parts::field()
@@ -348,6 +363,44 @@ impl RenderOnce for KeyRecorder {
             )
             .child(message)
     }
+}
+
+/// The keys pressed while `rec` records, with `focus` on its button: the
+/// shortcut they make set with `set`, Escape the end of it. Taken ahead of
+/// the keymap, so what the app has bound is recorded rather than run; Tab
+/// goes on to move focus.
+fn take_keys(rec: &Entity<Rec>, focus: FocusHandle, set: Handler, cx: &mut App) -> Subscription {
+    let rec = rec.downgrade();
+    cx.intercept_keystrokes(move |e: &KeystrokeEvent, window, cx| {
+        let Some(rec) = rec.upgrade() else {
+            return;
+        };
+        if !rec.read(cx).recording || !focus.is_focused(window) || e.keystroke.key == "tab" {
+            return;
+        }
+        cx.stop_propagation();
+        let m = e.keystroke.modifiers;
+        let k = key_name(&e.keystroke.key);
+        let escape = e.keystroke.key == "escape" && !m.platform;
+        if escape || k.is_some() {
+            // Ended once this call is over: the subscription making it is
+            // the one let go.
+            cx.defer(move |cx| {
+                rec.update(cx, |r, cx| {
+                    *r = Rec::default();
+                    cx.notify();
+                });
+            });
+            if !escape {
+                set(combo(&m, k.as_deref()).into(), window, cx);
+            }
+        } else {
+            rec.update(cx, |r, cx| {
+                r.live = combo(&m, None);
+                cx.notify();
+            });
+        }
+    })
 }
 
 #[cfg(test)]
@@ -375,6 +428,36 @@ mod tests {
         assert_eq!(key_name("+").as_deref(), Some("Plus"));
         assert_eq!(key_name("space").as_deref(), Some("Space"));
         assert_eq!(key_name("f5").as_deref(), Some("F5"));
+    }
+
+    #[test]
+    fn a_combo_is_written_back_as_the_keymap_reads_it() {
+        assert_eq!(keystroke("⇧+⌘+K"), "shift-cmd-k");
+        assert_eq!(keystroke("⌃+⌥+↑"), "ctrl-alt-up");
+        assert_eq!(keystroke("⌘+Plus"), "cmd-+");
+        assert_eq!(keystroke("F6"), "f6");
+        assert_eq!(keystroke("⌘+Esc"), "cmd-escape");
+        assert_eq!(keystroke(""), "");
+        let m = Modifiers {
+            platform: true,
+            ..Default::default()
+        };
+        for key in [
+            "k",
+            "enter",
+            "space",
+            "+",
+            "f5",
+            "up",
+            "backspace",
+            "escape",
+            "[",
+        ] {
+            assert_eq!(
+                keystroke(&combo(&m, key_name(key).as_deref())),
+                format!("cmd-{key}")
+            );
+        }
     }
 
     #[test]
