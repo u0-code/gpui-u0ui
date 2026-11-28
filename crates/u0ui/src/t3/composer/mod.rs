@@ -40,8 +40,9 @@ pub use controls::{
 };
 pub use menu::{COMMAND_MENU_SIZE, CommandMenuItem, CommandMenuSection, ComposerCommandMenu};
 pub use picker::{
-    MODEL_PICKER_GEOMETRY, ModelPicker, ModelPickerTexts, PickerModel, PickerProvider,
-    filter_models,
+    MODEL_PICKER_GEOMETRY, MODEL_PICKER_MIN_LIST, MODEL_PICKER_NARROW_SIDE, ModelPicker,
+    ModelPickerTexts, PickerChoice, PickerMark, PickerModel, PickerOption, PickerProvider,
+    PickerSwitch, filter_models, narrow_tabs,
 };
 pub use queue::{QueuedRun, QueuedRunsControl, QueuedRunsTexts};
 pub use surface::{Composer, ComposerMenu, ComposerTexts, TabAction, enter_action, tab_action};
