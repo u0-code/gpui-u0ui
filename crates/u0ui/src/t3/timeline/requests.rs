@@ -5,8 +5,11 @@
 //!   Keys: 1…n pick an option, n+1 focuses the free answer, ↑/↓ move the
 //!   choice, Enter submits (Shift+Enter does not).
 //! - [`SecretRequestCard`] (`.t3-secret`): password fields on `field-02`.
-//! - [`ProposedPlanCard`] (`.t3-plan`): its steps (an `<ol>` without markers), copy / download /
-//!   save icon buttons, Keep planning and Implement plan.
+//! - [`ProposedPlanCard`] (`.t3-plan`): its steps (an `<ol>` without markers,
+//!   or each with the [`PlanStatus`] glyph of the step's state), how far it
+//!   has got beside its title, copy / download / save icon buttons, a note
+//!   before Keep planning and Implement plan; each button is drawn with its
+//!   handler (a plan only followed has neither Keep planning nor Implement).
 //! - [`RequestCard`] (`.t3-request`): a generic ask with a preview well.
 use super::card;
 use crate::LayerLevel;
@@ -14,7 +17,9 @@ use crate::components::button::{Button, ButtonKind, ButtonSize, ButtonVariant};
 use crate::components::floating::Align;
 use crate::components::{Input, InputState};
 use crate::t3::action::{ActionButton, ActionKind, KeyCap, Part};
+use crate::t3::base::Spin;
 use crate::t3::press::{self, Handler, rem};
+use crate::u0::thread::PlanStatus;
 use crate::{
     components::form::FieldSize,
     icons::{CarbonIcon, Icon},
@@ -891,6 +896,10 @@ pub struct PlanStep {
     pub title: SharedString,
     /// `detail`.
     pub detail: Option<SharedString>,
+    /// Where the step stands: its glyph in the gutter, as the
+    /// [`crate::u0::thread::PlanChecklist`] draws it; none leaves the
+    /// gutter empty.
+    pub status: Option<PlanStatus>,
 }
 
 impl PlanStep {
@@ -899,12 +908,19 @@ impl PlanStep {
         Self {
             title: title.into(),
             detail: None,
+            status: None,
         }
     }
 
     /// `detail`.
     pub fn detail(mut self, detail: impl Into<SharedString>) -> Self {
         self.detail = Some(detail.into());
+        self
+    }
+
+    /// Where the step stands.
+    pub fn status(mut self, status: PlanStatus) -> Self {
+        self.status = Some(status);
         self
     }
 }
@@ -943,6 +959,8 @@ pub struct ProposedPlanCard {
     title: SharedString,
     steps: Vec<PlanStep>,
     texts: PlanTexts,
+    progress: Option<SharedString>,
+    note: Option<SharedString>,
     on_implement: Option<Handler>,
     on_keep_planning: Option<Handler>,
     on_copy: Option<Handler>,
@@ -962,6 +980,8 @@ impl ProposedPlanCard {
             title: title.into(),
             steps,
             texts: PlanTexts::default(),
+            progress: None,
+            note: None,
             on_implement: None,
             on_keep_planning: None,
             on_copy: None,
@@ -973,6 +993,18 @@ impl ProposedPlanCard {
     /// Replace the strings.
     pub fn texts(mut self, texts: PlanTexts) -> Self {
         self.texts = texts;
+        self
+    }
+
+    /// How far the plan has got ("1 of 4 done"), beside the title.
+    pub fn progress(mut self, progress: impl Into<SharedString>) -> Self {
+        self.progress = Some(progress.into());
+        self
+    }
+
+    /// A line before the actions, saying what implementing does.
+    pub fn note(mut self, note: impl Into<SharedString>) -> Self {
+        self.note = Some(note.into());
         self
     }
 
@@ -1028,21 +1060,52 @@ impl RenderOnce for ProposedPlanCard {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let id = self.id.clone();
         let texts = self.texts.clone();
-        let steps = self.steps.into_iter().map(|step| {
+        let steps = self.steps.into_iter().enumerate().map(|(i, step)| {
             // `.t3-plan-steps { padding-left: spacing-06; font-size: 0.875rem; line-height: 1.42857 }`,
             // `li { margin-bottom: spacing-03 }`, `b { display: block; font-weight: 600 }`,
             // `span { color: text-secondary }`. Carbon's reset (`ol { list-style: none }`)
-            // removes the markers, so the 24px gutter stays empty (the reference render).
-            div().flex().flex_row().mb(rem(8.)).pl(rem(24.)).child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .min_w_0()
-                    .child(div().font_weight(FontWeight::SEMIBOLD).child(step.title))
-                    .when_some(step.detail, |this, d| {
-                        this.child(div().text_color(color(ColorRole::TextSecondary)).child(d))
-                    }),
-            )
+            // removes the markers, so the 24px gutter stays empty (the reference render),
+            // unless the step says where it stands: then its glyph sits there.
+            let glyph = step.status.map(|st| {
+                let (_, ink, _, _) = st.look();
+                let mark: AnyElement = if st == PlanStatus::InProgress {
+                    Spin::new((id.clone(), SharedString::from(format!("spin-{i}"))))
+                        .into_any_element()
+                } else {
+                    Icon::carbon(if st == PlanStatus::Done {
+                        CarbonIcon::CheckmarkFilled
+                    } else {
+                        CarbonIcon::CircleDash
+                    })
+                    .size_length(rem(16.))
+                    .color(ink)
+                    .into_any_element()
+                };
+                div().absolute().left_0().top(px(2.)).child(mark)
+            });
+            let (ink, struck) = step.status.map_or((None, false), |st| {
+                let (ink, _, struck, _) = st.look();
+                (Some(ink), struck)
+            });
+            div()
+                .relative()
+                .flex()
+                .flex_row()
+                .mb(rem(8.))
+                .pl(rem(24.))
+                .children(glyph)
+                .child(
+                    div()
+                        .when_some(ink, |d, ink| d.text_color(ink))
+                        .when(struck, |d| d.line_through())
+                        .flex()
+                        .flex_col()
+                        .min_w_0()
+                        .child(div().font_weight(FontWeight::SEMIBOLD).child(step.title))
+                        .when_some(step.detail, |this, d| {
+                            this.child(div().text_color(color(ColorRole::TextSecondary)).child(d))
+                        }),
+                )
         });
         card::frame()
             .child(
@@ -1052,28 +1115,39 @@ impl RenderOnce for ProposedPlanCard {
                         color(ColorRole::IconPrimary),
                     ))
                     .child(card::head_title(self.title.clone()))
+                    .children(self.progress.clone().map(card::sub))
                     .child(card::grow())
-                    .child(icon_button(
-                        (id.clone(), "copy"),
-                        texts.copy.clone(),
-                        CarbonIcon::Copy,
-                        Align::Bottom,
-                        self.on_copy.clone(),
-                    ))
-                    .child(icon_button(
-                        (id.clone(), "download"),
-                        texts.download.clone(),
-                        CarbonIcon::Download,
-                        Align::Bottom,
-                        self.on_download.clone(),
-                    ))
-                    .child(icon_button(
-                        (id.clone(), "save"),
-                        texts.save.clone(),
-                        CarbonIcon::DocumentAdd,
-                        Align::BottomRight,
-                        self.on_save.clone(),
-                    )),
+                    // Each drawn with its handler.
+                    .children(
+                        [
+                            (
+                                "copy",
+                                texts.copy.clone(),
+                                CarbonIcon::Copy,
+                                Align::Bottom,
+                                self.on_copy.clone(),
+                            ),
+                            (
+                                "download",
+                                texts.download.clone(),
+                                CarbonIcon::Download,
+                                Align::Bottom,
+                                self.on_download.clone(),
+                            ),
+                            (
+                                "save",
+                                texts.save.clone(),
+                                CarbonIcon::DocumentAdd,
+                                Align::BottomRight,
+                                self.on_save.clone(),
+                            ),
+                        ]
+                        .into_iter()
+                        .filter(|(.., f)| f.is_some())
+                        .map(|(part, label, icon, align, f)| {
+                            icon_button((id.clone(), part), label, icon, align, f)
+                        }),
+                    ),
             )
             .child(
                 div()
@@ -1083,23 +1157,34 @@ impl RenderOnce for ProposedPlanCard {
                     .line_height(rem(20.))
                     .children(steps),
             )
-            .child(
-                card::actions()
-                    .child(
-                        Button::new((id.clone(), "keep"), texts.keep.clone())
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::Sm)
-                            .when_some(self.on_keep_planning.clone(), |b, f| {
-                                b.on_click(move |_, w, cx| f(w, cx))
+            // A plan only followed, not proposed, has no way on from here.
+            .when(
+                self.on_keep_planning.is_some() || self.on_implement.is_some(),
+                |frame| {
+                    frame.child(
+                        card::actions()
+                            .when_some(self.note.clone(), |row, n| {
+                                // `.tpa-plan-note { margin-right: auto; font-size: 0.75rem;
+                                // color: text-secondary }`.
+                                row.child(card::sub(n).mr_auto())
+                            })
+                            .when_some(self.on_keep_planning.clone(), |row, f| {
+                                row.child(
+                                    Button::new((id.clone(), "keep"), texts.keep.clone())
+                                        .variant(ButtonVariant::Ghost)
+                                        .size(ButtonSize::Sm)
+                                        .on_click(move |_, w, cx| f(w, cx)),
+                                )
+                            })
+                            .when_some(self.on_implement.clone(), |row, f| {
+                                row.child(
+                                    Button::new((id.clone(), "implement"), texts.implement.clone())
+                                        .size(ButtonSize::Sm)
+                                        .on_click(move |_, w, cx| f(w, cx)),
+                                )
                             }),
                     )
-                    .child(
-                        Button::new((id.clone(), "implement"), texts.implement.clone())
-                            .size(ButtonSize::Sm)
-                            .when_some(self.on_implement.clone(), |b, f| {
-                                b.on_click(move |_, w, cx| f(w, cx))
-                            }),
-                    ),
+                },
             )
     }
 }
@@ -1221,6 +1306,16 @@ impl RenderOnce for RequestCard {
 mod tests {
     use super::*;
     use crate::tokens::CarbonTheme;
+
+    #[test]
+    fn a_plan_step_says_where_it_stands_only_when_told() {
+        assert_eq!(PlanStep::new("Extract tokens").status, None);
+        let done = PlanStep::new("Extract tokens").status(PlanStatus::Done);
+        assert_eq!(done.status, Some(PlanStatus::Done));
+        // A done step is struck through, as the checklist draws it.
+        crate::theme::tests_set(CarbonTheme::White);
+        assert!(PlanStatus::Done.look().2);
+    }
 
     fn questions() -> Vec<InputQuestion> {
         vec![
