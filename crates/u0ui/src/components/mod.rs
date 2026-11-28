@@ -79,7 +79,9 @@ pub use accordion::{Accordion, AccordionAlign, AccordionItem, AccordionSize};
 pub use alert_dialog::AlertDialog;
 pub use aspect_ratio::AspectRatio;
 pub use attachment::{Attachment, AttachmentGroup, AttachmentState};
-pub use avatar::{Avatar, AvatarColor, AvatarFallback, AvatarGroup, AvatarSize, MarkGroup};
+pub use avatar::{
+    Avatar, AvatarColor, AvatarFallback, AvatarGroup, AvatarSize, FallbackContent, MarkGroup,
+};
 pub use badge::{Badge, BadgeSize, BadgeVariant, TagType};
 pub use breadcrumb::{Breadcrumb, BreadcrumbItem, BreadcrumbSize};
 pub use bubble::{Bubble, BubbleAlign, BubbleContent, BubbleGroup, BubbleReactions, BubbleVariant};

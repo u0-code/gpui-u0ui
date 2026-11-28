@@ -21,6 +21,7 @@
 //! - **Behavior**: none. Kit's `Avatar` derives colors from the name and draws
 //!   its own sizes; Carbon's palette is the tag pairs, so this is drawn here.
 use crate::{
+    icons::{CarbonIcon, Icon},
     theme::color,
     tokens::{ColorRole, FontFamilyKey},
     typography::font,
@@ -129,10 +130,23 @@ pub const GROUP_RING: f32 = 2.;
 /// `.cu-avatar-group > .cu-avatar + .cu-avatar { margin-left: -0.5rem }`.
 pub const GROUP_OVERLAP: f32 = 8.;
 
-/// `AvatarFallback`: initials on a tag color pair.
+/// An icon in the fallback: `CarbonUI.Icons.User size={16}` inside
+/// `AvatarFallback` (u0's `Main` board, a pending review draft).
+pub const FALLBACK_ICON_SIZE: f32 = 16.;
+
+/// What an [`AvatarFallback`] shows.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FallbackContent {
+    /// Initials (or any short text).
+    Text(SharedString),
+    /// An icon ([`FALLBACK_ICON_SIZE`], in the pair's text color).
+    Icon(CarbonIcon),
+}
+
+/// `AvatarFallback`: initials, or an icon, on a tag color pair.
 #[derive(Clone)]
 pub struct AvatarFallback {
-    text: SharedString,
+    content: FallbackContent,
     color: AvatarColor,
 }
 
@@ -140,9 +154,23 @@ impl AvatarFallback {
     /// Initials (or any short text, e.g. `+3`).
     pub fn new(text: impl Into<SharedString>) -> Self {
         Self {
-            text: text.into(),
+            content: FallbackContent::Text(text.into()),
             color: AvatarColor::Blue,
         }
+    }
+
+    /// An icon instead of initials (e.g. [`CarbonIcon::User`] for someone
+    /// without a name or picture), drawn at [`FALLBACK_ICON_SIZE`].
+    pub fn icon(icon: CarbonIcon) -> Self {
+        Self {
+            content: FallbackContent::Icon(icon),
+            color: AvatarColor::Blue,
+        }
+    }
+
+    /// What it shows.
+    pub fn content(&self) -> &FallbackContent {
+        &self.content
     }
 
     /// The color pair (default blue).
@@ -165,7 +193,13 @@ impl AvatarFallback {
             .font(font(FontFamilyKey::Sans, 600))
             .text_size(rems(FALLBACK_FONT_SIZE / crate::tokens::REM_PX))
             .line_height(rems(1.))
-            .child(self.text.clone())
+            .child(match &self.content {
+                FallbackContent::Text(text) => text.clone().into_any_element(),
+                FallbackContent::Icon(icon) => Icon::carbon(*icon)
+                    .size_length(rems(FALLBACK_ICON_SIZE / crate::tokens::REM_PX))
+                    .color(fg)
+                    .into_any_element(),
+            })
             .into_any_element()
     }
 }
@@ -392,5 +426,16 @@ mod tests {
             px(GROUP_OVERLAP)
         );
         assert_eq!(MarkGroup::overlap(12.), px(3.));
+    }
+
+    #[test]
+    fn a_fallback_holds_initials_or_a_16px_icon() {
+        assert_eq!(
+            AvatarFallback::new("AL").content(),
+            &FallbackContent::Text("AL".into())
+        );
+        let icon = AvatarFallback::icon(CarbonIcon::User).color(AvatarColor::Gray);
+        assert_eq!(icon.content(), &FallbackContent::Icon(CarbonIcon::User));
+        assert_eq!(FALLBACK_ICON_SIZE, 16.);
     }
 }

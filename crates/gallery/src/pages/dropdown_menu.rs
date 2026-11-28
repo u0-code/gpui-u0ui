@@ -8,6 +8,7 @@ use gpui_kit::{
 };
 use u0ui::components::{DropdownMenu, DropdownMenuKind, DropdownMenuSize, MenuItem};
 use u0ui::prelude::*;
+use u0ui::typography::Phrase;
 
 /// Build the page.
 pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
@@ -217,10 +218,71 @@ impl Render for DropdownMenuPage {
                 toggle(|this, on| this.disabled_item = on),
             ));
 
+        // u0's popovers (TerminalBrowser, RightColumnStates): a heading, a
+        // radio group whose options have a second line (code in mono) and a
+        // status dot, an item with a second line, and submenus that show
+        // what is chosen in them before their caret.
+        let rich = div()
+            .flex()
+            .flex_col()
+            .gap(tokens::SPACING_05)
+            .child(controls::section("Headings, second lines, dots, submenu text"))
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_start()
+                    .gap(tokens::SPACING_05)
+                    .pb(rems(14.))
+                    .child(
+                        DropdownMenu::new("rich-servers")
+                            .label("dev:5173")
+                            .items([
+                                MenuItem::heading("Dev servers your terminals printed"),
+                                MenuItem::radio_group(
+                                    "Dev servers your terminals printed",
+                                    ["dev · pnpm dev", "storybook · pnpm storybook"],
+                                )
+                                .option_details([
+                                    Phrase::new().code("localhost:5173").text(" · This Mac"),
+                                    Phrase::marking(
+                                        "Port 6006 on build-box, forwarded to 127.0.0.1:41873 on this Mac over its own signed link",
+                                        "127.0.0.1:41873",
+                                    ),
+                                ])
+                                .option_dots([
+                                    Some(ColorRole::SupportSuccess),
+                                    Some(ColorRole::SupportSuccess),
+                                ])
+                                .default_selected_item(0),
+                                MenuItem::divider(),
+                                MenuItem::item("Open an address…")
+                                    .detail("A URL, or a local HTML file"),
+                            ]),
+                    )
+                    .child(
+                        DropdownMenu::new("rich-more").label("More").items([
+                            MenuItem::item("Reload").shortcut("⌘R"),
+                            MenuItem::item("Open in your browser").shortcut("Safari"),
+                            MenuItem::divider(),
+                            MenuItem::item("Viewport").shortcut("Responsive").submenu([
+                                MenuItem::radio_group("Viewport", ["Responsive", "iPhone 16"])
+                                    .default_selected_item(0),
+                            ]),
+                            MenuItem::item("Zoom").shortcut("100%").submenu([
+                                MenuItem::item("Zoom in"),
+                                MenuItem::item("Zoom out"),
+                                MenuItem::item("Actual size"),
+                            ]),
+                        ]),
+                    ),
+            );
+
         Body::new()
             .playground(live)
             .hint("click or Enter; ↑↓ Home End, → submenu, ← back, Esc, type to jump")
             .config(config)
             .example(reference)
+            .example(rich)
     }
 }

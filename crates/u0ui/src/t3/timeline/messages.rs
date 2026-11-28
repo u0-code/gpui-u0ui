@@ -8,9 +8,13 @@
 //!   focus, overlapping what follows instead of reserving a row (d-fix).
 //! - **Assistant**: provenance first (provider, model · duration · time) with
 //!   24px Copy / Reply / Fork icon buttons at its end (gemini-A), then the
-//!   14/22 prose body; inline code is 13px mono on a quiet `layer-accent-01`
+//!   14/22 prose body; an app that draws its agents' marks itself puts its
+//!   own in place of the provider's ([`AssistantMessage::mark`]); inline code is 13px mono on a quiet `layer-accent-01`
 //!   tint (r2-desk), drawn by the helper shared with the u0
 //!   MarkdownProse ([`crate::components::inline_code`]).
+//!
+//! Each action button shows only with a handler to call: a message with
+//! none set (a side chat's, say) draws its text alone.
 use super::super::action::{ActionButton, ActionKind, Part};
 use crate::components::button::{Button, ButtonKind, ButtonSize, ButtonVariant};
 use crate::components::floating::Align;
@@ -232,7 +236,7 @@ fn ghost_icon(
     label: SharedString,
     icon: CarbonIcon,
     focus: &FocusHandle,
-    on_click: Option<Handler>,
+    on_click: Handler,
 ) -> Button {
     Button::new(id, label)
         .icon(icon)
@@ -240,7 +244,7 @@ fn ghost_icon(
         .variant(ButtonVariant::Ghost)
         .size(ButtonSize::Sm)
         .track_focus(focus)
-        .when_some(on_click, |b, f| b.on_click(move |_, w, cx| f(w, cx)))
+        .on_click(move |_, w, cx| on_click(w, cx))
 }
 
 impl RenderOnce for UserMessage {
@@ -399,27 +403,34 @@ impl RenderOnce for UserMessage {
             })
             .child(bubble)
             // `.t3-umsg > .t3-msg-actions { margin-bottom: -32px }` (d-fix): no reserved row.
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .mb(rem(-32.))
-                    .opacity(opacity)
-                    .child(ghost_icon(
-                        (id.clone(), "copy").into(),
-                        texts.copy.clone(),
-                        CarbonIcon::Copy,
-                        &copy_focus,
-                        self.on_copy.clone(),
-                    ))
-                    .child(ghost_icon(
-                        (id.clone(), "edit").into(),
-                        texts.edit.clone(),
-                        CarbonIcon::Edit,
-                        &edit_focus,
-                        self.on_edit.clone(),
-                    )),
-            )
+            // Each action shows only with its handler; with neither, no row.
+            .when(self.on_copy.is_some() || self.on_edit.is_some(), |this| {
+                this.child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .mb(rem(-32.))
+                        .opacity(opacity)
+                        .children(self.on_copy.clone().map(|f| {
+                            ghost_icon(
+                                (id.clone(), "copy").into(),
+                                texts.copy.clone(),
+                                CarbonIcon::Copy,
+                                &copy_focus,
+                                f,
+                            )
+                        }))
+                        .children(self.on_edit.clone().map(|f| {
+                            ghost_icon(
+                                (id.clone(), "edit").into(),
+                                texts.edit.clone(),
+                                CarbonIcon::Edit,
+                                &edit_focus,
+                                f,
+                            )
+                        })),
+                )
+            })
     }
 }
 
@@ -450,6 +461,7 @@ pub struct AssistantMessage {
     id: ElementId,
     body: Vec<AnyElement>,
     provider: Option<SharedString>,
+    mark: Option<AnyElement>,
     model: Option<SharedString>,
     elapsed: Option<u64>,
     time: Option<SharedString>,
@@ -467,6 +479,7 @@ impl AssistantMessage {
             id: id.into(),
             body: Vec::new(),
             provider: None,
+            mark: None,
             model: None,
             elapsed: None,
             time: None,
@@ -480,6 +493,13 @@ impl AssistantMessage {
     /// `provider`: its icon leads the meta line.
     pub fn provider(mut self, provider: impl Into<SharedString>) -> Self {
         self.provider = Some(provider.into());
+        self
+    }
+
+    /// What leads the meta line in place of the provider icon: an app's
+    /// own mark for its agent (an SVG logo, say), in a 16px box.
+    pub fn mark(mut self, mark: impl IntoElement) -> Self {
+        self.mark = Some(mark.into_any_element());
         self
     }
 
@@ -538,7 +558,7 @@ fn meta_button(
     id: ElementId,
     label: SharedString,
     icon: CarbonIcon,
-    on_click: Option<Handler>,
+    on_click: Handler,
 ) -> ActionButton {
     ActionButton::new(id, label.clone(), ActionKind::Carbon(ButtonKind::Ghost))
         .height(24.)
@@ -548,7 +568,7 @@ fn meta_button(
         .part(Part::Icon(icon))
         .tooltip(label)
         .tooltip_align(Align::Top)
-        .on_click(on_click)
+        .on_click(Some(on_click))
 }
 
 impl RenderOnce for AssistantMessage {
@@ -570,8 +590,19 @@ impl RenderOnce for AssistantMessage {
             .text_size(rem(12.))
             .line_height(rem(16.))
             .text_color(color(ColorRole::TextHelper))
-            .when_some(self.provider.clone(), |this, p| {
-                this.child(ProviderIcon::new(p).size(IdentitySize::Xs))
+            .map(|this| match (self.mark, self.provider.clone()) {
+                // The 16px glyph of `ProviderIcon size="xs"`.
+                (Some(mark), _) => this.child(
+                    div()
+                        .flex()
+                        .flex_none()
+                        .items_center()
+                        .justify_center()
+                        .size(rem(16.))
+                        .child(mark),
+                ),
+                (None, Some(p)) => this.child(ProviderIcon::new(p).size(IdentitySize::Xs)),
+                (None, None) => this,
             })
             .children(self.model.clone())
             .when_some(self.elapsed, |this, s| {
@@ -579,24 +610,18 @@ impl RenderOnce for AssistantMessage {
             })
             .when_some(self.time.clone(), |this, t| this.child(dot()).child(t))
             .child(div().flex_1())
-            .child(meta_button(
-                (id.clone(), "copy").into(),
-                texts.copy.clone(),
-                CarbonIcon::Copy,
-                self.on_copy.clone(),
-            ))
-            .child(meta_button(
-                (id.clone(), "reply").into(),
-                texts.reply.clone(),
-                CarbonIcon::Reply,
-                self.on_reply.clone(),
-            ))
-            .child(meta_button(
-                (id.clone(), "fork").into(),
-                texts.fork.clone(),
-                CarbonIcon::Fork,
-                self.on_fork.clone(),
-            ));
+            // Each action shows only with its handler.
+            .children(
+                [
+                    ("copy", texts.copy, CarbonIcon::Copy, self.on_copy),
+                    ("reply", texts.reply, CarbonIcon::Reply, self.on_reply),
+                    ("fork", texts.fork, CarbonIcon::Fork, self.on_fork),
+                ]
+                .into_iter()
+                .filter_map(|(part, label, icon, f)| {
+                    f.map(|f| meta_button((id.clone(), part).into(), label, icon, f))
+                }),
+            );
         // `.t3-amsg { display: flex; flex-direction: column; gap: spacing-03 }`,
         // `.t3-amsg-body { font-size: 0.875rem; line-height: 1.375rem; color: text-primary }`.
         div()

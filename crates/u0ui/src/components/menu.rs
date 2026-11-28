@@ -1,6 +1,8 @@
 //! Menu: Carbon `Menu` (`.cds--menu`) with `MenuItem` (label, shortcut,
 //! `kind="danger"`, nested submenus), `MenuItemDivider`, `MenuItemSelectable`
-//! (checkbox), `MenuItemRadioGroup` and `MenuItemGroup`. The surface behind
+//! (checkbox), `MenuItemRadioGroup` and `MenuItemGroup`, plus a visible
+//! heading ([`MenuItem::heading`]) and, on any row, a second line and a
+//! leading status dot (u0's popovers, `.pv-pop`). The surface behind
 //! DropdownMenu, ContextMenu and Menubar.
 //!
 //! - **Why not Kit's menu**: Kit's `PopupMenu` is an entity of `Action`s that
@@ -40,7 +42,7 @@ use crate::{
     motion::{self, Curve, Motion, Speed},
     theme::color,
     tokens::{ColorRole, TypeStyle},
-    typography::TypeStyled as _,
+    typography::{Phrase, TypeStyled as _},
 };
 use gpui_kit::{
     Anchor, AnyElement, App, Bounds, CursorStyle, ElementId, Entity, FocusHandle, Hsla,
@@ -230,6 +232,19 @@ impl MenuLook {
             text
         }
     }
+
+    /// The colour of an item's second line in `state` (`.pv-mi small {
+    /// color: text-secondary }`): `text-disabled` when disabled, and the
+    /// item's own colour on a danger item's hover or focus fill, where
+    /// `text-secondary` would not read.
+    pub fn detail(state: ItemState) -> Hsla {
+        let (_, text, _) = Self::item(state);
+        if state.disabled || (state.danger && (state.hovered || state.focused)) {
+            text
+        } else {
+            color(ColorRole::TextSecondary)
+        }
+    }
 }
 
 type Toggle = Rc<dyn Fn(bool, &mut Window, &mut App)>;
@@ -244,6 +259,7 @@ enum Kind {
     Checkbox,
     Radio,
     Group,
+    Heading,
 }
 
 /// One entry of a menu. Build with [`MenuItem::item`], [`MenuItem::divider`],
@@ -265,6 +281,10 @@ pub struct MenuItem {
     picked: Option<Option<usize>>,
     default_picked: Option<usize>,
     on_pick: Option<Pick>,
+    detail: Option<Phrase>,
+    dot: Option<ColorRole>,
+    option_details: Vec<Phrase>,
+    option_dots: Vec<Option<ColorRole>>,
 }
 
 impl MenuItem {
@@ -285,6 +305,10 @@ impl MenuItem {
             picked: None,
             default_picked: None,
             on_pick: None,
+            detail: None,
+            dot: None,
+            option_details: Vec::new(),
+            option_dots: Vec::new(),
         }
     }
 
@@ -324,7 +348,15 @@ impl MenuItem {
         item
     }
 
-    /// Keyboard shortcut text (`.cds--menu-item__shortcut`).
+    /// A heading over the items after it, shown, not chosen (`.pv-pop-h`:
+    /// the menu's name above its items); the keyboard passes over it.
+    pub fn heading(label: impl Into<SharedString>) -> Self {
+        Self::base(Kind::Heading, label.into())
+    }
+
+    /// Trailing text (`.cds--menu-item__shortcut`): a keyboard shortcut, or
+    /// on a submenu what is chosen in it, before its caret (`.pv-mi small`:
+    /// `Viewport  Responsive ›`).
     pub fn shortcut(mut self, shortcut: impl Into<SharedString>) -> Self {
         self.shortcut = Some(shortcut.into());
         self
@@ -333,6 +365,32 @@ impl MenuItem {
     /// Leading icon (`.cds--menu-item__icon`).
     pub fn icon(mut self, icon: impl Into<Icon>) -> Self {
         self.icon = Some(icon.into());
+        self
+    }
+
+    /// A second line under the label (`.pv-mi small`: 12/16
+    /// `text-secondary`, wrapping), its code in mono.
+    pub fn detail(mut self, detail: impl Into<Phrase>) -> Self {
+        self.detail = Some(detail.into());
+        self
+    }
+
+    /// A leading 8px status dot in `role` (`.pv-mi .pv-dot`).
+    pub fn dot(mut self, role: ColorRole) -> Self {
+        self.dot = Some(role);
+        self
+    }
+
+    /// A radio group's second lines, one per option in order ([`Self::detail`]).
+    pub fn option_details<P: Into<Phrase>>(mut self, details: impl IntoIterator<Item = P>) -> Self {
+        self.option_details = details.into_iter().map(Into::into).collect();
+        self
+    }
+
+    /// A radio group's leading dots, one per option in order (`None` for
+    /// an option without one; [`Self::dot`]).
+    pub fn option_dots(mut self, dots: impl IntoIterator<Item = Option<ColorRole>>) -> Self {
+        self.option_dots = dots.into_iter().collect();
         self
     }
 
@@ -421,8 +479,11 @@ enum Action {
 #[allow(clippy::large_enum_variant)]
 enum Row {
     Divider,
+    Heading(SharedString),
     Entry {
         label: SharedString,
+        detail: Option<Phrase>,
+        dot: Option<ColorRole>,
         shortcut: Option<SharedString>,
         icon: Option<Icon>,
         disabled: bool,
@@ -446,7 +507,7 @@ impl Row {
     fn label(&self) -> &str {
         match self {
             Row::Entry { label, .. } => label,
-            Row::Divider => "",
+            Row::Divider | Row::Heading(_) => "",
         }
     }
 }
@@ -464,9 +525,12 @@ fn flatten(
         let key = format!("{prefix}{i}");
         match item.kind {
             Kind::Divider => out.push(Row::Divider),
+            Kind::Heading => out.push(Row::Heading(item.label.clone())),
             Kind::Group => flatten(&item.children, &format!("{key}."), selections, out),
             Kind::Item => out.push(Row::Entry {
                 label: item.label.clone(),
+                detail: item.detail.clone(),
+                dot: item.dot,
                 shortcut: item.shortcut.clone(),
                 icon: item.icon.clone(),
                 disabled: item.disabled,
@@ -486,6 +550,8 @@ fn flatten(
                 });
                 out.push(Row::Entry {
                     label: item.label.clone(),
+                    detail: item.detail.clone(),
+                    dot: item.dot,
                     shortcut: item.shortcut.clone(),
                     icon: item.icon.clone(),
                     disabled: item.disabled,
@@ -506,6 +572,8 @@ fn flatten(
                 for (index, option) in item.options.iter().enumerate() {
                     out.push(Row::Entry {
                         label: option.clone(),
+                        detail: item.option_details.get(index).cloned(),
+                        dot: item.option_dots.get(index).copied().flatten(),
                         shortcut: None,
                         icon: None,
                         disabled: item.disabled,
@@ -578,15 +646,19 @@ fn step(rows: &[Row], from: Option<usize>, direction: isize) -> Option<usize> {
 /// A menu that is only one radio group is a select (the Pagination pickers):
 /// it starts on the picked option, as a native `<select>` does.
 fn initial_row(rows: &[Row]) -> Option<usize> {
-    let only_picks = rows.iter().all(|r| {
-        matches!(
-            r,
-            Row::Entry {
-                action: Action::Pick { .. },
-                ..
-            }
-        )
-    });
+    // A heading over the group does not make it less of a select.
+    let only_picks = rows
+        .iter()
+        .filter(|r| !matches!(r, Row::Heading(_)))
+        .all(|r| {
+            matches!(
+                r,
+                Row::Entry {
+                    action: Action::Pick { .. },
+                    ..
+                }
+            )
+        });
     let picked = only_picks
         .then(|| {
             rows.iter().position(|r| {
@@ -792,6 +864,19 @@ impl RenderOnce for Menu {
         let with_icons = rows
             .iter()
             .any(|r| matches!(r, Row::Entry { icon: Some(_), .. }));
+        // GPUI sizes a box of wrapping text to its narrowest, not to CSS's
+        // max-content: a menu with second lines takes its full width (u0's
+        // popovers are fixed-width, `.pv-pop { width: 336px }`) so they
+        // wrap only where they must.
+        let with_details = rows.iter().any(|r| {
+            matches!(
+                r,
+                Row::Entry {
+                    detail: Some(_),
+                    ..
+                }
+            )
+        });
         let with_selection = rows.iter().any(|r| {
             matches!(
                 r,
@@ -895,8 +980,14 @@ impl RenderOnce for Menu {
 
         let mut children: Vec<AnyElement> = Vec::new();
         for (index, row) in rows.iter().enumerate() {
+            if let Row::Heading(text) = row {
+                children.push(heading(text.clone(), &geometry));
+                continue;
+            }
             let Row::Entry {
                 label,
+                detail,
+                dot,
                 shortcut,
                 icon,
                 disabled,
@@ -930,15 +1021,30 @@ impl RenderOnce for Menu {
             );
             let bg = motion::animate_color((row_id.clone(), "bg"), bg, ITEM_MOTION, window, cx);
             let icon_color = text;
+            // A row with a second line grows (`.pv-mi { align-items:
+            // flex-start; min-height: 32px; padding: 6px 12px }`), its
+            // leading and trailing parts level with its first line.
+            let two_lines = detail.is_some();
+            let cell = || {
+                div()
+                    .flex_shrink_0()
+                    .flex()
+                    .items_center()
+                    .when(two_lines, |this| this.h(rem(FIRST_LINE)))
+            };
             let mut line = div()
                 .id(row_id.clone())
                 .relative()
-                .h(rem(height))
+                .when(!two_lines, |this| this.h(rem(height)).items_center())
+                .when(two_lines, |this| {
+                    this.min_h(rem(height))
+                        .py(rem(DETAIL_PADDING_BLOCK))
+                        .items_start()
+                })
                 .flex_shrink_0()
                 .px(rem(geometry.item_padding))
                 .flex()
                 .flex_row()
-                .items_center()
                 .gap(rem(geometry.column_gap))
                 .bg(bg)
                 .text_color(text)
@@ -949,7 +1055,7 @@ impl RenderOnce for Menu {
                     CursorStyle::PointingHand
                 });
             if with_selection {
-                line = line.child(div().size(rem(16.)).flex_shrink_0().when(
+                line = line.child(cell().child(div().size(rem(16.)).when(
                     checked == &Some(true),
                     |this| {
                         this.child(
@@ -958,39 +1064,54 @@ impl RenderOnce for Menu {
                                 .color(icon_color),
                         )
                     },
-                ));
+                )));
             }
             if with_icons {
-                line = line.child(
-                    div()
-                        .size(rem(16.))
-                        .flex_shrink_0()
-                        .when_some(icon.clone(), |this, icon| {
-                            this.child(icon.size(IconSize::S16).color(icon_color))
-                        }),
-                );
+                line = line.child(cell().child(
+                    div().size(rem(16.)).when_some(icon.clone(), |this, icon| {
+                        this.child(icon.size(IconSize::S16).color(icon_color))
+                    }),
+                ));
             }
+            if let Some(role) = dot {
+                // `.pv-dot { width: 8px; height: 8px; border-radius: 50%; flex: none }`.
+                line =
+                    line.child(cell().child(div().size(rem(DOT)).rounded_full().bg(color(*role))));
+            }
+            let name = div()
+                .overflow_hidden()
+                .whitespace_nowrap()
+                .text_ellipsis()
+                .text_color(label_color)
+                .child(label.clone());
             line = line
-                .child(
-                    div()
+                .child(match detail {
+                    None => name.flex_1().min_w_0(),
+                    // `.pv-mi > span:last-child { flex: 1; min-width: 0; display: flex;
+                    // flex-direction: column }`, `small { font-size: 12px;
+                    // line-height: 16px; color: text-secondary }`, `code { font-family: mono }`.
+                    Some(detail) => div()
                         .flex_1()
                         .min_w_0()
-                        .overflow_hidden()
-                        .whitespace_nowrap()
-                        .text_ellipsis()
-                        .text_color(label_color)
-                        .child(label.clone()),
-                )
+                        .flex()
+                        .flex_col()
+                        .child(name)
+                        .child(
+                            div()
+                                .type_style(TypeStyle::Label01)
+                                .child(detail.styled(400, MenuLook::detail(item_state))),
+                        ),
+                })
                 // The trailing `max-content` column (`grid-template-columns:
                 // … 1fr max-content; column-gap: 0.5rem`) is there even when
                 // empty, so its 8px gap always counts toward the menu's
                 // width: the shortcut, or a submenu's caret.
+                // A submenu's text (what is chosen in it) stands before its
+                // caret, a column gap apart (`.pv-mi { gap: 8px }`).
                 .child(
-                    div()
-                        .flex_shrink_0()
-                        .flex()
-                        .items_center()
-                        .when(!is_submenu, |this| this.children(shortcut.clone()))
+                    cell()
+                        .gap(rem(geometry.column_gap))
+                        .children(shortcut.clone())
                         .when(is_submenu, |this| {
                             this.child(
                                 Icon::carbon(CarbonIcon::CaretRight)
@@ -1126,11 +1247,42 @@ impl RenderOnce for Menu {
             .py(rem(geometry.padding_block))
             .min_w(rem(self.min_width.unwrap_or(0.).max(geometry.min_width)))
             .max_w(rem(geometry.max_width.max(self.min_width.unwrap_or(0.))))
+            .when(with_details, |this| {
+                this.w(rem(geometry.max_width.max(self.min_width.unwrap_or(0.))))
+            })
             .bg(look.background)
             .shadow(overlay::floating_shadow())
             .occlude()
             .children(children)
     }
+}
+
+/// `body-compact-01`'s 18px line: a two-line row's first line, which its
+/// leading and trailing parts sit level with.
+const FIRST_LINE: f32 = 18.;
+/// `.pv-mi { padding: 6px 12px }`: a two-line row's block padding.
+pub const DETAIL_PADDING_BLOCK: f32 = 6.;
+/// `.pv-dot { width: 8px; height: 8px }`.
+pub const DOT: f32 = 8.;
+/// `.pv-pop-h { padding: 8px 12px 4px }`: a heading's top and bottom
+/// padding; its inline padding is the items' own, so it lines up with them.
+pub const HEADING_PADDING: (f32, f32) = (8., 4.);
+
+/// A heading row (`.pv-pop-h { font-size: 12px; line-height: 16px; color:
+/// text-secondary }`).
+fn heading(text: SharedString, geometry: &MenuGeometry) -> AnyElement {
+    div()
+        .flex_shrink_0()
+        .px(rem(geometry.item_padding))
+        .pt(rem(HEADING_PADDING.0))
+        .pb(rem(HEADING_PADDING.1))
+        .type_style(TypeStyle::Label01)
+        .text_color(color(ColorRole::TextSecondary))
+        .overflow_hidden()
+        .whitespace_nowrap()
+        .text_ellipsis()
+        .child(text)
+        .into_any_element()
 }
 
 /// What every open menu needs, whatever places it.
@@ -1660,10 +1812,86 @@ mod tests {
             .iter()
             .map(|r| match r {
                 Row::Entry { checked, .. } => *checked,
-                Row::Divider => None,
+                Row::Divider | Row::Heading(_) => None,
             })
             .collect();
         assert_eq!(checked, [Some(true), None, Some(false), Some(true)]);
+    }
+
+    #[test]
+    fn radio_options_carry_their_second_line_and_dot_and_a_heading_is_passed_over() {
+        let rows = rows(&[
+            MenuItem::heading("Dev servers"),
+            MenuItem::radio_group("Dev servers", ["dev · pnpm dev", "storybook"])
+                .option_details([Phrase::new().code("localhost:5173").text(" · This Mac")])
+                .option_dots([Some(ColorRole::SupportSuccess), None])
+                .selected_item(Some(1)),
+            MenuItem::divider(),
+            MenuItem::item("Open an address…").detail("A URL, or a local HTML file"),
+        ]);
+        let parts: Vec<_> = rows
+            .iter()
+            .map(|r| match r {
+                Row::Entry { detail, dot, .. } => (detail.as_ref().map(Phrase::plain), *dot),
+                _ => (None, None),
+            })
+            .collect();
+        assert_eq!(
+            parts,
+            [
+                (None, None),
+                (
+                    Some("localhost:5173 · This Mac".into()),
+                    Some(ColorRole::SupportSuccess)
+                ),
+                (None, None),
+                (None, None),
+                (Some("A URL, or a local HTML file".into()), None),
+            ]
+        );
+        // The heading is shown, not chosen: the keyboard starts below it,
+        // and a heading over a lone radio group keeps it a select.
+        assert!(matches!(rows[0], Row::Heading(_)));
+        assert_eq!(step(&rows, None, 1), Some(1));
+        assert_eq!(step(&rows, Some(4), 1), Some(1));
+        let select = super::tests::rows(&[
+            MenuItem::heading("Page"),
+            MenuItem::radio_group("Page", ["1", "2"]).selected_item(Some(1)),
+        ]);
+        assert_eq!(initial_row(&select), Some(2));
+    }
+
+    #[test]
+    fn a_submenu_row_keeps_its_trailing_text() {
+        let rows = rows(&[MenuItem::item("Viewport")
+            .shortcut("Responsive")
+            .submenu([MenuItem::item("iPad")])]);
+        assert!(matches!(
+            &rows[0],
+            Row::Entry { shortcut: Some(s), action: Action::Submenu(_), .. } if s == "Responsive"
+        ));
+    }
+
+    #[test]
+    fn a_second_line_is_text_secondary_but_disabled_or_on_a_danger_fill() {
+        crate::theme::tests_set(CarbonTheme::White);
+        assert_eq!(hex(MenuLook::detail(ItemState::default())), "#525252");
+        let hovered = ItemState {
+            hovered: true,
+            ..Default::default()
+        };
+        assert_eq!(hex(MenuLook::detail(hovered)), "#525252");
+        let disabled = ItemState {
+            disabled: true,
+            ..Default::default()
+        };
+        assert_eq!(MenuLook::detail(disabled), color(ColorRole::TextDisabled));
+        let danger = ItemState {
+            danger: true,
+            hovered: true,
+            ..Default::default()
+        };
+        assert_eq!(hex(MenuLook::detail(danger)), "#ffffff");
     }
 
     #[test]

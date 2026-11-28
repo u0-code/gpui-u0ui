@@ -238,6 +238,33 @@ pub struct Look {
 }
 
 impl Look {
+    /// The look of a selected button, which is also the trigger of an open
+    /// popover or menu (Kit's `Selectable`). An icon-only button, and a ghost
+    /// one, fill with `background-selected` (`.cds--btn--icon-only
+    /// .cds--btn--selected`) while not hovered or pressed; Carbon gives a
+    /// labelled filled or outlined button no selected state, so it holds its
+    /// `:active` look while selected. A disabled button is never selected.
+    pub fn selected(kind: ButtonKind, state: ButtonState, icon_only: bool) -> Look {
+        if state.disabled {
+            return Look::of(kind, state, icon_only);
+        }
+        if icon_only || kind == ButtonKind::Ghost {
+            let mut look = Look::of(kind, state, icon_only);
+            if !state.hovered && !state.pressed {
+                look.background = color(ColorRole::BackgroundSelected);
+            }
+            return look;
+        }
+        Look::of(
+            kind,
+            ButtonState {
+                pressed: true,
+                ..state
+            },
+            icon_only,
+        )
+    }
+
     /// The Carbon look of `kind` in `state` on the active theme. Each value
     /// records the `bundle.css` rule it comes from.
     pub fn of(kind: ButtonKind, state: ButtonState, icon_only: bool) -> Look {
@@ -670,8 +697,10 @@ impl Button {
         self
     }
 
-    /// Selected icon button (`.cds--btn--icon-only.cds--btn--selected`:
-    /// `background-selected`).
+    /// Selected, or the trigger of an open popover ([`Look::selected`]):
+    /// an icon-only or ghost button fills with `background-selected`
+    /// (`.cds--btn--icon-only.cds--btn--selected`), any other holds its
+    /// pressed look.
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
         self
@@ -794,6 +823,18 @@ fn rem(px_value: f32) -> gpui_kit::Rems {
     gpui_kit::rems(px_value / crate::tokens::REM_PX)
 }
 
+/// Kit's `Selectable`, so a button can be the trigger of a Kit `Popover` or
+/// menu: it is marked selected while its popup is open.
+impl gpui_kit::base::Selectable for Button {
+    fn selected(self, selected: bool) -> Self {
+        Button::selected(self, selected)
+    }
+
+    fn is_selected(&self) -> bool {
+        self.selected
+    }
+}
+
 impl RenderOnce for Button {
     fn render(mut self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let kind = self.kind();
@@ -822,10 +863,11 @@ impl RenderOnce for Button {
                 disabled: self.disabled,
             }
         };
-        let mut look = Look::of(kind, state, self.icon_only);
-        if self.selected && self.icon_only && !self.disabled && !state.hovered && !state.pressed {
-            look.background = color(ColorRole::BackgroundSelected);
-        }
+        let mut look = if self.selected {
+            Look::selected(kind, state, self.icon_only)
+        } else {
+            Look::of(kind, state, self.icon_only)
+        };
         if let Some(ink) = self.icon_color.filter(|_| !self.disabled) {
             look.icon = ink;
         }
@@ -1135,6 +1177,48 @@ mod tests {
         assert_eq!(ButtonVariant::Link.kind(), ButtonKind::Link);
         let icon = Button::new("x", "Add").icon_only(true);
         assert_eq!(icon.kind(), ButtonKind::Ghost);
+    }
+
+    #[test]
+    fn a_selected_button_reads_as_open() {
+        use gpui_kit::base::Selectable as _;
+        crate::theme::tests_set(CarbonTheme::White);
+        let rest = ButtonState::default();
+        let selected_fill = color(ColorRole::BackgroundSelected);
+        assert_eq!(
+            Look::selected(ButtonKind::Ghost, rest, true).background,
+            selected_fill
+        );
+        assert_eq!(
+            Look::selected(ButtonKind::Ghost, rest, false).background,
+            selected_fill
+        );
+        // Hover wins over the selected fill, as before.
+        let hover = ButtonState {
+            hovered: true,
+            ..rest
+        };
+        assert_eq!(
+            Look::selected(ButtonKind::Ghost, hover, true).background,
+            Look::of(ButtonKind::Ghost, hover, true).background
+        );
+        // A labelled primary holds its `:active` fill.
+        assert_eq!(
+            hex(Look::selected(ButtonKind::Primary, rest, false).background),
+            "#002d9c"
+        );
+        let disabled = ButtonState {
+            disabled: true,
+            ..rest
+        };
+        assert_eq!(
+            Look::selected(ButtonKind::Primary, disabled, false),
+            Look::of(ButtonKind::Primary, disabled, false)
+        );
+        // Kit's `Selectable`: a popover marks its trigger open.
+        let b = Button::new("b", "Add").open(true);
+        assert!(b.is_open() && b.is_selected());
+        assert!(!Button::new("b", "Add").is_selected());
     }
 
     #[test]

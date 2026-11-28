@@ -14,6 +14,10 @@
 //! the send square is `button-disabled`).
 //! The attach button shows only with an [`ComposerCompact::on_attach`]
 //! to call.
+//!
+//! [`ComposerCompact::stacked`] draws it in two rows, as a side chat in a
+//! 400px column does (u0's SplitSideChat board, `.ovl .g-ccompact`): the
+//! input across the top, then the mark, attach and send below it.
 use crate::{
     density,
     icons::{CarbonIcon, Icon},
@@ -42,6 +46,22 @@ use std::rc::Rc;
 /// `.g-ccompact-input` sets no padding, so the `<input>` keeps the user
 /// agent's `padding: 1px 2px`: text and placeholder start 2px in.
 const INPUT_PAD_X: Pixels = px(2.);
+
+/// The stacked field's geometry (`.ovl .g-ccompact { min-height: 88px;
+/// padding: 12px 8px 8px 12px; gap: 8px 4px }`, `.ovl .g-ccompact
+/// .g-ccompact-input { height: 22px }`), in px.
+pub mod stacked {
+    /// `min-height`.
+    pub const MIN_HEIGHT: f32 = 88.;
+    /// `padding`: top, right, bottom, left.
+    pub const PADDING: [f32; 4] = [12., 8., 8., 12.];
+    /// `row-gap`: between the input and the controls.
+    pub const ROW_GAP: f32 = 8.;
+    /// `column-gap`: between the controls.
+    pub const COLUMN_GAP: f32 = 4.;
+    /// The input's height.
+    pub const INPUT_HEIGHT: f32 = 22.;
+}
 
 /// The send square's (fill, glyph): `button-primary` / `text-on-color`,
 /// disabled `button-disabled` / `text-on-color-disabled`
@@ -114,6 +134,7 @@ pub struct ComposerCompact {
     agent: SharedString,
     lead: Option<AnyElement>,
     disabled: bool,
+    stacked: bool,
     on_send: Option<SendHandler>,
     on_attach: Option<Handler>,
     texts: ComposerCompactTexts,
@@ -127,6 +148,7 @@ impl ComposerCompact {
             agent: agent.into(),
             lead: None,
             disabled: false,
+            stacked: false,
             on_send: None,
             on_attach: None,
             texts: ComposerCompactTexts::default(),
@@ -144,6 +166,14 @@ impl ComposerCompact {
     /// nothing is sent.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
+        self
+    }
+
+    /// Two rows (a side chat in a 400px column, `.ovl .g-ccompact`): the
+    /// input across the top, the mark, attach and send in a row below, at
+    /// least 88px tall. Off (the default), one `density-field-md` line.
+    pub fn stacked(mut self, stacked: bool) -> Self {
+        self.stacked = stacked;
         self
     }
 
@@ -212,84 +242,119 @@ impl RenderOnce for ComposerCompact {
                 .child(self.texts.placeholder.clone())
         });
         let send_model = model.clone();
-        let attach = self.on_attach.clone();
-        // `.g-ccompact { display: flex; align-items: center; gap:
-        // var(--spacing-02); height: var(--density-field-md); padding: 0
-        // var(--spacing-02) 0 var(--spacing-03); background: var(--field-01);
-        // border-bottom: 1px solid var(--border-strong-01) }`.
-        div()
-            .id(id.clone())
+        let lead = self.lead.unwrap_or_else(|| {
+            ProviderIcon::new(self.agent.clone())
+                .id((id.clone(), "agent"))
+                .size(IdentitySize::Xs)
+                .into_any_element()
+        });
+        // `.g-ccompact-input { flex: 1; font-size: 0.875rem }`, with the
+        // `<input>`'s user-agent `padding: 1px 2px` (it sets none).
+        let field = div()
             .relative()
             .flex()
             .items_center()
+            .min_w_0()
+            .px(INPUT_PAD_X)
+            .children(placeholder)
+            .child(editor(&input).disabled(disabled));
+        let attach = self.on_attach.clone().map(|f| {
+            // `.g-ccompact .g-iconbtn { width: 1.5rem; height: 1.5rem }`;
+            // with nothing to attach (no `on_attach`), no button.
+            IconButton::new(
+                (id.clone(), "attach"),
+                CarbonIcon::Add,
+                self.texts.attach.clone(),
+            )
+            .size_px(24.)
+            .on_click(move |_, w, cx| f(w, cx))
+        });
+        // `.g-ccompact-send { width: 1.5rem; height: 1.5rem; background:
+        // var(--button-primary); color: var(--text-on-color) }`.
+        let send = gpui_kit::base::Button::new((id.clone(), "send"))
+            .track_focus(&send_focus)
+            .disabled(!enabled)
+            .accessibility_label(self.texts.send.clone())
+            .relative()
+            .flex()
+            .flex_none()
+            .items_center()
+            .justify_center()
+            .size(rem(24.))
+            .bg(fill)
+            .cursor(if enabled {
+                CursorStyle::PointingHand
+            } else {
+                CursorStyle::OperationNotAllowed
+            })
+            .on_click(move |_, w, cx| send_model.update(cx, |m, cx| m.send(w, cx)))
+            .child(
+                Icon::carbon(CarbonIcon::SendFilled)
+                    .size_length(rem(14.))
+                    .color(ink),
+            )
+            .when(send_ring, |b| b.child(focus_ring()));
+        let frame = div()
+            .id(id.clone())
+            .relative()
+            .flex()
             .w_full()
-            .gap(tokens::SPACING_02)
-            .h(density::current().field())
-            .pl(tokens::SPACING_03)
-            .pr(tokens::SPACING_02)
             .bg(color(ColorRole::Field01))
             .border_b_1()
-            .border_color(color(ColorRole::BorderStrong01))
-            .child(self.lead.unwrap_or_else(|| {
-                ProviderIcon::new(self.agent.clone())
-                    .id((id.clone(), "agent"))
-                    .size(IdentitySize::Xs)
-                    .into_any_element()
-            }))
-            .child(
-                // `.g-ccompact-input { flex: 1; font-size: 0.875rem }`, with the
-                // `<input>`'s user-agent `padding: 1px 2px` (it sets none).
-                div()
-                    .relative()
-                    .flex()
-                    .items_center()
-                    .flex_1()
-                    .min_w_0()
-                    .h_full()
-                    .px(INPUT_PAD_X)
-                    .children(placeholder)
-                    .child(editor(&input).disabled(disabled)),
-            )
-            .children(attach.map(|f| {
-                // `.g-ccompact .g-iconbtn { width: 1.5rem; height: 1.5rem }`;
-                // with nothing to attach (no `on_attach`), no button.
-                IconButton::new(
-                    (id.clone(), "attach"),
-                    CarbonIcon::Add,
-                    self.texts.attach.clone(),
+            .border_color(color(ColorRole::BorderStrong01));
+        let frame = if self.stacked {
+            let [top, right, bottom, left] = stacked::PADDING;
+            // `.ovl .g-ccompact { display: grid; grid-template-columns: auto
+            // 1fr auto auto; grid-template-rows: 1fr auto; align-items: start;
+            // min-height: 88px; height: auto; padding: 12px 8px 8px 12px; gap:
+            // 8px 4px }`: the input spans row 1 (`grid-column: 1 / -1;
+            // height: 22px`), which takes the free height; row 2 holds the
+            // mark (centred), a free column, attach and send.
+            frame
+                .flex_col()
+                .min_h(rem(stacked::MIN_HEIGHT))
+                .pt(rem(top))
+                .pr(rem(right))
+                .pb(rem(bottom))
+                .pl(rem(left))
+                .gap(rem(stacked::ROW_GAP))
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .flex_1()
+                        .w_full()
+                        .child(field.w_full().h(rem(stacked::INPUT_HEIGHT))),
                 )
-                .size_px(24.)
-                .on_click(move |_, w, cx| f(w, cx))
-            }))
-            .child(
-                // `.g-ccompact-send { width: 1.5rem; height: 1.5rem; background:
-                // var(--button-primary); color: var(--text-on-color) }`.
-                gpui_kit::base::Button::new((id.clone(), "send"))
-                    .track_focus(&send_focus)
-                    .disabled(!enabled)
-                    .accessibility_label(self.texts.send.clone())
-                    .relative()
-                    .flex()
-                    .flex_none()
-                    .items_center()
-                    .justify_center()
-                    .size(rem(24.))
-                    .bg(fill)
-                    .cursor(if enabled {
-                        CursorStyle::PointingHand
-                    } else {
-                        CursorStyle::OperationNotAllowed
-                    })
-                    .on_click(move |_, w, cx| send_model.update(cx, |m, cx| m.send(w, cx)))
-                    .child(
-                        Icon::carbon(CarbonIcon::SendFilled)
-                            .size_length(rem(14.))
-                            .color(ink),
-                    )
-                    .when(send_ring, |b| b.child(focus_ring())),
-            )
-            // `.g-ccompact:focus-within { outline: 2px solid var(--focus); outline-offset: -2px }`.
-            .when(focused, |d| d.child(focus_ring()))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .w_full()
+                        .gap(rem(stacked::COLUMN_GAP))
+                        .child(div().flex().flex_none().items_center().child(lead))
+                        .child(div().flex_1())
+                        .children(attach)
+                        .child(send),
+                )
+        } else {
+            // `.g-ccompact { display: flex; align-items: center; gap:
+            // var(--spacing-02); height: var(--density-field-md); padding: 0
+            // var(--spacing-02) 0 var(--spacing-03); background: var(--field-01);
+            // border-bottom: 1px solid var(--border-strong-01) }`.
+            frame
+                .items_center()
+                .gap(tokens::SPACING_02)
+                .h(density::current().field())
+                .pl(tokens::SPACING_03)
+                .pr(tokens::SPACING_02)
+                .child(lead)
+                .child(field.flex_1().h_full())
+                .children(attach)
+                .child(send)
+        };
+        // `.g-ccompact:focus-within { outline: 2px solid var(--focus); outline-offset: -2px }`.
+        frame.when(focused, |d| d.child(focus_ring()))
     }
 }
 

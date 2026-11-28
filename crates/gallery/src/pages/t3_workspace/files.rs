@@ -13,9 +13,12 @@ use u0ui::prelude::*;
 use u0ui::t3::review::FileStatus;
 use u0ui::t3::workspace::{
     DeviceAction, DeviceControlsRail, FileBreadcrumbs, FileBrowserPanel, FileNode, FileSurfaceKind,
-    FileSurfaceState, LocalServer, MiniPlayer, MiniPlayerKind, PreviewChrome, PreviewEmptyState,
-    PreviewStrip, TerminalDrawer, TerminalTab, preview::VIEWPORTS,
+    FileSurfaceState, ForwardedPortNote, LocalServer, MiniPlayer, MiniPlayerKind, PreviewAddress,
+    PreviewChrome, PreviewEmptyState, PreviewStrip, TerminalDrawer, TerminalTab,
+    preview::VIEWPORTS,
 };
+use u0ui::theme::LayerLevel;
+use u0ui::typography::Phrase;
 
 fn status(s: impl Into<SharedString>) -> gpui_kit::Div {
     note(s)
@@ -37,6 +40,7 @@ fn phone() -> gpui_kit::Div {
 
 struct RailPage {
     keyboard: bool,
+    raised: bool,
     last: Option<SharedString>,
 }
 
@@ -44,6 +48,7 @@ struct RailPage {
 pub fn build_device_controls_rail(_: &mut Window, cx: &mut App) -> AnyView {
     cx.new(|_| RailPage {
         keyboard: false,
+        raised: false,
         last: None,
     })
     .into()
@@ -68,6 +73,11 @@ impl Render for RailPage {
             .child(
                 row().child(phone()).child(
                     DeviceControlsRail::new("rail-live")
+                        .layer(if self.raised {
+                            LayerLevel::Two
+                        } else {
+                            LayerLevel::One
+                        })
                         .actions(actions.iter().map(|a| DeviceAction::new(*a)))
                         .on_action({
                             let entity = entity.clone();
@@ -84,12 +94,33 @@ impl Render for RailPage {
             .when_some(self.last.clone(), |this, l| {
                 this.child(status(format!("Pressed: {l}")))
             });
-        let config = controls::toggle(
-            "rail-keyboard",
-            "Keyboard action",
-            self.keyboard,
-            controls::setter(&entity, |this: &mut RailPage, v| this.keyboard = v),
-        );
+        let config = stack(24.)
+            .child(controls::toggle(
+                "rail-keyboard",
+                "Keyboard action",
+                self.keyboard,
+                controls::setter(&entity, |this: &mut RailPage, v| this.keyboard = v),
+            ))
+            .child(controls::toggle(
+                "rail-raised",
+                "layer Two (layer-02, outlined)",
+                self.raised,
+                controls::setter(&entity, |this: &mut RailPage, v| this.raised = v),
+            ));
+        // The FilesDevices board: the rail on a `layer-01` panel, itself
+        // `layer-02` with a `border-subtle-01` line.
+        let on_panel = row()
+            .p(px(16.))
+            .bg(color(ColorRole::Layer01))
+            .child(phone())
+            .child(
+                DeviceControlsRail::new("rail-panel")
+                    .layer(LayerLevel::Two)
+                    .actions(
+                        ["Home", "Rotate", "Screenshot", "Record", "Keyboard"]
+                            .map(DeviceAction::new),
+                    ),
+            );
         // `components/DeviceControlsRail/preview.html`.
         let reference = row()
             .child(phone())
@@ -99,6 +130,10 @@ impl Render for RailPage {
             .hint("Hover a button for its tooltip (on the left)")
             .config(config)
             .example(controls::block("Reference preview", reference))
+            .example(controls::block(
+                "On a layer-01 panel (FilesDevices)",
+                on_panel,
+            ))
     }
 }
 
@@ -471,6 +506,7 @@ impl Render for MiniPage {
 // ── PreviewChrome ───────────────────────────────────────────────────────
 
 struct ChromePage {
+    address: PreviewAddress,
     loading: bool,
     secure: bool,
     narrow: bool,
@@ -482,8 +518,10 @@ struct ChromePage {
 const ZOOMS: [&str; 4] = ["100", "75", "125", "150"];
 
 /// Build the PreviewChrome page.
-pub fn build_preview_chrome(_: &mut Window, cx: &mut App) -> AnyView {
+pub fn build_preview_chrome(window: &mut Window, cx: &mut App) -> AnyView {
+    let address = PreviewAddress::new(window, cx);
     cx.new(|_| ChromePage {
+        address,
         loading: false,
         secure: false,
         narrow: false,
@@ -622,41 +660,82 @@ impl Render for ChromePage {
                     .zoom(125)
                     .viewport("iPhone 16"),
             )
-            // A 400px right column (the TerminalBrowser board): no viewport
-            // menu, More a menu of its own, and the strip under the bar.
-            .child(
+            // A 400px right column (the TerminalBrowser and
+            // RightColumnStates boards): no viewport menu, More a menu of its
+            // own (Open an address… focuses the field), the strip under the
+            // bar with its servers under their heading, and the note of a
+            // port brought from another machine.
+            .child({
+                let address = self.address.clone();
+                let forwarded = "Port 6006 on build-box, forwarded to 127.0.0.1:41873 on this Mac over its own signed link. Your browser opens the same address.";
                 div()
                     .w(px(400.))
                     .child(
                         PreviewChrome::new("chrome-ref-2", "http://localhost:5173/cover")
                             .narrow(true)
+                            .address(&self.address)
                             .more_menu([
-                                MenuItem::item("Reload"),
+                                MenuItem::item("Open an address…")
+                                    .detail("A URL, or a local HTML file")
+                                    .on_select(move |window, cx| address.focus(window, cx)),
+                                MenuItem::item("Reload").shortcut("⌘R"),
                                 MenuItem::item("Copy address"),
                                 MenuItem::divider(),
-                                MenuItem::item("Viewport")
-                                    .submenu(VIEWPORTS.iter().map(|v| MenuItem::item(*v))),
+                                MenuItem::item("Viewport").shortcut("Responsive").submenu([
+                                    MenuItem::radio_group("Viewport", VIEWPORTS)
+                                        .default_selected_item(0),
+                                ]),
+                                MenuItem::item("Zoom").shortcut("100%").submenu([
+                                    MenuItem::item("Zoom in"),
+                                    MenuItem::item("Zoom out"),
+                                    MenuItem::item("Actual size"),
+                                ]),
                             ]),
                     )
                     .child(
                         PreviewStrip::new("strip-ref", "dev", Some(5173))
                             .servers(
-                                "Dev servers",
-                                [
-                                    MenuItem::item("dev · pnpm dev · :5173 · This Mac"),
-                                    MenuItem::item("storybook · :6006 · build-box"),
-                                ],
+                                "Dev servers your terminals printed",
+                                [MenuItem::radio_group(
+                                    "Dev servers your terminals printed",
+                                    ["dev · pnpm dev", "storybook · pnpm storybook"],
+                                )
+                                .option_details([
+                                    Phrase::new().code("localhost:5173").text(" · This Mac"),
+                                    Phrase::marking(
+                                        "Port 6006 on build-box, forwarded to 127.0.0.1:41873 on this Mac over its own signed link",
+                                        "127.0.0.1:41873",
+                                    ),
+                                ])
+                                .option_dots([
+                                    Some(ColorRole::SupportSuccess),
+                                    Some(ColorRole::SupportSuccess),
+                                ])
+                                .default_selected_item(0)],
                             )
+                            .heading(true)
                             .machine("This Mac")
                             .action("Open in your browser", |_, _| {}),
+                    )
+                    .child(
+                        PreviewStrip::new("strip-ref-fwd", "storybook", Some(6006))
+                            .machine("build-box")
+                            .action("Open in your browser", |_, _| {}),
+                    )
+                    .child(
+                        ForwardedPortNote::new(
+                            "fwd-ref",
+                            Phrase::marking(forwarded, "127.0.0.1:41873"),
+                        )
+                        .action("Stop", |_, _| {}),
                     )
                     .child(
                         PreviewStrip::new("strip-ref-down", "storybook", Some(6006))
                             .answering(false)
                             .machine("build-box")
                             .action("Open in your browser", |_, _| {}),
-                    ),
-            );
+                    )
+            });
         Body::new()
             .playground(div().w_full().child(live))
             .hint("Reload starts loading, Stop ends it; edit the address and press Enter")

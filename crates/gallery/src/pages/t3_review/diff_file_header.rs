@@ -1,6 +1,8 @@
 //! T3 · Diff & review › DiffFileHeader: the three reference headers
 //! (modified, added + viewed, deleted + collapsed), a live header whose
-//! chevron toggles its collapsed state, and the parts on their own.
+//! chevron toggles its collapsed state, the bare content a host's own
+//! header draws (no bar, a rename, folded comments), and the parts on their
+//! own.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
@@ -168,6 +170,62 @@ impl Render for Page {
             .hint("Press the chevron to collapse; Viewed and the copy button work")
             .config(config)
             .example(controls::block("Reference preview", reference))
+            .example(controls::block(
+                "Bare, in a host's header (u0's column)",
+                div()
+                    .flex()
+                    .flex_col()
+                    .w_full()
+                    .max_w(rems(30.))
+                    .gap(tokens::SPACING_03)
+                    .child(
+                        div()
+                            .h(rems(2.5))
+                            .px(rems(0.75))
+                            .flex()
+                            .items_center()
+                            .bg(theme::color(ColorRole::Layer01))
+                            .child(
+                                DiffFileHeader::new("dfh-bare-0", "src/tokens/themes.ts")
+                                    .bare(true)
+                                    .bar(false)
+                                    .stat(2, 1),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .h(rems(2.5))
+                            .px(rems(0.75))
+                            .flex()
+                            .items_center()
+                            .bg(theme::color(ColorRole::Layer01))
+                            .child(
+                                DiffFileHeader::new("dfh-bare-1", "test/tokens.test.ts")
+                                    .bare(true)
+                                    .bar(false)
+                                    .stat(3, 1)
+                                    .collapsed(true)
+                                    .comments(1),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .h(rems(2.5))
+                            .px(rems(0.75))
+                            .flex()
+                            .items_center()
+                            .bg(theme::color(ColorRole::Layer01))
+                            .child(
+                                DiffFileHeader::new("dfh-bare-2", "src/cover/Cover.tsx")
+                                    .bare(true)
+                                    .bar(false)
+                                    .status(FileStatus::Renamed)
+                                    .renamed_from("src/Cover.tsx")
+                                    .stat(1, 1)
+                                    .default_viewed(true),
+                            ),
+                    ),
+            ))
             .example(controls::block(
                 "DiffFileStatus, DiffStat and StartTruncatedPath",
                 parts,

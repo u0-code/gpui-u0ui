@@ -30,8 +30,9 @@ pub use onboarding::{
     SetupTexts, ToastKind,
 };
 pub use preview::{
-    DeviceAction, DeviceControlsRail, LocalServer, MiniPlayer, MiniPlayerKind, MiniPlayerTexts,
-    PreviewChrome, PreviewChromeTexts, PreviewEmptyState, PreviewEmptyTexts, PreviewStrip,
+    DeviceAction, DeviceControlsRail, ForwardedPortNote, LocalServer, MiniPlayer, MiniPlayerKind,
+    MiniPlayerTexts, PreviewAddress, PreviewChrome, PreviewChromeTexts, PreviewEmptyState,
+    PreviewEmptyTexts, PreviewStrip,
 };
 pub use settings::{
     KeybindingPill, KeybindingRow, KeybindingTexts, RichText, SettingsBadgeTone, SettingsNav,

@@ -211,7 +211,15 @@ impl FileStatus {
     }
 }
 
-/// The 16px status letter (`.t3-fstat`: mono 11px semibold on a tag pair).
+/// The status letter's size: u0's boards forbid text under 12px
+/// (`.t3-fstat { font-size: 12px }`, overriding `t3.css`'s 11px).
+pub const STATUS_FONT_SIZE: f32 = 12.;
+/// The status box, grown to hold the 12px letter
+/// (`.t3-fstat { min-width: 16px; line-height: 16px }`).
+pub const STATUS_BOX: f32 = 16.;
+
+/// The status letter on its tag pair (`.t3-fstat`: mono
+/// [`STATUS_FONT_SIZE`] semibold, at least [`STATUS_BOX`] square).
 #[derive(IntoElement, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct DiffFileStatus {
     status: FileStatus,
@@ -227,12 +235,14 @@ impl DiffFileStatus {
 impl RenderOnce for DiffFileStatus {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let (bg, fg) = self.status.colors();
-        let el = mono(div(), 11., 600)
+        let el = mono(div(), STATUS_FONT_SIZE, 600)
             .flex()
             .flex_none()
             .items_center()
             .justify_center()
-            .size(rem(16.))
+            .min_w(rem(STATUS_BOX))
+            .h(rem(STATUS_BOX))
+            .line_height(rem(STATUS_BOX))
             .bg(bg)
             .text_color(fg)
             .child(self.status.letter());
@@ -344,6 +354,10 @@ pub struct DiffFileHeader {
     on_toggle: Option<Handler>,
     on_viewed: Option<BoolHandler>,
     texts: DiffFileHeaderTexts,
+    bare: bool,
+    bar: bool,
+    renamed_from: Option<SharedString>,
+    comments: usize,
 }
 
 impl DiffFileHeader {
@@ -361,7 +375,47 @@ impl DiffFileHeader {
             on_toggle: None,
             on_viewed: None,
             texts: DiffFileHeaderTexts::default(),
+            bare: false,
+            bar: true,
+            renamed_from: None,
+            comments: 0,
         }
+    }
+
+    /// Only the row's content, for a host that draws the frame and the
+    /// collapse toggle itself (gpui-kit `Diff`'s `render_header`): no
+    /// toggle, no 40px `layer-01` row, no bottom rule, no end padding; the
+    /// content fills the host's width.
+    pub fn bare(mut self, bare: bool) -> Self {
+        self.bare = bare;
+        self
+    }
+
+    /// Show the stat's five-block bar (default on). u0's column hides it
+    /// (`.t3-dfh .t3-diffstat-bar { display: none }`).
+    pub fn bar(mut self, bar: bool) -> Self {
+        self.bar = bar;
+        self
+    }
+
+    /// The path before a rename: the header shows `old → path`; Copy still
+    /// copies `path`.
+    pub fn renamed_from(mut self, old: impl Into<SharedString>) -> Self {
+        self.renamed_from = Some(old.into());
+        self
+    }
+
+    /// Comments on the file not yet sent, counted beside the stat while the
+    /// file is [`collapsed`](Self::collapsed) and the count is above zero
+    /// (`.dfh-ccount`: chat icon 16px, gap 4px, 12px `text-secondary`).
+    pub fn comments(mut self, count: usize) -> Self {
+        self.comments = count;
+        self
+    }
+
+    /// Whether the folded comment count shows.
+    pub fn shows_comments(&self) -> bool {
+        self.collapsed && self.comments > 0
     }
 
     /// The change status (default `M`).
@@ -514,19 +568,50 @@ impl RenderOnce for DiffFileHeader {
                 ColorRole::TextSecondary,
             ));
 
+        let shown = match &self.renamed_from {
+            Some(old) if *old != self.path => {
+                SharedString::from(format!("{old} \u{2192} {}", self.path))
+            }
+            _ => self.path.clone(),
+        };
+        // `.dfh-ccount { gap: 4px; font-size: 12px; color: text-secondary }`.
+        let count = self.shows_comments().then(|| {
+            div()
+                .flex()
+                .flex_none()
+                .items_center()
+                .gap(rem(4.))
+                .child(
+                    Icon::carbon(CarbonIcon::Chat)
+                        .size_length(rem(16.))
+                        .color(color(ColorRole::TextSecondary)),
+                )
+                .child(craft::text(
+                    SharedString::from(self.comments.to_string()),
+                    12.,
+                    ColorRole::TextSecondary,
+                ))
+        });
+
         sans(div(), 14., 400)
             .id(id.clone())
             .flex()
             .items_center()
             .gap(rem(8.))
-            .h(rem(40.))
-            .pr(rem(12.))
-            .bg(color(ColorRole::Layer01))
-            .border_b_1()
-            .border_color(color(ColorRole::BorderSubtle01))
-            .child(toggle)
+            .map(|this| {
+                if self.bare {
+                    this.w_full().min_w_0()
+                } else {
+                    this.h(rem(40.))
+                        .pr(rem(12.))
+                        .bg(color(ColorRole::Layer01))
+                        .border_b_1()
+                        .border_color(color(ColorRole::BorderSubtle01))
+                        .child(toggle)
+                }
+            })
             .child(DiffFileStatus::new(self.status))
-            .child(StartTruncatedPath::new(self.path.clone()))
+            .child(StartTruncatedPath::new(shown))
             // `.t3-copy.cds--copy-btn { width: var(--size-sm); height: var(--size-sm) }`.
             .child(
                 CopyButton::new((id.clone(), "copy"), self.path.clone())
@@ -536,7 +621,8 @@ impl RenderOnce for DiffFileHeader {
                     .layer(LayerLevel::One),
             )
             .child(div().flex_1())
-            .child(DiffStat::new(self.added, self.removed).bar(true))
+            .children(count)
+            .child(DiffStat::new(self.added, self.removed).bar(self.bar))
             .child(viewed_box)
     }
 }
@@ -1197,6 +1283,20 @@ mod tests {
         assert_eq!(bg.map(hex), Some(hex(color(ColorRole::BackgroundHover))));
         let (bg, ink) = line_look(LineKind::Context, false);
         assert!(bg.is_none() && ink.is_none());
+    }
+
+    #[test]
+    fn a_status_letter_is_never_under_12px() {
+        assert_eq!((STATUS_FONT_SIZE, STATUS_BOX), (12., 16.));
+    }
+
+    #[test]
+    fn a_bare_header_counts_comments_only_while_folded() {
+        let h = DiffFileHeader::new("h", "a.rs").bare(true).comments(2);
+        assert!(!h.shows_comments());
+        assert!(h.collapsed(true).shows_comments());
+        let none = DiffFileHeader::new("h", "a.rs").collapsed(true);
+        assert!(!none.shows_comments());
     }
 
     #[test]

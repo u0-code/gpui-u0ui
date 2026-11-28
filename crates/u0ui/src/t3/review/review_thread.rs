@@ -1,9 +1,10 @@
 //! T3 · Diff & review: [`ReviewThreadCard`], an inline review discussion
-//! (`.t3-rthread` in `src/t3.css`).
+//! (`.t3-rthread` in `src/t3.css`), and its unsent draft form (`.rc-foot` in
+//! u0's `Main` board).
 use crate::{
     components::{
-        AvatarColor, Badge, BadgeSize, BadgeVariant, Button, ButtonSize, ButtonVariant, FieldSize,
-        Input, InputState,
+        Avatar, AvatarColor, AvatarFallback, AvatarSize, Badge, BadgeSize, BadgeVariant, Button,
+        ButtonSize, ButtonVariant, FieldSize, Input, InputState,
     },
     icons::CarbonIcon,
     t3::craft::{self, AvatarTone, rem, sans},
@@ -29,6 +30,11 @@ pub struct ReviewComment {
     pub body: SharedString,
     /// `color` (default `blue`).
     pub color: AvatarColor,
+    /// Said after the time, in the head (`<span>on line 15</span>`).
+    pub note: Option<SharedString>,
+    /// An icon in the avatar instead of the author's initials
+    /// (`AvatarFallback color="gray"` > `Icons.User`).
+    pub icon: Option<CarbonIcon>,
 }
 
 impl ReviewComment {
@@ -43,7 +49,21 @@ impl ReviewComment {
             time: time.into(),
             body: body.into(),
             color: AvatarColor::Blue,
+            note: None,
+            icon: None,
         }
+    }
+
+    /// A note after the time (e.g. `on line 15`).
+    pub fn note(mut self, note: impl Into<SharedString>) -> Self {
+        self.note = Some(note.into());
+        self
+    }
+
+    /// Show `icon` in the avatar instead of initials.
+    pub fn icon(mut self, icon: CarbonIcon) -> Self {
+        self.icon = Some(icon);
+        self
     }
 
     /// The avatar color.
@@ -68,6 +88,12 @@ pub struct ReviewThreadTexts {
     pub add_to_chat: SharedString,
     /// The draft tag (`Pending`).
     pub pending: SharedString,
+    /// The draft's footer note (`Not sent yet`).
+    pub not_sent: SharedString,
+    /// `Edit`.
+    pub edit: SharedString,
+    /// `Delete`.
+    pub delete: SharedString,
 }
 
 impl Default for ReviewThreadTexts {
@@ -79,6 +105,9 @@ impl Default for ReviewThreadTexts {
             unresolve: "Unresolve".into(),
             add_to_chat: "Add to chat".into(),
             pending: "Pending".into(),
+            not_sent: "Not sent yet".into(),
+            edit: "Edit".into(),
+            delete: "Delete".into(),
         }
     }
 }
@@ -89,15 +118,20 @@ type Handler = Rc<dyn Fn(&mut Window, &mut App)>;
 /// reply field, Resolve and Add to chat. `layer-02` with a 1px inset
 /// `border-subtle-01` frame; `resolved` fades to 70%; `pending` (an
 /// unsubmitted draft) adds a 3px `support-warning` start bar and a Pending tag.
+/// A [`draft`](Self::draft) is your own comment not sent yet: pending, and its
+/// footer is "Not sent yet" with Edit and Delete instead of the reply field.
 #[derive(IntoElement)]
 pub struct ReviewThreadCard {
     id: ElementId,
     comments: Vec<ReviewComment>,
     resolved: bool,
     pending: bool,
+    draft: bool,
     in_diff: bool,
     on_resolve: Option<Handler>,
     on_add_to_chat: Option<Handler>,
+    on_edit: Option<Handler>,
+    on_delete: Option<Handler>,
     texts: ReviewThreadTexts,
 }
 
@@ -109,9 +143,12 @@ impl ReviewThreadCard {
             comments: Vec::new(),
             resolved: false,
             pending: false,
+            draft: false,
             in_diff: false,
             on_resolve: None,
             on_add_to_chat: None,
+            on_edit: None,
+            on_delete: None,
             texts: ReviewThreadTexts::default(),
         }
     }
@@ -131,6 +168,31 @@ impl ReviewThreadCard {
     /// An unsubmitted draft (`.t3-rthread--pending`).
     pub fn pending(mut self, pending: bool) -> Self {
         self.pending = pending;
+        self
+    }
+
+    /// A draft not sent yet (implies [`pending`](Self::pending)): the footer
+    /// is `.rc-foot`, "Not sent yet" (12px `text-helper`) with ghost sm Edit
+    /// and Delete, in place of the reply field, Resolve and Add to chat.
+    pub fn draft(mut self, draft: bool) -> Self {
+        self.draft = draft;
+        self
+    }
+
+    /// Whether the card reads as pending (a draft always does).
+    pub fn is_pending(&self) -> bool {
+        self.pending || self.draft
+    }
+
+    /// Edit pressed on a draft.
+    pub fn on_edit(mut self, f: impl Fn(&mut Window, &mut App) + 'static) -> Self {
+        self.on_edit = Some(Rc::new(f));
+        self
+    }
+
+    /// Delete pressed on a draft.
+    pub fn on_delete(mut self, f: impl Fn(&mut Window, &mut App) + 'static) -> Self {
+        self.on_delete = Some(Rc::new(f));
         self
     }
 
@@ -170,11 +232,18 @@ fn comment(c: &ReviewComment, pending_tag: Option<SharedString>, in_diff: bool) 
         .p(rem(12.))
         .border_b_1()
         .border_color(color(ColorRole::BorderSubtle01))
-        .child(craft::initials(
-            craft::two_letters(&c.author),
-            AvatarTone::Avatar(c.color),
-            24.,
-        ))
+        .child(match c.icon {
+            Some(icon) => Avatar::new()
+                .size(AvatarSize::Sm)
+                .fallback(AvatarFallback::icon(icon).color(c.color))
+                .into_any_element(),
+            None => craft::initials(
+                craft::two_letters(&c.author),
+                AvatarTone::Avatar(c.color),
+                24.,
+            )
+            .into_any_element(),
+        })
         .child(
             div()
                 .flex_1()
@@ -200,6 +269,7 @@ fn comment(c: &ReviewComment, pending_tag: Option<SharedString>, in_diff: bool) 
                                 .child(c.author.clone()),
                         )
                         .child(c.time.clone())
+                        .when_some(c.note.clone(), |this, note| this.child(note))
                         .when_some(pending_tag, |this, tag| {
                             this.child(
                                 Badge::new(tag)
@@ -220,6 +290,103 @@ fn comment(c: &ReviewComment, pending_tag: Option<SharedString>, in_diff: bool) 
         .into_any_element()
 }
 
+/// The thread's footer (`.t3-rthread-foot { gap: 4px; padding: 8px 4px 8px
+/// 12px; flex-wrap: wrap }`): the reply field, Resolve, Add to chat.
+fn reply_foot(
+    id: &ElementId,
+    reply: &gpui_kit::Entity<InputState>,
+    texts: &ReviewThreadTexts,
+    resolved: bool,
+    on_resolve: Option<Handler>,
+    on_chat: Option<Handler>,
+) -> AnyElement {
+    div()
+        .flex()
+        .flex_wrap()
+        .items_center()
+        .gap(rem(4.))
+        .pt(rem(8.))
+        .pb(rem(8.))
+        .pr(rem(4.))
+        .pl(rem(12.))
+        .child(
+            // `.t3-rthread-reply { flex: 1 1 12rem; height: size-sm; field-02 }`.
+            div()
+                .flex_grow_1()
+                .flex_shrink_1()
+                .flex_basis(rem(192.))
+                .min_w_0()
+                .child(
+                    Input::new((id.clone(), "reply-field"), reply)
+                        .label(texts.reply_label.clone())
+                        .hide_label(true)
+                        .placeholder(texts.reply.clone())
+                        .size(FieldSize::Sm)
+                        .layer(LayerLevel::Two),
+                ),
+        )
+        .child(
+            Button::new(
+                (id.clone(), "resolve"),
+                if resolved {
+                    texts.unresolve.clone()
+                } else {
+                    texts.resolve.clone()
+                },
+            )
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .when_some(on_resolve, |b, f| b.on_click(move |_, w, cx| f(w, cx))),
+        )
+        .child(
+            Button::new((id.clone(), "chat"), texts.add_to_chat.clone())
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .icon(CarbonIcon::Chat)
+                .when_some(on_chat, |b, f| b.on_click(move |_, w, cx| f(w, cx))),
+        )
+        .into_any_element()
+}
+
+/// A draft's footer (`.rc-foot { display: flex; align-items: center; gap:
+/// 8px; padding: 8px 8px 8px 16px }`): "Not sent yet" (`flex: 1; font-size:
+/// 12px; color: var(--text-helper)`), then ghost sm Edit and Delete.
+fn draft_foot(
+    id: &ElementId,
+    texts: &ReviewThreadTexts,
+    on_edit: Option<Handler>,
+    on_delete: Option<Handler>,
+) -> AnyElement {
+    div()
+        .flex()
+        .items_center()
+        .gap(rem(8.))
+        .pt(rem(8.))
+        .pb(rem(8.))
+        .pr(rem(8.))
+        .pl(rem(16.))
+        .child(
+            sans(div(), 12., 400)
+                .flex_1()
+                .min_w_0()
+                .text_color(color(ColorRole::TextHelper))
+                .child(texts.not_sent.clone()),
+        )
+        .child(
+            Button::new((id.clone(), "edit"), texts.edit.clone())
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .when_some(on_edit, |b, f| b.on_click(move |_, w, cx| f(w, cx))),
+        )
+        .child(
+            Button::new((id.clone(), "delete"), texts.delete.clone())
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .when_some(on_delete, |b, f| b.on_click(move |_, w, cx| f(w, cx))),
+        )
+        .into_any_element()
+}
+
 impl RenderOnce for ReviewThreadCard {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
@@ -229,61 +396,31 @@ impl RenderOnce for ReviewThreadCard {
             })
             .read(cx)
             .clone();
-        let on_resolve = self.on_resolve.clone();
-        let on_chat = self.on_add_to_chat.clone();
+        let pending = self.is_pending();
         let comments = self.comments.iter().enumerate().map(|(i, c)| {
             comment(
                 c,
-                (self.pending && i == 0).then(|| self.texts.pending.clone()),
+                (pending && i == 0).then(|| self.texts.pending.clone()),
                 self.in_diff,
             )
         });
-        // `.t3-rthread-foot { gap: 4px; padding: 8px 4px 8px 12px; flex-wrap: wrap }`.
-        let foot = div()
-            .flex()
-            .flex_wrap()
-            .items_center()
-            .gap(rem(4.))
-            .pt(rem(8.))
-            .pb(rem(8.))
-            .pr(rem(4.))
-            .pl(rem(12.))
-            .child(
-                // `.t3-rthread-reply { flex: 1 1 12rem; height: size-sm; field-02 }`.
-                div()
-                    .flex_grow_1()
-                    .flex_shrink_1()
-                    .flex_basis(rem(192.))
-                    .min_w_0()
-                    .child(
-                        Input::new((id.clone(), "reply-field"), &reply)
-                            .label(self.texts.reply_label.clone())
-                            .hide_label(true)
-                            .placeholder(self.texts.reply.clone())
-                            .size(FieldSize::Sm)
-                            .layer(LayerLevel::Two),
-                    ),
+        let foot = if self.draft {
+            draft_foot(
+                &id,
+                &self.texts,
+                self.on_edit.clone(),
+                self.on_delete.clone(),
             )
-            .child(
-                Button::new(
-                    (id.clone(), "resolve"),
-                    if self.resolved {
-                        self.texts.unresolve.clone()
-                    } else {
-                        self.texts.resolve.clone()
-                    },
-                )
-                .variant(ButtonVariant::Ghost)
-                .size(ButtonSize::Sm)
-                .when_some(on_resolve, |b, f| b.on_click(move |_, w, cx| f(w, cx))),
+        } else {
+            reply_foot(
+                &id,
+                &reply,
+                &self.texts,
+                self.resolved,
+                self.on_resolve.clone(),
+                self.on_add_to_chat.clone(),
             )
-            .child(
-                Button::new((id.clone(), "chat"), self.texts.add_to_chat.clone())
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .icon(CarbonIcon::Chat)
-                    .when_some(on_chat, |b, f| b.on_click(move |_, w, cx| f(w, cx))),
-            );
+        };
         // Outside a diff the thread inherits the page's `body { 14px; 1.28572 }`;
         // inside one, `.t3-dl-anno`'s 12px / 20px.
         div()
@@ -314,7 +451,7 @@ impl RenderOnce for ReviewThreadCard {
                     .border_color(color(ColorRole::BorderSubtle01)),
             )
             // `.t3-rthread--pending { box-shadow: inset 3px 0 0 var(--support-warning) }`.
-            .when(self.pending, |this| {
+            .when(pending, |this| {
                 this.child(
                     div()
                         .absolute()
@@ -325,5 +462,28 @@ impl RenderOnce for ReviewThreadCard {
                         .bg(color(ColorRole::SupportWarning)),
                 )
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_draft_reads_as_pending_and_keeps_its_note_and_icon() {
+        assert!(!ReviewThreadCard::new("t").is_pending());
+        assert!(ReviewThreadCard::new("t").draft(true).is_pending());
+        assert!(ReviewThreadCard::new("t").pending(true).is_pending());
+        let c = ReviewComment::new("You", "10:22", "Put g90 before g100.")
+            .note("on line 15")
+            .icon(CarbonIcon::User)
+            .color(AvatarColor::Gray);
+        assert_eq!(c.note.as_deref(), Some("on line 15"));
+        assert_eq!(c.icon, Some(CarbonIcon::User));
+        let t = ReviewThreadTexts::default();
+        assert_eq!(
+            (t.not_sent.as_ref(), t.edit.as_ref(), t.delete.as_ref()),
+            ("Not sent yet", "Edit", "Delete")
+        );
     }
 }
