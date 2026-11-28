@@ -257,8 +257,8 @@ impl RenderOnce for ChatHeader {
             .gap(rem(16.))
             .map(|d| {
                 if self.inline {
-                    // `.t3-chathead--inline { flex: 1 1 auto; min-width: 0; padding-left: 16px; no border }`.
-                    d.flex_1().min_w_0().pl(rem(16.))
+                    // `.t3-chathead--inline { flex: 1 1 auto; min-width: 0; padding-left: 0; no border }`.
+                    d.flex_1().min_w_0()
                 } else {
                     d.min_h(rem(48.))
                         .pt(rem(4.))
@@ -271,14 +271,23 @@ impl RenderOnce for ChatHeader {
                 }
             })
             .child(
+                // Inline, in a 38px title bar, the title and its meta are
+                // one row (`.t3-chathead--inline .t3-chathead-main {
+                // flex-direction: row; align-items: center; gap: 12px }`,
+                // the title and the meta `flex: 0 1 auto`).
                 div()
                     .flex()
-                    .flex_col()
                     .flex_1()
                     .min_w_0()
-                    .gap(px(2.))
-                    .child(title)
-                    .child(sub_line),
+                    .map(|d| {
+                        if self.inline {
+                            d.flex_row().items_center().gap(rem(12.))
+                        } else {
+                            d.flex_col().gap(px(2.))
+                        }
+                    })
+                    .child(title.when(self.inline, |t| t.flex_shrink_1().self_center()))
+                    .child(sub_line.when(self.inline, |l| l.flex_shrink_1())),
             )
             .child(
                 div()
