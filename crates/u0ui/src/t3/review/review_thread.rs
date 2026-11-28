@@ -38,7 +38,13 @@ pub struct ReviewComment {
 }
 
 impl ReviewComment {
-    /// A comment.
+    /// Whether the head shows a time: not where none is known.
+    pub fn shows_time(&self) -> bool {
+        !self.time.is_empty()
+    }
+
+    /// A comment. An empty `time` (one not known, such as a draft's) takes
+    /// no place in the head.
     pub fn new(
         author: impl Into<SharedString>,
         time: impl Into<SharedString>,
@@ -268,7 +274,7 @@ fn comment(c: &ReviewComment, pending_tag: Option<SharedString>, in_diff: bool) 
                                 .text_color(color(ColorRole::TextPrimary))
                                 .child(c.author.clone()),
                         )
-                        .child(c.time.clone())
+                        .when(c.shows_time(), |this| this.child(c.time.clone()))
                         .when_some(c.note.clone(), |this, note| this.child(note))
                         .when_some(pending_tag, |this, tag| {
                             this.child(
@@ -468,6 +474,12 @@ impl RenderOnce for ReviewThreadCard {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_comment_with_no_time_shows_none() {
+        assert!(ReviewComment::new("You", "10:22", "x").shows_time());
+        assert!(!ReviewComment::new("You", "", "x").shows_time());
+    }
 
     #[test]
     fn a_draft_reads_as_pending_and_keeps_its_note_and_icon() {
