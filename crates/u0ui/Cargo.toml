@@ -19,3 +19,8 @@ qrcode = { version = "0.14", default-features = false }
 [dev-dependencies]
 # Headless UI tests (`#[gpui_kit::test]`, `gpui_kit::test`).
 gpui-kit = { workspace = true, features = ["test-support"] }
+
+# Lays text out with the platform text system, which must live on the main thread.
+[[test]]
+name = "terminal_view_wrap"
+harness = false

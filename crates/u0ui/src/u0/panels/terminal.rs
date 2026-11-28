@@ -34,8 +34,8 @@ use crate::{
 use gpui_kit::{
     Animation, AnimationExt as _, AnyElement, App, CursorStyle, ElementId, FocusHandle, FontWeight,
     HighlightStyle, Hsla, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement,
-    RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, StyledText, Window, div,
-    prelude::FluentBuilder as _, px, relative,
+    RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, StyledText,
+    TestSupportExt as _, Window, div, prelude::FluentBuilder as _, px, relative,
 };
 use std::ops::Range;
 use std::rc::Rc;
@@ -326,24 +326,136 @@ impl TerminalView {
     }
 }
 
-/// `.g-term-cursor { width: 0.6em; height: 1.2em; vertical-align:
-/// text-bottom; background: var(--terminal-cursor) }`, blinking.
-/// `pulse` is the reduced-motion opacity (`g-pulse`, see
-/// [`crate::t3::base::REDUCED_PULSE_PERIOD`]); `None` blinks.
-fn cursor(id: ElementId, pulse: Option<f32>) -> AnyElement {
-    let block = div()
-        .flex_none()
-        .w(rem(12. * 0.6))
-        .h(rem(12. * 1.2))
-        .bg(color(ColorRole::TerminalCursor));
+/// A laid-out line's highlight ranges and styles.
+pub type Highlights = Vec<(Range<usize>, HighlightStyle)>;
+
+/// The break opportunity [`break_all`] puts between characters: U+200B
+/// ZERO WIDTH SPACE (no advance, no glyph; UAX #14 class ZW, a break after).
+pub const BREAK: char = '\u{200B}';
+
+/// Whether `prev` and `next` stay together under `word-break: break-all`:
+/// spaces already break after themselves (and `pre-wrap` never breaks
+/// before one), and a grapheme cluster (combining marks, variation
+/// selectors, emoji modifiers and ZWJ sequences) never splits.
+fn holds_together(prev: char, next: char) -> bool {
+    prev.is_whitespace()
+        || next.is_whitespace()
+        || prev == '\u{200D}'
+        || matches!(next,
+            '\u{0300}'..='\u{036F}'
+            | '\u{1AB0}'..='\u{1AFF}'
+            | '\u{1DC0}'..='\u{1DFF}'
+            | '\u{20D0}'..='\u{20FF}'
+            | '\u{200C}'..='\u{200D}'
+            | '\u{FE00}'..='\u{FE0F}'
+            | '\u{FE20}'..='\u{FE2F}'
+            | '\u{1F3FB}'..='\u{1F3FF}'
+            | '\u{E0020}'..='\u{E007F}'
+            | '\u{E0100}'..='\u{E01EF}')
+}
+
+/// `.g-term-screen { word-break: break-all }`: a line may break between any
+/// two characters, not only at spaces. GPUI's wrapper breaks at UAX #14
+/// opportunities (and mid-word only when a word alone overflows the row),
+/// so this inserts a [`BREAK`] between characters in the laid-out string
+/// only, shifting the highlight ranges to match. The break has no advance,
+/// so monospace columns stay exact.
+pub fn break_all(
+    text: &str,
+    styles: Vec<(Range<usize>, HighlightStyle)>,
+) -> (String, Vec<(Range<usize>, HighlightStyle)>) {
+    let mut out = String::with_capacity(text.len() * 2);
+    // `at[i]`: where byte `i` of `text` lands in `out`.
+    let mut at = vec![0; text.len() + 1];
+    let mut prev = None;
+    for (i, c) in text.char_indices() {
+        if prev.is_some_and(|p| !holds_together(p, c)) {
+            out.push(BREAK);
+        }
+        at[i] = out.len();
+        out.push(c);
+        prev = Some(c);
+    }
+    at[text.len()] = out.len();
+    let styles = styles
+        .into_iter()
+        .map(|(r, s)| (at[r.start]..at[r.end], s))
+        .collect();
+    (out, styles)
+}
+
+/// One `.g-term-line` as laid out: the ANSI runs ([`ansi_highlights`]) with
+/// break-all opportunities ([`break_all`]), then, with `cursor`, the cursor's
+/// space and its byte range. The cursor is a highlighted space in the same
+/// text run (one 0.6em monospace advance, `.g-term-cursor { width: 0.6em }`),
+/// so it stays inline after the last character when the line wraps, and
+/// wraps on its own only when the row is full (an inline-block would too).
+pub fn screen_line(line: &str, cursor: bool) -> (String, Highlights, Option<Range<usize>>) {
+    let (text, styles) = ansi_highlights(&parse_ansi(line));
+    let (mut text, styles) = break_all(&text, styles);
+    if !cursor {
+        return (text, styles, None);
+    }
+    if !text.is_empty() {
+        text.push(BREAK);
+    }
+    let at = text.len();
+    text.push(' ');
+    (text, styles, Some(at..at + 1))
+}
+
+/// A line's text with the cursor highlight (`.g-term-cursor { background:
+/// var(--terminal-cursor) }`) at `opacity`.
+fn line_text(
+    text: SharedString,
+    styles: &[(Range<usize>, HighlightStyle)],
+    cursor: Option<Range<usize>>,
+    opacity: f32,
+) -> StyledText {
+    let mut styles = styles.to_vec();
+    if let Some(range) = cursor
+        && opacity > 0.
+    {
+        let mut c = color(ColorRole::TerminalCursor);
+        c.a *= opacity;
+        styles.push((
+            range,
+            HighlightStyle {
+                background_color: Some(c),
+                ..Default::default()
+            },
+        ));
+    }
+    StyledText::new(text).with_highlights(styles)
+}
+
+/// The last line with its cursor (`.g-term-cursor { animation: g-blink 1s
+/// steps(1) infinite }`). `pulse` is the reduced-motion opacity (`g-pulse`,
+/// see [`crate::t3::base::REDUCED_PULSE_PERIOD`]); `None` blinks.
+///
+/// The highlight fills the 16px line box, where the reference block is
+/// `1.2em` (14.4px) tall and sits on `text-bottom`: GPUI paints a run's
+/// background over the whole line height.
+fn cursor_line(
+    id: ElementId,
+    text: SharedString,
+    styles: Vec<(Range<usize>, HighlightStyle)>,
+    cursor: Range<usize>,
+    pulse: Option<f32>,
+) -> AnyElement {
     if let Some(opacity) = pulse {
         // GPUI freezes `with_animation` loops under reduced motion; this
         // one keeps running (`ghost.css`).
-        block.opacity(opacity).into_any_element()
+        line_text(text, &styles, Some(cursor), opacity).into_any_element()
     } else {
-        block
-            .with_animation(id, Animation::new(BLINK_PERIOD).repeat(), |el, t| {
-                el.opacity(blink_opacity(t))
+        line_text(text.clone(), &styles, Some(cursor.clone()), 1.)
+            .with_animation(id, Animation::new(BLINK_PERIOD).repeat(), move |_, t| {
+                line_text(
+                    text.clone(),
+                    &styles,
+                    Some(cursor.clone()),
+                    blink_opacity(t),
+                )
             })
             .into_any_element()
     }
@@ -364,18 +476,29 @@ impl RenderOnce for TerminalView {
             .iter()
             .enumerate()
             .map(|(i, line)| {
-                let (text, styles) = ansi_highlights(&parse_ansi(line));
+                // `<div className="g-term-line">{parseAnsi(l)}<span
+                // className="g-term-cursor"> </span>{'\n'}</div>`: one pre-wrapped,
+                // break-all text run per line.
+                let (text, styles, cursor) = screen_line(line, show_cursor && i == last);
+                let text: SharedString = text.into();
                 div()
-                    .flex()
-                    .items_end()
-                    .flex_wrap()
+                    .id((id.clone(), SharedString::from(format!("line-{i}"))))
+                    .test_support()
                     .min_h(rem(LINE))
                     .when(is_selected(i, self.selection), |d| {
                         d.bg(color(ColorRole::TerminalSelection))
                     })
-                    .child(StyledText::new(text).with_highlights(styles))
-                    .when(show_cursor && i == last, |d| {
-                        d.child(cursor((id.clone(), "cursor").into(), cursor_pulse))
+                    .child(match cursor {
+                        Some(range) => cursor_line(
+                            (id.clone(), "cursor").into(),
+                            text,
+                            styles,
+                            range,
+                            cursor_pulse,
+                        ),
+                        None => StyledText::new(text)
+                            .with_highlights(styles)
+                            .into_any_element(),
                     })
             })
             .collect::<Vec<_>>();
@@ -919,6 +1042,36 @@ mod tests {
         assert_eq!(text, "ab");
         assert_eq!(styles.len(), 1);
         assert_eq!(styles[0].0, 1..2);
+    }
+
+    #[test]
+    fn break_all_puts_a_break_between_characters() {
+        let b = BREAK;
+        let (text, _) = break_all("ab cd", vec![]);
+        assert_eq!(text, format!("a{b}b c{b}d"));
+        // Highlight ranges follow their characters.
+        let style = HighlightStyle::default();
+        let (text, styles) = break_all("xyz", vec![(1..3, style)]);
+        assert_eq!(&text[styles[0].0.clone()], format!("y{b}z"));
+        // Grapheme clusters hold together.
+        assert_eq!(break_all("e\u{301}", vec![]).0, "e\u{301}");
+        assert_eq!(break_all("❤\u{fe0f}", vec![]).0, "❤\u{fe0f}");
+        assert_eq!(break_all("", vec![]).0, "");
+    }
+
+    #[test]
+    fn screen_line_ends_in_the_cursor() {
+        crate::theme::tests_set(crate::CarbonTheme::White);
+        let b = BREAK;
+        let (text, styles, cursor) = screen_line("\x1b[32mok\x1b[0m", true);
+        assert_eq!(text, format!("o{b}k{b} "));
+        assert_eq!(&text[styles[0].0.clone()], format!("o{b}k"));
+        assert_eq!(cursor, Some(text.len() - 1..text.len()));
+        // `$ ` keeps its space, then the cursor.
+        let (text, _, _) = screen_line("$ ", true);
+        assert_eq!(text, format!("$ {b} "));
+        assert_eq!(screen_line("", true).0, " ");
+        assert_eq!(screen_line("ab", false).2, None);
     }
 
     #[test]
