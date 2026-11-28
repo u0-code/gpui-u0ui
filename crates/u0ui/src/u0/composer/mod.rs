@@ -14,7 +14,7 @@ mod compact;
 mod lists;
 
 pub use chip::{ChipKind, ChipState, ComposerChip, ComposerChipTexts, chip_state_dot};
-pub use compact::{ComposerCompact, ComposerCompactTexts, send_colors};
+pub use compact::{ComposerCompact, ComposerCompactTexts, send_colors, stacked};
 pub use lists::{
     MentionGroup, MentionItem, MentionKind, MentionList, MentionListTexts, Mode, ModeList,
     ModeMenu, option_look,

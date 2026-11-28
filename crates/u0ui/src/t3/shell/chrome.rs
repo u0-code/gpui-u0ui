@@ -372,6 +372,10 @@ type ValueChange = Rc<dyn Fn(SharedString, &mut Window, &mut App)>;
 /// `text-disabled` with its reason in a tooltip. Tabs past `max_visible`
 /// fold into an overflow [`IconMenu`]; `on_add` shows a ghost "Open
 /// surface" button. Value is controlled (`value`) or internal.
+///
+/// [`RightPanelTabs::center_controls`] draws the row as u0's Main board
+/// does (`.rp-tabs`): "…" and "+" ghost `sm`, centred in the row, 4px
+/// from its end.
 #[derive(IntoElement)]
 pub struct RightPanelTabs {
     id: ElementId,
@@ -386,6 +390,7 @@ pub struct RightPanelTabs {
     more_label: SharedString,
     add_menu: Vec<MenuItem>,
     trailing: Vec<AnyElement>,
+    center_controls: bool,
 }
 
 impl RightPanelTabs {
@@ -404,6 +409,7 @@ impl RightPanelTabs {
             more_label: "{} more surfaces".into(),
             add_menu: Vec::new(),
             trailing: Vec::new(),
+            center_controls: false,
         }
     }
 
@@ -446,6 +452,16 @@ impl RightPanelTabs {
         self
     }
 
+    /// Centre the trailing "…", "+" and controls in the row, 4px from its
+    /// end, with "…" and "+" ghost `sm` (u0's Main board: `.rp-tabs {
+    /// display: flex; align-items: center; padding-right: 4px }`, its "+" a
+    /// `Button variant="ghost" size="sm" icon-only`). Off (the default),
+    /// they keep `.t3-rptabs`' own look: `md`, at the top of the row.
+    pub fn center_controls(mut self, on: bool) -> Self {
+        self.center_controls = on;
+        self
+    }
+
     /// Fold tabs past `max` into the overflow menu (`maxVisible`).
     pub fn max_visible(mut self, max: usize) -> Self {
         self.max_visible = Some(max);
@@ -484,6 +500,26 @@ pub fn tab_colors(active: bool, hovered: bool, disabled: bool) -> (Hsla, Hsla) {
         (clear, color(ColorRole::TextPrimary))
     } else {
         (clear, color(ColorRole::TextSecondary))
+    }
+}
+
+/// The size of the strip's "…" and "+": `sm` centred (`.rp-tabs`), else
+/// `md` (`.t3-rptabs`).
+pub const fn control_size(centred: bool) -> ButtonSize {
+    if centred {
+        ButtonSize::Sm
+    } else {
+        ButtonSize::Md
+    }
+}
+
+/// The cell holding "…" or "+": centred in the row, or at its top.
+fn control_cell(centred: bool) -> gpui_kit::Div {
+    let cell = div().flex().flex_none();
+    if centred {
+        cell.items_center()
+    } else {
+        cell.items_start()
     }
 }
 
@@ -624,11 +660,14 @@ impl RenderOnce for RightPanelTabs {
             );
         }
         insert_slot_anchor(&mut cells, (id.clone(), "anchor"), &slot, cx);
+        let centred = self.center_controls;
+        let control_size = control_size(centred);
         let overflow = (!hidden.is_empty()).then(|| {
             let label = self.more_label.replace("{}", &hidden.len().to_string());
             IconMenu::new((id.clone(), "more"), label)
                 .icon(CarbonIcon::OverflowMenuHorizontal)
                 .variant(ButtonVariant::Ghost)
+                .size(control_size)
                 .items(hidden.into_iter().map(|i| {
                     let tab = self.tabs[i].clone();
                     let set = set.clone();
@@ -642,6 +681,7 @@ impl RenderOnce for RightPanelTabs {
                 IconMenu::new((id.clone(), "add-menu"), self.add_label.clone())
                     .icon(CarbonIcon::Add)
                     .variant(ButtonVariant::Ghost)
+                    .size(control_size)
                     .items(self.add_menu)
                     .into_any_element(),
             )
@@ -649,7 +689,7 @@ impl RenderOnce for RightPanelTabs {
             self.on_add.map(|f| {
                 Button::new((id.clone(), "add"), self.add_label.clone())
                     .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Md)
+                    .size(control_size)
                     .icon(CarbonIcon::Add)
                     .icon_only(true)
                     .on_click(move |_, w, cx| f(w, cx))
@@ -667,6 +707,8 @@ impl RenderOnce for RightPanelTabs {
             .bg(color(ColorRole::Layer01))
             .border_b_1()
             .border_color(color(ColorRole::BorderSubtle01))
+            // `.rp-tabs { padding-right: 4px }`.
+            .when(centred, |d| d.pr(rem(4.)))
             .child(
                 // `.t3-rptabs-list { display: flex; flex: 1; min-width: 0;
                 // overflow-x: auto }`: the tablist takes the free width, so
@@ -681,9 +723,10 @@ impl RenderOnce for RightPanelTabs {
             )
             // `.t3-rptabs { align-items: stretch }`, but the "…" `.t3-iconmenu`
             // and the "+" `.cds--btn` keep their own block size (32px compact),
-            // so they sit at the top of the strip, not centred in it.
-            .children(overflow.map(|m| div().flex().items_start().child(m)))
-            .children(add.map(|b| div().flex().items_start().child(b)))
+            // so they sit at the top of the strip, not centred in it;
+            // `.rp-tabs { align-items: center }` centres them.
+            .children(overflow.map(|m| control_cell(centred).child(m)))
+            .children(add.map(|b| control_cell(centred).child(b)))
             .when(has_trailing, |d| {
                 d.child(
                     div()

@@ -176,6 +176,7 @@ struct TabsPage {
     value: SharedString,
     max: usize,
     add: bool,
+    centred: bool,
     action: SharedString,
 }
 
@@ -186,6 +187,7 @@ pub fn build_right_panel_tabs(_: &mut Window, cx: &mut App) -> AnyView {
         value: "diff".into(),
         max: 0,
         add: true,
+        centred: false,
         action: "none".into(),
     })
     .into()
@@ -234,6 +236,7 @@ impl Render for TabsPage {
                     })
                 }
             });
+        tabs = tabs.center_controls(self.centred);
         if self.max > 0 {
             tabs = tabs.max_visible(MAX_VISIBLE[self.max].parse().unwrap_or(4));
         }
@@ -277,6 +280,12 @@ impl Render for TabsPage {
                 self.add,
                 controls::setter(&entity, |this: &mut TabsPage, on| this.add = on),
             ))
+            .child(controls::toggle(
+                "tabs-centred",
+                "center_controls",
+                self.centred,
+                controls::setter(&entity, |this: &mut TabsPage, on| this.centred = on),
+            ))
             .child(
                 Button::new("tabs-reset", "Reset tabs")
                     .variant(ButtonVariant::Tertiary)
@@ -301,6 +310,21 @@ impl Render for TabsPage {
                 div()
                     .w_full()
                     .child(RightPanelTabs::new("ref-tabs", reference_tabs()).on_add(|_, _| {})),
+            ))
+            .example(controls::block(
+                "u0's right column (Main board, .rp-tabs): \"+\" ghost sm, centred, 4px from the end",
+                div().w(px(400.)).child(
+                    RightPanelTabs::new(
+                        "rp-tabs",
+                        [
+                            SurfaceTab::new("diff", "Diff", SurfaceKind::Diff),
+                            SurfaceTab::new("info", "Details", SurfaceKind::Details),
+                        ],
+                    )
+                    .center_controls(true)
+                    .labels("Open another tab (⌘T)", "Close {}", "{} more tabs")
+                    .on_add(|_, _| {}),
+                ),
             ))
     }
 }

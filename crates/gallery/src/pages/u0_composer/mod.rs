@@ -6,7 +6,7 @@ use crate::{controls, stand_in};
 use gpui_kit::{
     AnyElement, AnyView, App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render,
     SharedString, Styled, Window, component::input::InputState, div, prelude::FluentBuilder as _,
-    rems,
+    px, rems,
 };
 use u0ui::icons::CarbonIcon;
 use u0ui::prelude::*;
@@ -172,6 +172,7 @@ pub fn compact_thumbnail(_: &mut Window, _: &mut App) -> AnyElement {
 
 struct CompactPage {
     agent: usize,
+    stacked: bool,
     sent: Vec<SharedString>,
 }
 
@@ -181,6 +182,7 @@ const AGENTS: [&str; 3] = ["Claude", "Codex", "Gemini"];
 pub fn build_composer_compact(_: &mut Window, cx: &mut App) -> AnyView {
     cx.new(|_| CompactPage {
         agent: 0,
+        stacked: false,
         sent: Vec::new(),
     })
     .into()
@@ -198,6 +200,7 @@ impl Render for CompactPage {
             .gap(tokens::SPACING_03)
             .child(
                 ComposerCompact::new("ccp-live", AGENTS[self.agent])
+                    .stacked(self.stacked)
                     .on_attach(|_, _| {})
                     .on_send(move |text, _, cx| {
                         send.update(cx, |p, cx| {
@@ -212,15 +215,25 @@ impl Render for CompactPage {
                     .last()
                     .map_or("—".to_string(), |t| format!("“{t}”"))
             )));
-        let config = div().child(controls::field(
-            "agent",
-            controls::choices(
-                "ccp-agent",
-                &AGENTS,
-                self.agent,
-                controls::setter(&e, |p: &mut CompactPage, v| p.agent = v),
-            ),
-        ));
+        let config = div()
+            .flex()
+            .flex_col()
+            .gap(tokens::SPACING_06)
+            .child(controls::field(
+                "agent",
+                controls::choices(
+                    "ccp-agent",
+                    &AGENTS,
+                    self.agent,
+                    controls::setter(&e, |p: &mut CompactPage, v| p.agent = v),
+                ),
+            ))
+            .child(controls::toggle(
+                "ccp-stacked",
+                "stacked",
+                self.stacked,
+                controls::setter(&e, |p: &mut CompactPage, on| p.stacked = on),
+            ));
         Body::new()
             .playground(live)
             .hint("Type and press Enter to send")
@@ -239,6 +252,16 @@ impl Render for CompactPage {
                         .lead(Icon::carbon(CarbonIcon::Bot).size(IconSize::S16))
                         .disabled(true)
                         .placeholder("Ask Sonnet on the side…"),
+                ),
+            ))
+            .example(controls::block(
+                "Stacked, in a 400px side chat (SplitSideChat): input on top, controls below",
+                div().w(px(368.)).child(
+                    ComposerCompact::new("ccp-stacked", "Claude")
+                        .stacked(true)
+                        .placeholder("Ask Sonnet on the side…")
+                        .on_attach(|_, _| {})
+                        .on_send(|_, _, _| {}),
                 ),
             ))
     }

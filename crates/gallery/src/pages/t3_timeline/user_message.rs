@@ -1,6 +1,7 @@
 //! T3 · Timeline › UserMessage: the folded G90 request with two context
 //! chips and an image (`components/UserMessage/preview.html`); hover the
-//! message for Copy and Edit, Show more unfolds it.
+//! message for Copy and Edit (each drawn only with a handler), Show more
+//! unfolds it.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
@@ -123,7 +124,18 @@ impl Render for UserPage {
                     .w_full()
                     .max_w(gpui_kit::rems(45.))
                     .pb(tokens::SPACING_07)
-                    .child(message("umsg-ref".into(), true, true, true)),
+                    .child(
+                        message("umsg-ref".into(), true, true, true)
+                            .on_copy(|_, _| {})
+                            .on_edit(|_, _| {}),
+                    ),
+            ))
+            .example(controls::block(
+                "Side chat (SplitSideChat): no handlers, no actions",
+                div().w(gpui_kit::px(368.)).child(
+                    UserMessage::new("umsg-side", "Why did it pick WebAuthn level 3?")
+                        .time("10:23"),
+                ),
             ))
     }
 }
