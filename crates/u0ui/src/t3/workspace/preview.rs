@@ -557,12 +557,13 @@ pub const STRIP_HEIGHT: f32 = 36.;
 /// The strip under a narrow [`PreviewChrome`] (`.pv-strip`, the
 /// TerminalBrowser board): the dev server the page is of, as a chip whose
 /// menu switches to another, the machine it runs on, and one action (open
-/// in your browser).
+/// in your browser). Its dot says whether the server answers.
 #[derive(IntoElement)]
 pub struct PreviewStrip {
     id: ElementId,
     name: SharedString,
     port: Option<u16>,
+    answering: bool,
     menu_label: SharedString,
     servers: Vec<MenuItem>,
     machine: SharedString,
@@ -576,6 +577,7 @@ impl PreviewStrip {
             id: id.into(),
             name: name.into(),
             port,
+            answering: true,
             menu_label: SharedString::default(),
             servers: Vec::new(),
             machine: SharedString::default(),
@@ -591,6 +593,13 @@ impl PreviewStrip {
     ) -> Self {
         self.menu_label = label.into();
         self.servers = items.into_iter().collect();
+        self
+    }
+
+    /// Whether the server answers (it does unless told otherwise): its
+    /// dot is green while it does, red while it does not.
+    pub fn answering(mut self, answering: bool) -> Self {
+        self.answering = answering;
         self
     }
 
@@ -636,7 +645,7 @@ impl RenderOnce for PreviewStrip {
                     .size(px(8.))
                     .flex_none()
                     .rounded_full()
-                    .bg(color(ColorRole::SupportSuccess)),
+                    .bg(color(dot(self.answering))),
             )
             .child(
                 div()
@@ -1270,9 +1279,25 @@ impl RenderOnce for DeviceControlsRail {
     }
 }
 
+/// The strip's dot: `support-success` for a server that answers,
+/// `support-error` for one that does not.
+fn dot(answering: bool) -> ColorRole {
+    if answering {
+        ColorRole::SupportSuccess
+    } else {
+        ColorRole::SupportError
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_strip_s_dot_is_green_for_a_server_that_answers_and_red_for_one_that_does_not() {
+        assert_eq!(dot(true), ColorRole::SupportSuccess);
+        assert_eq!(dot(false), ColorRole::SupportError);
+    }
 
     #[test]
     fn the_strip_under_a_narrow_bar_is_36px_as_the_board_draws_it() {
