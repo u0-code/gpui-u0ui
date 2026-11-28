@@ -6,6 +6,11 @@ edition.workspace = true
 license = "Apache-2.0 AND OFL-1.1"
 rust-version.workspace = true
 repository.workspace = true
+homepage = "https://github.com/u0-code/gpui-u0ui"
+documentation = "https://docs.rs/u0ui"
+readme = "../../README.md"
+keywords = ["gpui", "carbon", "ui", "components", "design-system"]
+categories = ["gui"]
 
 [dependencies]
 gpui-kit.workspace = true
