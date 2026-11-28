@@ -259,6 +259,7 @@ pub struct TimelineEvent {
     actor: SharedString,
     text: SharedString,
     body: SharedString,
+    content: Option<AnyElement>,
     review: Option<ReviewDecision>,
     time: SharedString,
     color: Option<AvatarColor>,
@@ -278,6 +279,7 @@ impl TimelineEvent {
             actor: actor.into(),
             text: SharedString::default(),
             body: SharedString::default(),
+            content: None,
             review: None,
             time: time.into(),
             color: None,
@@ -300,6 +302,14 @@ impl TimelineEvent {
     /// The card body (comments and reviews).
     pub fn body(mut self, body: impl Into<SharedString>) -> Self {
         self.body = body.into();
+        self
+    }
+
+    /// The card body drawn by the host in place of [`body`](Self::body)'s
+    /// text, such as a comment's Markdown rendered; it sits in the same
+    /// 12px padding.
+    pub fn content(mut self, content: impl IntoElement) -> Self {
+        self.content = Some(content.into_any_element());
         self
     }
 
@@ -462,7 +472,10 @@ impl RenderOnce for PullRequestTimeline {
                             .p(rem(12.))
                             .line_height(relative(1.42857))
                             .text_color(color(ColorRole::TextPrimary))
-                            .child(e.body.clone()),
+                            .child(match e.content {
+                                Some(content) => content,
+                                None => e.body.clone().into_any_element(),
+                            }),
                     )
                     .when_some(e.reactions, |this, reactions| {
                         this.child(
