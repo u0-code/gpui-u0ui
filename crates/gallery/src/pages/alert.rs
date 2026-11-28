@@ -1,6 +1,6 @@
 //! Feedback › Alert: the reference four notifications (destructive, success,
 //! warning with close, info with an action) and a live alert with every
-//! `AlertProps` prop.
+//! `AlertProps` prop, and an error whose long words fold and copy.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
@@ -71,6 +71,20 @@ impl Render for AlertPage {
                     .description("Sunday 02:00 UTC.")
                     .action(AlertAction::new("Details")),
             );
+        // u0's errors: selectable words, Copy, and a long trace folded.
+        let trace = (1..=16)
+            .map(|i| format!("    at writeGeneric (node:internal/stream_base_commons:{i}:10)"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let copyable = div().flex().flex_col().gap(tokens::SPACING_03).child(
+            Alert::new(("copy-alert", g))
+                .variant(AlertVariant::Error)
+                .title("The agent stopped")
+                .words(format!("Error: write EPIPE\n{trace}"))
+                .copy("Copy", "Copied")
+                .fold("Show all", "Show less")
+                .on_close(|_, _| {}),
+        );
 
         let variant = AlertVariant::ALL[self.variant];
         let mut live = Alert::new(("live-alert", g))
@@ -162,5 +176,6 @@ impl Render for AlertPage {
             .playground(live)
             .config(config)
             .example(controls::block("Reference preview", reference))
+            .example(controls::block("Words, Copy and Show all", copyable))
     }
 }
