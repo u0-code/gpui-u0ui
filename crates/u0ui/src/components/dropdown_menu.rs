@@ -292,10 +292,9 @@ impl RenderOnce for DropdownMenu {
                 .into_any_element(),
         };
         let measure = canvas(
-            move |bounds, _, cx| {
-                if *trigger_bounds.read(cx) != bounds {
-                    trigger_bounds.update(cx, |b, _| *b = bounds);
-                }
+            move |bounds: Bounds<Pixels>, window, cx| {
+                let size_only = Bounds::new(gpui_kit::Point::default(), bounds.size);
+                crate::measure::store(&trigger_bounds, size_only, window, cx);
             },
             |_, _, _, _| {},
         )

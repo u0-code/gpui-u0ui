@@ -398,12 +398,9 @@ impl RenderOnce for ThemeEditor {
                     // In CSS px at Carbon's 16px rem, so zoom keeps the track count.
                     let w =
                         bounds.size.width.as_f32() * tokens::REM_PX / window.rem_size().as_f32();
-                    width.update(cx, |cur, cx| {
-                        if (*cur - w).abs() > 0.5 {
-                            *cur = w;
-                            cx.notify();
-                        }
-                    });
+                    if (*width.read(cx) - w).abs() > 0.5 {
+                        crate::measure::store(&width, w, window, cx);
+                    }
                 },
                 |_, _, _, _| {},
             )

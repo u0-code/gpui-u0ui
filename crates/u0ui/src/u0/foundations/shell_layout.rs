@@ -159,10 +159,7 @@ impl RenderOnce for ShellLayout {
                 move |bounds, window, cx| {
                     let rem = f32::from(bounds.size.width) / f32::from(window.rem_size());
                     if (rem - *width.read(cx)).abs() > 0.01 {
-                        width.update(cx, |w, cx| {
-                            *w = rem;
-                            cx.notify();
-                        });
+                        crate::measure::store(&width, rem, window, cx);
                     }
                 },
                 |_, _, _, _| {},

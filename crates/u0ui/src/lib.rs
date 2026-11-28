@@ -45,6 +45,7 @@ pub mod components;
 pub mod density;
 pub mod focus;
 pub mod icons;
+pub mod measure;
 pub mod motion;
 pub mod patterns;
 pub mod t3;

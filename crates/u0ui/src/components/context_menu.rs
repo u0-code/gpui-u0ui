@@ -46,6 +46,8 @@ pub struct ContextMenu {
 #[derive(Default)]
 struct Placed {
     open: bool,
+    /// Where the menu opened, from the area's top-left: the menu follows the
+    /// area when a resize moves it, as the reference's does in its card.
     at: Point<Pixels>,
     area: Bounds<Pixels>,
     measured: bool,
@@ -103,7 +105,7 @@ impl RenderOnce for ContextMenu {
         if let Some((x, y)) = self.default_open_at {
             let p = placed.read(cx);
             if p.measured && !p.defaulted {
-                let at = p.area.origin + point(px(x), px(y));
+                let at = point(px(x), px(y));
                 placed.update(cx, |p, _| {
                     p.defaulted = true;
                     p.open = true;
@@ -121,7 +123,7 @@ impl RenderOnce for ContextMenu {
         let ring = area_focus.is_focused(window) && crate::focus::focus_visible_mode(window);
         let (open, at) = {
             let p = placed.read(cx);
-            (p.open, p.at)
+            (p.open, p.area.origin + p.at)
         };
         let set_open: overlay::OpenChange = {
             let placed = placed.clone();
@@ -150,13 +152,22 @@ impl RenderOnce for ContextMenu {
         let measure = {
             let placed = placed.clone();
             canvas(
-                move |bounds, _, cx| {
+                move |bounds, window, cx| {
                     let p = placed.read(cx);
                     if !p.measured || p.area != bounds {
-                        placed.update(cx, |p, _| {
+                        // The default-open menu waits for the first
+                        // measurement, and an open menu's place reads the
+                        // area: draw them where it is now. (A closed menu's
+                        // area moving, e.g. on scroll, needs no frame.)
+                        let redraw = !p.measured || p.open;
+                        placed.update(cx, |p, cx| {
                             p.area = bounds;
                             p.measured = true;
+                            cx.notify();
                         });
+                        if redraw {
+                            crate::measure::redraw_next_frame(window);
+                        }
                     }
                 },
                 |_, _, _, _| {},
@@ -177,7 +188,7 @@ impl RenderOnce for ContextMenu {
                 move |event, window, cx| {
                     placed.update(cx, |p, cx| {
                         p.open = true;
-                        p.at = event.position;
+                        p.at = event.position - p.area.origin;
                         cx.notify();
                     });
                     window.refresh();
@@ -190,7 +201,7 @@ impl RenderOnce for ContextMenu {
                     if is_menu_key(&event.keystroke.key, event.keystroke.modifiers.shift) {
                         placed.update(cx, |p, cx| {
                             p.open = true;
-                            p.at = p.area.origin;
+                            p.at = Point::default();
                             cx.notify();
                         });
                         window.refresh();

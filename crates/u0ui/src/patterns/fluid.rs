@@ -403,10 +403,13 @@ impl RenderOnce for FluidDropdown {
         let width_rem =
             f32::from(bounds.read(cx).size.width) / (f32::from(window.rem_size()) / REM_PX);
         let measure = canvas(
-            move |b, _, cx| {
-                if *bounds.read(cx) != b {
-                    bounds.update(cx, |s, _| *s = b);
-                }
+            move |b, window, cx| {
+                crate::measure::store(
+                    &bounds,
+                    Bounds::new(gpui_kit::Point::default(), b.size),
+                    window,
+                    cx,
+                );
             },
             |_, _, _, _| {},
         )

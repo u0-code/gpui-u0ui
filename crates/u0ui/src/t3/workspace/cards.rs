@@ -1060,13 +1060,13 @@ impl RenderOnce for StatsGrid {
             count.max(1)
         };
         let measure = canvas(
-            move |b, _, cx| {
-                if *bounds.read(cx) != b {
-                    bounds.update(cx, |s, cx| {
-                        *s = b;
-                        cx.notify();
-                    });
-                }
+            move |b, window, cx| {
+                crate::measure::store(
+                    &bounds,
+                    Bounds::new(gpui_kit::Point::default(), b.size),
+                    window,
+                    cx,
+                );
             },
             |_, _, _, _| {},
         )

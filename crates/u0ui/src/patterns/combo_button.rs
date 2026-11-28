@@ -207,10 +207,9 @@ impl RenderOnce for ComboButton {
             .into_any_element()
         };
         let measure = canvas(
-            move |b, _, cx| {
-                if *bounds.read(cx) != b {
-                    bounds.update(cx, |s, _| *s = b);
-                }
+            move |b, window, cx| {
+                let size_only = Bounds::new(gpui_kit::Point::default(), b.size);
+                crate::measure::store(&bounds, size_only, window, cx);
             },
             |_, _, _, _| {},
         )

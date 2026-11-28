@@ -157,14 +157,9 @@ impl RenderOnce for CommandBox {
         let on_click = self.on_click;
 
         let measure = canvas(
-            move |bounds: Bounds<Pixels>, _, cx| {
+            move |bounds: Bounds<Pixels>, window, cx| {
                 let now = narrow(f32::from(bounds.size.width));
-                thin.update(cx, |was, cx| {
-                    if *was != now {
-                        *was = now;
-                        cx.notify();
-                    }
-                });
+                crate::measure::store(&thin, now, window, cx);
             },
             |_, _, _, _| {},
         )
