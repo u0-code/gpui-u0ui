@@ -4,13 +4,15 @@
 //! A banner is a 40px `layer-01` row with a 3px accent rail (info, warning,
 //! error, success, or `interactive` for progress), its icon (a spinner for
 //! progress), a semibold title and secondary text, an optional 4px progress
-//! bar, actions and a dismiss ×. The stack puts 1px between banners; with
+//! bar, actions and a dismiss ×. The title and text are selectable
+//! (Base's `SelectableText`), so what a banner says can be copied. The stack puts 1px between banners; with
 //! `collapsed` it shows the first and a "N more notices" link that unfolds
 //! the rest ("Show fewer" folds them again).
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::t3::base::{Spin, warning_glyph};
 use crate::t3::press::{self, Handler, rem};
 use crate::{icons::CarbonIcon, theme::color, tokens::ColorRole};
+use gpui_kit::base::SelectableText;
 use gpui_kit::{
     AnyElement, App, ElementId, FontWeight, Hsla, IntoElement, ParentElement, RenderOnce,
     SharedString, Styled, Window, div, prelude::FluentBuilder as _, px, relative,
@@ -193,7 +195,7 @@ impl RenderOnce for ComposerBanner {
                         .min_w_0()
                         .whitespace_normal()
                         .font_weight(FontWeight::SEMIBOLD)
-                        .child(t),
+                        .child(SelectableText::new((id.clone(), "title"), t)),
                 )
             })
             .when_some(self.body.clone(), |this, b| {
@@ -202,7 +204,7 @@ impl RenderOnce for ComposerBanner {
                         .min_w_0()
                         .whitespace_normal()
                         .text_color(color(ColorRole::TextSecondary))
-                        .child(b),
+                        .child(SelectableText::new((id.clone(), "body"), b)),
                 )
             })
             // `.t3-banner-bar { flex-basis: 100%; height: 4px; margin-top: spacing-02; background: layer-accent-01 }`,

@@ -748,7 +748,7 @@ impl FileSurfaceKind {
 }
 
 /// A file preview's state placeholder (`FileSurfaceState`, `.t3-fsurf`): a
-/// centred 24px glyph or spinner, a 600 title, an optional note and
+/// centred 24px glyph or spinner, a 600 title (selectable), an optional note and
 /// actions, on `layer-01`, at least 12rem tall.
 #[derive(IntoElement)]
 pub struct FileSurfaceState {
@@ -814,6 +814,7 @@ impl RenderOnce for FileSurfaceState {
         // `.t3-fsurf { display: flex; flex-direction: column; align-items: center;
         // justify-content: center; gap: spacing-03; min-height: 12rem; padding: spacing-07;
         // text-align: center; background: layer-01; font-size: 0.875rem }`.
+        let id = self.id.clone();
         sans(div(), 14., 400)
             .id(self.id)
             .flex()
@@ -827,8 +828,14 @@ impl RenderOnce for FileSurfaceState {
             .bg(color(ColorRole::Layer01))
             .text_color(color(ColorRole::TextPrimary))
             .child(mark)
-            // `.t3-fsurf b { font-size: 0.875rem; font-weight: 600 }`.
-            .child(sans(div(), 14., 600).child(title.unwrap_or_default()))
+            // `.t3-fsurf b { font-size: 0.875rem; font-weight: 600 }`,
+            // selectable, so what a failure says can be copied.
+            .child(
+                sans(div(), 14., 600).child(gpui_kit::base::SelectableText::new(
+                    (id.clone(), "title"),
+                    title.unwrap_or_default(),
+                )),
+            )
             .when_some(self.body, |this, body| {
                 // `.t3-fsurf p { margin: 0; max-width: 24rem; font-size: 0.875rem;
                 // line-height: 1.42857; color: text-secondary }`.
