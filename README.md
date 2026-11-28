@@ -43,7 +43,7 @@ Minimum Rust 1.98.
 ```toml
 [dependencies]
 gpui-kit = "0.11"
-u0ui = { git = "https://github.com/u0-code/gpui-u0ui" }
+u0ui = "0.1"
 ```
 
 Use the `gpui-kit` version u0ui depends on, so GPUI and Kit resolve to one copy.

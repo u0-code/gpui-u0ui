@@ -41,7 +41,7 @@ Rust 最低版本 1.98。
 ```toml
 [dependencies]
 gpui-kit = "0.11"
-u0ui = { git = "https://github.com/u0-code/gpui-u0ui" }
+u0ui = "0.1"
 ```
 
 请使用与 u0ui 相同的 `gpui-kit` 版本，保证 GPUI 和 Kit 只有一份。先初始化 Kit，再初始化
