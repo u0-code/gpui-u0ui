@@ -196,9 +196,138 @@ pub fn paragraph() -> Div {
     div().type_style(PARAGRAPH)
 }
 
+/// A line of text with code in it (`<code>`, `.mono`): plain runs in IBM
+/// Plex Sans and code runs in IBM Plex Mono at the same size, shaped and
+/// wrapped as one text. A `HighlightStyle` cannot change the family, so
+/// the runs are a `StyledText`'s own ([`Self::styled`]).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Phrase {
+    runs: Vec<(gpui_kit::SharedString, bool)>,
+}
+
+impl Phrase {
+    /// An empty phrase.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// `text` with each occurrence of `code` in it set as code: for a
+    /// translated sentence whose value (an address, a path) reads as code.
+    pub fn marking(text: &str, code: &str) -> Self {
+        let mut phrase = Self::new();
+        if code.is_empty() {
+            return phrase.text(text.to_owned());
+        }
+        let mut rest = text;
+        while let Some(at) = rest.find(code) {
+            phrase = phrase.text(rest[..at].to_owned()).code(code.to_owned());
+            rest = &rest[at + code.len()..];
+        }
+        phrase.text(rest.to_owned())
+    }
+
+    /// Plain text after what the phrase holds.
+    pub fn text(self, text: impl Into<gpui_kit::SharedString>) -> Self {
+        self.push(text.into(), false)
+    }
+
+    /// Code after what the phrase holds.
+    pub fn code(self, code: impl Into<gpui_kit::SharedString>) -> Self {
+        self.push(code.into(), true)
+    }
+
+    fn push(mut self, text: gpui_kit::SharedString, code: bool) -> Self {
+        if !text.is_empty() {
+            self.runs.push((text, code));
+        }
+        self
+    }
+
+    /// Its runs: each text and whether it is code.
+    pub fn runs(&self) -> impl Iterator<Item = (&str, bool)> {
+        self.runs.iter().map(|(t, c)| (t.as_ref(), *c))
+    }
+
+    /// The whole text, as read aloud or typed ahead.
+    pub fn plain(&self) -> String {
+        self.runs.iter().map(|(t, _)| t.as_ref()).collect()
+    }
+
+    /// Whether it holds no text.
+    pub fn is_empty(&self) -> bool {
+        self.runs.is_empty()
+    }
+
+    /// The phrase as one text in `ink`, its plain runs Plex Sans at
+    /// `weight`, its code Plex Mono at the same weight; the size and line
+    /// height are the element's.
+    pub fn styled(&self, weight: u16, ink: gpui_kit::Hsla) -> gpui_kit::StyledText {
+        let (sans, mono) = (
+            font(FontFamilyKey::Sans, weight),
+            font(FontFamilyKey::Mono, weight),
+        );
+        let runs = self
+            .runs
+            .iter()
+            .map(|(t, code)| gpui_kit::TextRun {
+                len: t.len(),
+                font: if *code { mono.clone() } else { sans.clone() },
+                color: ink,
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            })
+            .collect();
+        gpui_kit::StyledText::new(self.plain()).with_runs(runs)
+    }
+}
+
+impl From<&str> for Phrase {
+    fn from(s: &str) -> Self {
+        Self::new().text(s.to_owned())
+    }
+}
+
+impl From<String> for Phrase {
+    fn from(s: String) -> Self {
+        Self::new().text(s)
+    }
+}
+
+impl From<gpui_kit::SharedString> for Phrase {
+    fn from(s: gpui_kit::SharedString) -> Self {
+        Self::new().text(s)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_phrase_marks_each_occurrence_of_its_code_and_keeps_the_whole_text() {
+        let p = Phrase::marking(
+            "Port 6006 on build-box, forwarded to 127.0.0.1:41873 on this Mac",
+            "127.0.0.1:41873",
+        );
+        assert_eq!(
+            p.runs().collect::<Vec<_>>(),
+            [
+                ("Port 6006 on build-box, forwarded to ", false),
+                ("127.0.0.1:41873", true),
+                (" on this Mac", false),
+            ]
+        );
+        assert_eq!(
+            p.plain(),
+            "Port 6006 on build-box, forwarded to 127.0.0.1:41873 on this Mac"
+        );
+        // A value the sentence does not hold leaves it plain.
+        assert_eq!(Phrase::marking("This Mac", "localhost").runs().count(), 1);
+        let built = Phrase::new().code("localhost:5173").text(" · This Mac");
+        assert_eq!(built.plain(), "localhost:5173 · This Mac");
+        assert!(Phrase::new().text("").is_empty());
+    }
 
     #[test]
     fn bare_paragraph_is_body_02_16_on_24() {

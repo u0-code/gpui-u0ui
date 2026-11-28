@@ -1,6 +1,7 @@
 //! T3 · Files & preview: [`PreviewChrome`], [`PreviewEmptyState`],
 //! [`MiniPlayer`] and [`DeviceControlsRail`] (`src/t3/workspace.jsx`,
-//! "Preview" in `src/t3.css`).
+//! "Preview" in `src/t3.css`); under a narrow chrome, [`PreviewStrip`] and
+//! [`ForwardedPortNote`] (u0's TerminalBrowser and RightColumnStates boards).
 use super::parts::{card_sub, child_id, icon_button};
 use crate::{
     components::{
@@ -18,8 +19,9 @@ use crate::{
         press::{self, Handler, rem},
         shell::{ConnectionStatus, ConnectionStatusDot},
     },
-    theme::color,
+    theme::{LayerLevel, color},
     tokens::ColorRole,
+    typography::Phrase,
 };
 use gpui_kit::{
     Animation, AnimationExt as _, AnyElement, App, AppContext as _, CursorStyle, ElementId, Entity,
@@ -96,6 +98,42 @@ struct AddressState {
     url: SharedString,
 }
 
+/// A [`PreviewChrome`]'s address field, made and kept by the caller to
+/// reach it from outside the bar ([`PreviewChrome::address`]): an "Open an
+/// address…" menu item focuses it with [`Self::focus`].
+#[derive(Clone)]
+pub struct PreviewAddress(Entity<AddressState>);
+
+impl PreviewAddress {
+    /// An empty address field; the chrome it is given to fills in its `url`.
+    pub fn new(window: &mut Window, cx: &mut App) -> Self {
+        let input = cx.new(|cx| InputState::new(window, cx));
+        Self(cx.new(|_| AddressState {
+            input,
+            url: SharedString::default(),
+        }))
+    }
+
+    /// Focus the field with its text selected, to type an address over it.
+    pub fn focus(&self, window: &mut Window, cx: &mut App) {
+        let input = self.0.read(cx).input.clone();
+        input.update(cx, |s, cx| {
+            s.focus(window, cx);
+            s.select_all(window, cx);
+        });
+    }
+
+    /// The field's focus handle.
+    pub fn focus_handle(&self, cx: &App) -> gpui_kit::FocusHandle {
+        self.0.read(cx).input.read(cx).focus_handle(cx)
+    }
+
+    /// The text in the field, typed or set.
+    pub fn text(&self, cx: &App) -> SharedString {
+        self.0.read(cx).input.read(cx).value().to_string().into()
+    }
+}
+
 /// The built-in browser's toolbar (`PreviewChrome`, `.t3-pchrome`): back,
 /// forward, reload or stop, the address field (a lock when `secure`, a
 /// sliding 2px bar while `loading`), the zoom when not 100%, the viewport
@@ -115,6 +153,7 @@ pub struct PreviewChrome {
     can_forward: bool,
     narrow: bool,
     more_menu: Vec<MenuItem>,
+    address: Option<PreviewAddress>,
     texts: PreviewChromeTexts,
     on_back: Option<Handler>,
     on_forward: Option<Handler>,
@@ -141,6 +180,7 @@ impl PreviewChrome {
             can_forward: false,
             narrow: false,
             more_menu: Vec::new(),
+            address: None,
             texts: PreviewChromeTexts::default(),
             on_back: None,
             on_forward: None,
@@ -207,6 +247,13 @@ impl PreviewChrome {
     /// its end edge) instead of calling `on_more`.
     pub fn more_menu(mut self, items: impl IntoIterator<Item = MenuItem>) -> Self {
         self.more_menu = items.into_iter().collect();
+        self
+    }
+
+    /// The address field the caller keeps, to focus it from elsewhere (a
+    /// menu item); by default the chrome keeps its own.
+    pub fn address(mut self, address: &PreviewAddress) -> Self {
+        self.address = Some(address.clone());
         self
     }
 
@@ -281,13 +328,16 @@ fn click(b: Button, f: Option<Handler>) -> Button {
 impl RenderOnce for PreviewChrome {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
-        let state = window.use_keyed_state((id.clone(), "address"), cx, {
-            let url = self.url.clone();
-            move |window, cx| AddressState {
-                input: cx.new(|cx| InputState::new(window, cx).default_value(url.clone())),
-                url,
-            }
-        });
+        let state = match &self.address {
+            Some(address) => address.0.clone(),
+            None => window.use_keyed_state((id.clone(), "address"), cx, {
+                let url = self.url.clone();
+                move |window, cx| AddressState {
+                    input: cx.new(|cx| InputState::new(window, cx).default_value(url.clone())),
+                    url,
+                }
+            }),
+        };
         // A new `url` prop replaces the field's text (`defaultValue` per mount).
         if state.read(cx).url != self.url {
             let input = state.read(cx).input.clone();
@@ -553,6 +603,9 @@ fn more_menu(
 
 /// `.pv-strip { min-height: 36px }`.
 pub const STRIP_HEIGHT: f32 = 36.;
+/// The servers' menu's width (`.pv-pop[aria-label="Dev servers"] { width:
+/// 336px }`, the TerminalBrowser board): room for each server's second line.
+pub const STRIP_MENU_WIDTH: f32 = 336.;
 
 /// The strip under a narrow [`PreviewChrome`] (`.pv-strip`, the
 /// TerminalBrowser board): the dev server the page is of, as a chip whose
@@ -565,6 +618,7 @@ pub struct PreviewStrip {
     port: Option<u16>,
     answering: bool,
     menu_label: SharedString,
+    heading: bool,
     servers: Vec<MenuItem>,
     machine: SharedString,
     action: Option<(SharedString, Handler)>,
@@ -579,6 +633,7 @@ impl PreviewStrip {
             port,
             answering: true,
             menu_label: SharedString::default(),
+            heading: false,
             servers: Vec::new(),
             machine: SharedString::default(),
             action: None,
@@ -593,6 +648,14 @@ impl PreviewStrip {
     ) -> Self {
         self.menu_label = label.into();
         self.servers = items.into_iter().collect();
+        self
+    }
+
+    /// Show the menu's name as its heading, above the servers (`.pv-pop-h`:
+    /// `Dev servers your terminals printed`). Default false: the name is
+    /// only read aloud.
+    pub fn heading(mut self, heading: bool) -> Self {
+        self.heading = heading;
         self
     }
 
@@ -659,16 +722,17 @@ impl RenderOnce for PreviewStrip {
             Rc::new(move |window, cx| set_open(!open, window, cx))
         })
         .into_any_element();
+        let items = strip_items(self.heading, &self.menu_label, self.servers);
         let server = menu::anchored_menu(
             &id,
             trigger,
             menu::MenuSpec {
-                items: self.servers,
+                items,
                 size: MenuSize::Sm,
                 label: self.menu_label,
                 open,
                 set_open,
-                min_width: None,
+                min_width: Some(STRIP_MENU_WIDTH),
                 on_unhandled_key: None,
             },
             window,
@@ -704,6 +768,101 @@ impl RenderOnce for PreviewStrip {
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::Sm)
                     .icon(CarbonIcon::Launch)
+                    .on_click(move |_, w, cx| f(w, cx))
+            }))
+    }
+}
+
+/// The strip's menu: its servers, under its name when it is shown.
+fn strip_items(heading: bool, label: &SharedString, servers: Vec<MenuItem>) -> Vec<MenuItem> {
+    heading
+        .then(|| MenuItem::heading(label.clone()))
+        .into_iter()
+        .chain(servers)
+        .collect()
+}
+
+// ── ForwardedPortNote ───────────────────────────────────────────────────
+
+/// `.pv-fwd { padding: 8px 8px 8px 12px }` (top, end, bottom, start).
+pub const NOTE_PADDING: [f32; 4] = [8., 8., 8., 12.];
+/// `.pv-fwd svg { margin-top: 8px }`, `.pv-fwd > span { padding-top: 8px }`:
+/// the icon and words level with the 32px button's label.
+pub const NOTE_TEXT_TOP: f32 = 8.;
+
+/// Under a [`PreviewStrip`], for a page of a server on another machine
+/// whose port is brought here (`.pv-fwd`, the RightColumnStates board): a
+/// plug, what is forwarded where (its address in mono), and one ghost
+/// action (Stop). On `layer-02`, ruled off below.
+#[derive(IntoElement)]
+pub struct ForwardedPortNote {
+    id: ElementId,
+    text: Phrase,
+    action: Option<(SharedString, Handler)>,
+}
+
+impl ForwardedPortNote {
+    /// A note saying `text` (`Port 6006 on build-box, forwarded to
+    /// 127.0.0.1:41873 …`; [`Phrase::marking`] sets its address as code).
+    pub fn new(id: impl Into<ElementId>, text: impl Into<Phrase>) -> Self {
+        Self {
+            id: id.into(),
+            text: text.into(),
+            action: None,
+        }
+    }
+
+    /// The action at the end: a small ghost button (`Stop`).
+    pub fn action(
+        mut self,
+        label: impl Into<SharedString>,
+        f: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.action = Some((label.into(), Rc::new(f)));
+        self
+    }
+}
+
+impl RenderOnce for ForwardedPortNote {
+    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+        let id = self.id.clone();
+        let [top, end, bottom, start] = NOTE_PADDING;
+        // `.pv-fwd { display: flex; align-items: flex-start; gap: 8px; flex-shrink: 0;
+        // border-bottom: 1px solid border-subtle-01; background: layer-02;
+        // font-size: 12px; line-height: 16px; color: text-secondary }`.
+        sans(div(), 12., 400)
+            .id(id.clone())
+            .flex()
+            .flex_row()
+            .flex_none()
+            .items_start()
+            .gap(px(8.))
+            .pt(px(top))
+            .pr(px(end))
+            .pb(px(bottom))
+            .pl(px(start))
+            .line_height(px(16.))
+            .border_b_1()
+            .border_color(color(ColorRole::BorderSubtle01))
+            .bg(color(ColorRole::Layer02))
+            // `.pv-fwd svg { fill: icon-secondary; flex: none; margin-top: 8px }`.
+            .child(div().flex_none().mt(px(NOTE_TEXT_TOP)).child(press::icon(
+                CarbonIcon::Plug,
+                16.,
+                color(ColorRole::IconSecondary),
+            )))
+            // `.pv-fwd > span { flex: 1; min-width: 0; padding-top: 8px }`.
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .pt(px(NOTE_TEXT_TOP))
+                    .child(self.text.styled(400, color(ColorRole::TextSecondary))),
+            )
+            .children(self.action.map(|(label, f)| {
+                Button::new((id.clone(), "action"), label)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
                     .on_click(move |_, w, cx| f(w, cx))
             }))
     }
@@ -1206,12 +1365,26 @@ pub const DEVICE_ACTIONS: [&str; 6] = ["Home", "Rotate", "Screenshot", "Record",
 
 /// A vertical device toolbar (`DeviceControlsRail`, `.t3-rail`): ghost md
 /// icon buttons with their tooltips on the left, a divider before the
-/// fourth, on `layer-01`.
+/// fourth, on `layer-01` (or the layer it is set to, [`Self::layer`]).
 #[derive(IntoElement)]
 pub struct DeviceControlsRail {
     id: ElementId,
     actions: Vec<DeviceAction>,
+    layer: LayerLevel,
     on_action: Option<IndexHandler>,
+}
+
+/// The rail's `(background, border)` at `layer`: the layer's own surface,
+/// and above the first, outlined in the border of the surface it stands
+/// on (FilesDevices: `.t3-rail { border: 1px solid border-subtle-01;
+/// background: layer-02 }`).
+pub fn rail_look(layer: LayerLevel) -> (ColorRole, Option<ColorRole>) {
+    let under = match layer {
+        LayerLevel::One => None,
+        LayerLevel::Two => Some(LayerLevel::One),
+        LayerLevel::Three => Some(LayerLevel::Two),
+    };
+    (layer.layer(), under.map(LayerLevel::border_subtle))
 }
 
 impl DeviceControlsRail {
@@ -1223,8 +1396,16 @@ impl DeviceControlsRail {
                 .iter()
                 .map(|a| DeviceAction::new(*a))
                 .collect(),
+            layer: LayerLevel::One,
             on_action: None,
         }
+    }
+
+    /// The layer it is drawn on (default `One`, `layer-01`): `Two` for a
+    /// rail standing on a `layer-01` panel (the FilesDevices board).
+    pub fn layer(mut self, layer: LayerLevel) -> Self {
+        self.layer = layer;
+        self
     }
 
     /// Replace the actions (`actions`).
@@ -1269,12 +1450,16 @@ impl RenderOnce for DeviceControlsRail {
             );
         }
         // `.t3-rail { display: inline-flex; flex-direction: column; background: layer-01 }`.
+        let (background, border) = rail_look(self.layer);
         div()
             .id(id)
             .flex()
             .flex_col()
             .flex_none()
-            .bg(color(ColorRole::Layer01))
+            .bg(color(background))
+            .when_some(border, |this, border| {
+                this.border_1().border_color(color(border))
+            })
             .children(children)
     }
 }
@@ -1310,6 +1495,34 @@ mod tests {
         assert!((load_left(1.) - 1.).abs() < 1e-5);
         // `ease-in-out` is symmetric: halfway is the midpoint.
         assert!((load_left(0.5) - 0.3).abs() < 1e-3);
+    }
+
+    #[test]
+    fn a_rail_on_layer_two_is_layer_02_outlined_in_border_subtle_01() {
+        assert_eq!(rail_look(LayerLevel::One), (ColorRole::Layer01, None));
+        assert_eq!(
+            rail_look(LayerLevel::Two),
+            (ColorRole::Layer02, Some(ColorRole::BorderSubtle01))
+        );
+        assert_eq!(
+            rail_look(LayerLevel::Three),
+            (ColorRole::Layer03, Some(ColorRole::BorderSubtle02))
+        );
+    }
+
+    #[test]
+    fn the_strip_s_menu_shows_its_name_as_a_heading_only_when_asked() {
+        let label = SharedString::from("Dev servers your terminals printed");
+        let servers = || vec![MenuItem::item("dev"), MenuItem::item("storybook")];
+        assert_eq!(strip_items(false, &label, servers()).len(), 2);
+        assert_eq!(strip_items(true, &label, servers()).len(), 3);
+        assert_eq!(STRIP_MENU_WIDTH, 336.);
+    }
+
+    #[test]
+    fn the_forwarded_note_is_padded_as_pv_fwd() {
+        assert_eq!(NOTE_PADDING, [8., 8., 8., 12.]);
+        assert_eq!(NOTE_TEXT_TOP, 8.);
     }
 
     #[test]
