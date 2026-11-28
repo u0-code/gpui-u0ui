@@ -12,6 +12,12 @@
 //!   loads or when it fails, the fallback shows (`onError → setOk(false)`).
 //! - **Group**: `.cu-avatar-group > .cu-avatar { box-shadow: 0 0 0 2px
 //!   var(--background) }` and `+ .cu-avatar { margin-left: -0.5rem }`.
+//! - **Marks**: `MarkGroup` overlaps marks that are not people (an
+//!   agent's logo, a brand glyph) as `AvatarGroup` overlaps avatars: the
+//!   same ring and the same overlap for its size (a quarter of it, as
+//!   `-0.5rem` of the 2rem avatar), each mark on a square of the ring's
+//!   colour, square as Carbon's shapes are, so what it overlaps does not
+//!   show through it.
 //! - **Behavior**: none. Kit's `Avatar` derives colors from the name and draws
 //!   its own sizes; Carbon's palette is the tag pairs, so this is drawn here.
 use crate::{
@@ -20,7 +26,7 @@ use crate::{
     typography::font,
 };
 use gpui_kit::{
-    AnyElement, App, BoxShadow, Hsla, ImageSource, IntoElement, ObjectFit, ParentElement,
+    AnyElement, App, BoxShadow, Hsla, ImageSource, IntoElement, ObjectFit, ParentElement, Pixels,
     RenderOnce, SharedString, Styled, StyledImage as _, Window, div, img,
     prelude::FluentBuilder as _, px, rems,
 };
@@ -290,6 +296,68 @@ impl RenderOnce for AvatarGroup {
     }
 }
 
+/// `MarkGroup`: overlapping marks, each `size` square on the ring's colour
+/// and ringed in it, the next overlapping it by a quarter of `size`.
+#[derive(IntoElement)]
+pub struct MarkGroup {
+    size: f32,
+    ring: Hsla,
+    marks: Vec<AnyElement>,
+}
+
+impl MarkGroup {
+    /// An empty group of marks `size` px square, ringed in `background`.
+    pub fn new(size: f32) -> Self {
+        Self {
+            size,
+            ring: color(ColorRole::Background),
+            marks: Vec::new(),
+        }
+    }
+
+    /// The colour of what the group lies on, where that is not
+    /// `background` (a layer, a sidebar).
+    pub fn ring(mut self, ring: Hsla) -> Self {
+        self.ring = ring;
+        self
+    }
+
+    /// Add marks, drawn at the group's size.
+    pub fn marks(mut self, marks: impl IntoIterator<Item = impl IntoElement>) -> Self {
+        self.marks
+            .extend(marks.into_iter().map(IntoElement::into_any_element));
+        self
+    }
+
+    /// How far each mark after the first lies over the one before.
+    pub fn overlap(size: f32) -> Pixels {
+        px(size * GROUP_OVERLAP / AvatarSize::Md.diameter())
+    }
+}
+
+impl RenderOnce for MarkGroup {
+    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+        let (size, ring) = (rems(self.size / crate::tokens::REM_PX), self.ring);
+        let overlap = Self::overlap(self.size);
+        div().flex().flex_row().flex_none().items_center().children(
+            self.marks.into_iter().enumerate().map(move |(i, mark)| {
+                div()
+                    .flex_none()
+                    .size(size)
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .bg(ring)
+                    .when(i > 0, |this| this.ml(-overlap))
+                    .shadow(vec![
+                        BoxShadow::new(px(0.), px(0.), ring).spread_radius(px(GROUP_RING)),
+                    ])
+                    .child(mark)
+            }),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -314,5 +382,15 @@ mod tests {
             (FALLBACK_FONT_SIZE, GROUP_RING, GROUP_OVERLAP),
             (12., 2., 8.)
         );
+    }
+
+    #[test]
+    fn marks_overlap_by_a_quarter_as_avatars_do() {
+        // `-0.5rem` of a 2rem avatar: 8 of 32.
+        assert_eq!(
+            MarkGroup::overlap(AvatarSize::Md.diameter()),
+            px(GROUP_OVERLAP)
+        );
+        assert_eq!(MarkGroup::overlap(12.), px(3.));
     }
 }
