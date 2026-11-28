@@ -1,11 +1,12 @@
 //! T3 · Diff & review › ReviewThreadCard: the reference discussion (two
 //! comments) and pending draft, u0's unsent draft (Not sent yet, Edit,
-//! Delete), and a live card whose Resolve toggles.
+//! Delete), and a live card whose Resolve toggles and whose replies, sent
+//! with Enter, are added to it.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
-    AnyElement, AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled,
-    Window, div, rems,
+    AnyElement, AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render,
+    SharedString, Styled, Window, div, rems,
 };
 use u0ui::components::AvatarColor;
 use u0ui::prelude::*;
@@ -17,6 +18,7 @@ pub fn build(_: &mut Window, cx: &mut App) -> AnyView {
         resolved: false,
         pending: false,
         replies: 1,
+        said: Vec::new(),
     })
     .into()
 }
@@ -25,6 +27,8 @@ struct Page {
     resolved: bool,
     pending: bool,
     replies: usize,
+    /// The replies sent in the live card.
+    said: Vec<SharedString>,
 }
 
 fn discussion() -> [ReviewComment; 2] {
@@ -71,8 +75,21 @@ impl Render for Page {
             .child(ReviewThreadCard::new("rtc-ref-1").pending(true).comments([
                 ReviewComment::new("you", "now", "Nit: rename tz to timeZone."),
             ]));
+        let said = self
+            .said
+            .iter()
+            .map(|s| ReviewComment::new("you", "now", s.clone()).color(AvatarColor::Gray));
         let live = ReviewThreadCard::new("rtc-live")
-            .comments(discussion().into_iter().take(self.replies + 1))
+            .comments(discussion().into_iter().take(self.replies + 1).chain(said))
+            .on_reply({
+                let entity = entity.clone();
+                move |text, _, cx| {
+                    entity.update(cx, |this, cx| {
+                        this.said.push(text);
+                        cx.notify();
+                    })
+                }
+            })
             .resolved(self.resolved)
             .pending(self.pending)
             .on_resolve({
@@ -111,7 +128,7 @@ impl Render for Page {
             ));
         Body::new()
             .playground(live)
-            .hint("Resolve conversation toggles the resolved state")
+            .hint("Resolve conversation toggles the resolved state; Enter in Reply… adds a reply")
             .config(config)
             .example(controls::block("Reference preview", reference))
             .example(controls::block(

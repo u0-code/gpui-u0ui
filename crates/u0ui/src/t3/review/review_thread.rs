@@ -13,9 +13,9 @@ use crate::{
     typography::font,
 };
 use gpui_kit::{
-    AnyElement, App, AppContext as _, ElementId, InteractiveElement as _, IntoElement,
-    ParentElement, RenderOnce, SharedString, Styled, Window, div, prelude::FluentBuilder as _, px,
-    relative,
+    AnyElement, App, AppContext as _, Context, ElementId, Entity, InteractiveElement as _,
+    IntoElement, ParentElement, RenderOnce, SharedString, Styled, Subscription, Window,
+    component::input::InputEvent, div, prelude::FluentBuilder as _, px, relative,
 };
 use std::rc::Rc;
 
@@ -119,6 +119,44 @@ impl Default for ReviewThreadTexts {
 }
 
 type Handler = Rc<dyn Fn(&mut Window, &mut App)>;
+type ReplyHandler = Rc<dyn Fn(SharedString, &mut Window, &mut App)>;
+
+/// What a reply field holds, to be sent as a reply: its words trimmed;
+/// none while it holds nothing but space.
+pub fn reply_text(value: &str) -> Option<SharedString> {
+    let text = value.trim();
+    (!text.is_empty()).then(|| SharedString::from(text.to_owned()))
+}
+
+/// A card's reply field, and what Enter there does with its words.
+struct Reply {
+    input: Entity<InputState>,
+    on_reply: Option<ReplyHandler>,
+    _enter: Subscription,
+}
+
+impl Reply {
+    fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let input = cx.new(|cx| InputState::new(window, cx));
+        let enter = cx.subscribe_in(&input, window, |this: &mut Self, input, e, window, cx| {
+            if !matches!(e, InputEvent::PressEnter { .. }) {
+                return;
+            }
+            let (Some(f), Some(text)) =
+                (this.on_reply.clone(), reply_text(&input.read(cx).value()))
+            else {
+                return;
+            };
+            input.update(cx, |i, cx| i.set_value("", window, cx));
+            f(text, window, cx);
+        });
+        Self {
+            input,
+            on_reply: None,
+            _enter: enter,
+        }
+    }
+}
 
 /// An inline review thread: comments (24px avatar, author, time, body), a
 /// reply field, Resolve and Add to chat. `layer-02` with a 1px inset
@@ -126,6 +164,8 @@ type Handler = Rc<dyn Fn(&mut Window, &mut App)>;
 /// unsubmitted draft) adds a 3px `support-warning` start bar and a Pending tag.
 /// A [`draft`](Self::draft) is your own comment not sent yet: pending, and its
 /// footer is "Not sent yet" with Edit and Delete instead of the reply field.
+/// Enter in the reply field sends its words to [`on_reply`](Self::on_reply)
+/// and empties it.
 #[derive(IntoElement)]
 pub struct ReviewThreadCard {
     id: ElementId,
@@ -136,6 +176,7 @@ pub struct ReviewThreadCard {
     in_diff: bool,
     on_resolve: Option<Handler>,
     on_add_to_chat: Option<Handler>,
+    on_reply: Option<ReplyHandler>,
     on_edit: Option<Handler>,
     on_delete: Option<Handler>,
     texts: ReviewThreadTexts,
@@ -153,6 +194,7 @@ impl ReviewThreadCard {
             in_diff: false,
             on_resolve: None,
             on_add_to_chat: None,
+            on_reply: None,
             on_edit: None,
             on_delete: None,
             texts: ReviewThreadTexts::default(),
@@ -220,6 +262,13 @@ impl ReviewThreadCard {
     /// Add to chat pressed.
     pub fn on_add_to_chat(mut self, f: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         self.on_add_to_chat = Some(Rc::new(f));
+        self
+    }
+
+    /// Enter pressed in the reply field holding words: the words, trimmed;
+    /// the field is emptied.
+    pub fn on_reply(mut self, f: impl Fn(SharedString, &mut Window, &mut App) + 'static) -> Self {
+        self.on_reply = Some(Rc::new(f));
         self
     }
 
@@ -396,12 +445,12 @@ fn draft_foot(
 impl RenderOnce for ReviewThreadCard {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
-        let reply = window
-            .use_keyed_state((id.clone(), "reply"), cx, |window, cx| {
-                cx.new(|cx| InputState::new(window, cx))
-            })
-            .read(cx)
-            .clone();
+        let model = window.use_keyed_state((id.clone(), "reply"), cx, Reply::new);
+        let on_reply = self.on_reply.clone();
+        let reply = model.update(cx, |m, _| {
+            m.on_reply = on_reply;
+            m.input.clone()
+        });
         let pending = self.is_pending();
         let comments = self.comments.iter().enumerate().map(|(i, c)| {
             comment(
@@ -474,6 +523,16 @@ impl RenderOnce for ReviewThreadCard {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_reply_is_sent_trimmed_and_never_empty() {
+        assert_eq!(
+            reply_text("  Fixed in 4a1c.\n").as_deref(),
+            Some("Fixed in 4a1c.")
+        );
+        assert_eq!(reply_text(" \n\t"), None);
+        assert_eq!(reply_text(""), None);
+    }
 
     #[test]
     fn a_comment_with_no_time_shows_none() {
