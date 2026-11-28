@@ -7350,7 +7350,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
 name = "u0ui"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "chrono",
  "gpui-base",
@@ -7361,14 +7361,14 @@ dependencies = [
 
 [[package]]
 name = "u0ui-codegen"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "u0ui-gallery"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "anyhow",
  "gpui-kit",
