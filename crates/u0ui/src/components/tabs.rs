@@ -26,12 +26,15 @@
 //!   the panel are siblings of the surrounding layout and take its gap (the
 //!   reference previews sit in `.cu-stack { gap: spacing-06 }`).
 //!   [`Tabs::panel_gap`] reproduces that gap; it is 0 by default.
-//! - **Flush panel**: a tab set inside a card whose own padding already
-//!   insets it (`.np-card .cds--tab-content { padding: 24px 0 0 }` on the
-//!   NoProjects board) lays its panel flush, [`Tabs::flush_panel`]: no
-//!   padding, so the panel's content shares the tab list's edges, its
-//!   distance from the list given by `panel_gap`. It stays a tab stop with
-//!   its focus outline.
+//! - **Flush**: a tab set inside a card whose own padding already insets
+//!   it (`.np-card .cds--tab-content { padding: 24px 0 0 }` and
+//!   `.np-card [role=tab]:first-child { padding-left: 0 }` on the
+//!   NoProjects board) lies flush with the card's content, [`Tabs::flush`]:
+//!   the panel has no padding, its distance from the list given by
+//!   `panel_gap`, and the first tab no padding before its label, so its
+//!   label and its indicator begin at the card's content edge, as the
+//!   panel's content does. The panel stays a tab stop with its focus
+//!   outline; the first tab's focus ring lies 2px into the card's padding.
 //! - **Motion**: `transition: color 70ms, border 70ms, background-color 70ms`
 //!   (productive standard) on every tab.
 use super::{form::inset_outline, overlay::rem};
@@ -284,7 +287,7 @@ pub struct Tabs {
     label: SharedString,
     activation: TabsActivation,
     panel_gap: AbsoluteLength,
-    flush_panel: bool,
+    flush: bool,
 }
 
 impl Tabs {
@@ -302,7 +305,7 @@ impl Tabs {
             label: SharedString::default(),
             activation: TabsActivation::Automatic,
             panel_gap: rem(0.).into(),
-            flush_panel: false,
+            flush: false,
         }
     }
 
@@ -366,10 +369,11 @@ impl Tabs {
         self
     }
 
-    /// Lay the panel flush, without `.cds--tab-content`'s padding: for tabs
-    /// in a card already padded (see the module docs). Default false.
-    pub fn flush_panel(mut self, flush: bool) -> Self {
-        self.flush_panel = flush;
+    /// Lay the tabs flush with a card already padded: the panel without
+    /// `.cds--tab-content`'s padding, the first tab without padding before
+    /// its label (see the module docs). Default false.
+    pub fn flush(mut self, flush: bool) -> Self {
+        self.flush = flush;
         self
     }
 
@@ -401,6 +405,7 @@ impl RenderOnce for Tabs {
                 |this| this.w_full(),
             );
         let count = self.triggers.len();
+        let flush = self.flush;
         let selected_index = self.triggers.iter().position(|t| t.value == selected);
         // Automatic activation: select where the arrow keys take focus. Kit
         // moves focus in its own key handler; this runs in the capture phase
@@ -466,6 +471,10 @@ impl RenderOnce for Tabs {
             // (`--selected { box-shadow: inset 0 2px … }`) and is dropped on
             // the tab after it (`--selected + .cds--tabs__nav-item { box-shadow: none }`).
             let no_divider = state.selected || selected_index.is_some_and(|s| s + 1 == index);
+            // Flush, the first tab's label begins at the list's edge: no
+            // padding before it, and its focus ring's border drawn left of
+            // the edge.
+            let flush_first = flush && index == 0;
             let tab = gpui_kit::base::Tab::new(tab_id.clone())
                 .selected(state.selected)
                 .disabled(trigger.disabled)
@@ -483,6 +492,7 @@ impl RenderOnce for Tabs {
                 // the ring sits inside the tab, so the tab is as wide as
                 // Carbon's (label + 2rem), not 4px wider.
                 .px(rem(16. - FOCUS_RING))
+                .when(flush_first, |this| this.pl_0().ml(px(-FOCUS_RING)))
                 .border_2()
                 .border_color(Hsla::transparent_black())
                 .focus_visible(|s| s.border_color(color(ColorRole::Focus)))
@@ -531,7 +541,7 @@ impl RenderOnce for Tabs {
                     // The bottom indicator covers the reserved border.
                     TabsVariant::Line => div()
                         .absolute()
-                        .left(px(-2.))
+                        .left(px(if flush_first { 0. } else { -2. }))
                         .right(px(-2.))
                         .bottom(px(-2.))
                         .h(px(2.))
@@ -567,7 +577,6 @@ impl RenderOnce for Tabs {
             .into_iter()
             .find(|(value, _)| *value == selected)
             .map(|(_, content)| content);
-        let flush = self.flush_panel;
         let panel = show_panel.then(|| {
             let look = PanelLook::of(variant);
             let focus = window
@@ -670,8 +679,8 @@ mod tests {
         assert!(!shows_panel(0));
         assert!(shows_panel(1));
         assert_eq!(Tabs::new("t").panel_gap, rem(0.).into());
-        assert!(!Tabs::new("t").flush_panel);
-        assert!(Tabs::new("t").flush_panel(true).flush_panel);
+        assert!(!Tabs::new("t").flush);
+        assert!(Tabs::new("t").flush(true).flush);
         assert_eq!(
             Tabs::new("t")
                 .panel_gap(crate::tokens::SPACING_06)

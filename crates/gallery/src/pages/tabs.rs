@@ -92,7 +92,7 @@ impl Render for TabsPage {
                     .variant(TabsVariant::ALL[self.variant])
                     .activation(TabsActivation::ALL[self.activation])
                     .full_width(self.full_width)
-                    .flush_panel(self.flush)
+                    .flush(self.flush)
                     .value(self.value.clone())
                     .on_value_change({
                         let entity = entity.clone();
@@ -186,7 +186,7 @@ impl Render for TabsPage {
             ))
             .child(controls::toggle(
                 "tabs-flush",
-                "flush panel (in a padded card)",
+                "flush (in a padded card)",
                 self.flush,
                 toggle(|this, on| this.flush = on),
             ));
