@@ -1,6 +1,7 @@
 //! T3 · Pull requests & issues › PullRequestTimeline: the reference events
 //! (push, change-request review with reactions, label, comment, merge) with
-//! working reaction pills, and ReactionBar on its own.
+//! working reaction pills, a card whose body the host draws, and
+//! ReactionBar on its own.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
@@ -106,6 +107,28 @@ impl Render for Page {
                 "Reference preview",
                 div().w_full().max_w(rems(42.5)).child(
                     PullRequestTimeline::new("tl-ref").events(events(reference_reactions())),
+                ),
+            ))
+            .example(controls::block(
+                "A card whose body the host draws (u0: a comment's Markdown)",
+                div().w_full().max_w(rems(42.5)).child(
+                    PullRequestTimeline::new("tl-content").events([TimelineEvent::new(
+                        EventKind::Comment,
+                        "ana",
+                        "20m",
+                    )
+                    .content(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap(rems(0.5))
+                            .child(
+                                div()
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                    .child("Ran"),
+                            )
+                            .child("cargo test -p gpui-base: 457 passed"),
+                    )]),
                 ),
             ))
             .example(controls::block("ReactionBar", bar))
