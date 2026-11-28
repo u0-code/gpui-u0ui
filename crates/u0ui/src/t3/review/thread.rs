@@ -13,8 +13,8 @@ use crate::{
         base::{Spin, Status, warning_glyph},
         craft::{self, focus_handle, focus_visible, mono, press, rem, sans, sub},
         shell::{
-            BadgeSize, ConnectionStatus, EnvironmentBadge, IconMenu, IdentitySize, LayoutPanel,
-            MachineKind, PanelLayoutControls, ProjectFavicon, StatusPill,
+            BadgeSize, ConnectionStatus, Count, EnvironmentBadge, IconMenu, IdentitySize,
+            LayoutPanel, MachineKind, PanelLayoutControls, ProjectFavicon, StatusPill,
         },
     },
     theme::color,
@@ -985,7 +985,7 @@ impl RenderOnce for GitActionsControl {
         let chip = (self.files > 0 && !count_in_label).then(|| {
             // `.t3-gitctl-n { margin-left: 8px; padding: 0 4px; layer-02; 11px/16px; pill }`.
             let (chip_bg, chip_ink) = git_chip_colors(self.approval_pending);
-            sans(div(), 11., 400)
+            sans(div(), 12., 400)
                 .ml(rem(8.))
                 .px(rem(4.))
                 .line_height(rem(16.))
@@ -1207,18 +1207,6 @@ impl ParentElement for ThreadDetailsSection {
     }
 }
 
-/// `.t3-shelf-count`: an 11px `text-secondary` count on a
-/// `layer-accent-01` pill.
-pub(crate) fn count_chip(n: usize) -> gpui_kit::Div {
-    sans(div(), 11., 400)
-        .px(rem(4.))
-        .line_height(rem(16.))
-        .rounded(rem(16.))
-        .bg(color(ColorRole::LayerAccent01))
-        .text_color(color(ColorRole::TextSecondary))
-        .child(n.to_string())
-}
-
 impl RenderOnce for ThreadDetailsSection {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
@@ -1258,7 +1246,7 @@ impl RenderOnce for ThreadDetailsSection {
             // `.t3-dsec-head b`: no weight rule, so Carbon's `b { font: inherit }`
             // keeps it 400.
             .child(sans(div(), 14., 400).child(self.title.clone()))
-            .when_some(self.count, |b, n| b.child(count_chip(n)))
+            .when_some(self.count, |b, n| b.child(Count::new(n)))
             .when(ring, |b| b.child(craft::focus_ring()));
         div()
             .id(id)

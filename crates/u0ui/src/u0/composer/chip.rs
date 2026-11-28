@@ -316,7 +316,7 @@ impl RenderOnce for ComposerChip {
                     .child(
                         // `.g-cchip-top { display: flex; gap: var(--spacing-03);
                         // font-size: 0.6875rem }`.
-                        sans(div(), 11., 400)
+                        sans(div(), 12., 400)
                             .flex()
                             .items_center()
                             .gap(tokens::SPACING_03)
@@ -330,7 +330,7 @@ impl RenderOnce for ComposerChip {
                                 // `.g-cchip-state { color: var(--text-primary);
                                 // font-weight: 600 }` with its 6px dot, 4px before.
                                 d.child(
-                                    sans(div(), 11., 600)
+                                    sans(div(), 12., 600)
                                         .flex()
                                         .items_center()
                                         .gap(px(4.))

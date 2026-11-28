@@ -241,7 +241,7 @@ impl RenderOnce for ActionButton {
                     .border_color(ink.opacity(0.7))
                     .text_color(ink.opacity(0.7))
                     .font(font(FontFamilyKey::Sans, 400))
-                    .text_size(rem(11.))
+                    .text_size(rem(12.))
                     .child(label)
                     .into_any_element(),
                 Part::Key(label, KeyCap::Bare) => div()

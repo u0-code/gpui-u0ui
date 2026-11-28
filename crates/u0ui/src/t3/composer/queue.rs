@@ -389,7 +389,7 @@ impl RenderOnce for QueuedRunsControl {
                                     .justify_center()
                                     .size(rem(20.))
                                     .bg(color(ColorRole::LayerAccent01))
-                                    .text_size(rem(11.))
+                                    .text_size(rem(12.))
                                     .text_color(color(ColorRole::TextPrimary))
                                     .child(SharedString::from((i + 1).to_string())),
                             )

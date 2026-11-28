@@ -735,7 +735,7 @@ impl RenderOnce for SettingsRow {
             // `.g-over-tag { padding: 0 spacing-02; background: tag-background-blue;
             // color: tag-color-blue; font-size: 0.6875rem; line-height: 1rem; border-radius: 16 }`.
             title = title.child(
-                sans(div(), 11., 400)
+                sans(div(), 12., 400)
                     .line_height(rem(16.))
                     .px(rem(4.))
                     .rounded(BORDER_RADIUS_16)
@@ -762,7 +762,7 @@ impl RenderOnce for SettingsRow {
             // font-size: 0.6875rem; color: text-secondary }`.
             let ink = color(ColorRole::TextSecondary);
             title = title.child(
-                sans(div(), 11., 400)
+                sans(div(), 12., 400)
                     .id((id.clone(), "lock"))
                     .flex()
                     .flex_row()

@@ -430,7 +430,7 @@ impl RenderOnce for ThreadRow {
             // var(--tag-background-cool-gray); color: var(--tag-color-cool-gray);
             // font-size: 0.6875rem; line-height: 1rem; font-weight: 400;
             // border-radius: 16 }`.
-            sans(div(), 11., 400)
+            sans(div(), 12., 400)
                 .flex_none()
                 .line_height(rem(16.))
                 .px(tokens::SPACING_02)

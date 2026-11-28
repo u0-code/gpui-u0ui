@@ -233,7 +233,7 @@ impl RenderOnce for ComposerCommandMenu {
                                     .ml_auto()
                                     .flex_none()
                                     .px(rem(4.))
-                                    .text_size(rem(11.))
+                                    .text_size(rem(12.))
                                     .line_height(rem(16.))
                                     .bg(color(ColorRole::LayerAccent01))
                                     .text_color(secondary)
