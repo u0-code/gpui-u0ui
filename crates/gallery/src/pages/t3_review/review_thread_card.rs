@@ -1,5 +1,6 @@
 //! T3 · Diff & review › ReviewThreadCard: the reference discussion (two
-//! comments) and pending draft, and a live card whose Resolve toggles.
+//! comments) and pending draft, u0's unsent draft (Not sent yet, Edit,
+//! Delete), and a live card whose Resolve toggles.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
@@ -113,5 +114,18 @@ impl Render for Page {
             .hint("Resolve conversation toggles the resolved state")
             .config(config)
             .example(controls::block("Reference preview", reference))
+            .example(controls::block(
+                "Draft not sent yet (u0 Main board)",
+                ReviewThreadCard::new("rtc-draft")
+                    .draft(true)
+                    .comments([ReviewComment::new(
+                        "You",
+                        "10:22",
+                        "Put g90 before g100, like the Carbon docs.",
+                    )
+                    .note("on line 15")
+                    .icon(CarbonIcon::User)
+                    .color(AvatarColor::Gray)]),
+            ))
     }
 }

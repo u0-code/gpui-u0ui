@@ -28,6 +28,13 @@
 //!   / `icon-primary`), no hover fill, a 2px `focus-inverse` / `focus` inset
 //!   outline (`transition: outline 110ms`). Closing unmounts the notification
 //!   (Carbon has no hide transition) after calling `on_close`.
+//! - **Rich description**: [`Alert::description_inlines`] sets the subtitle
+//!   as one wrapping paragraph of [`Inline`] runs, so a command or a path
+//!   reads in mono inside the sentence (u0's `EmptyStates` board:
+//!   `.esb-mono { font-family: var(--font-mono); font-size: 12px }`). GPUI
+//!   runs cannot change size, so the mono runs use the inline-code face
+//!   ([`inline_code_font`], 13px in the 14px subtitle), the nearest the
+//!   text system draws; a link is underlined in `link-primary` and opens.
 //! - **Behavior**: the buttons are Base buttons (focus, Enter/Space, pointer).
 //! - **Words** (u0's, not Carbon's): the title and the plain text given by
 //!   [`Alert::words`] are selectable (Base's `SelectableText`). With
@@ -38,18 +45,20 @@
 //!   a link (`link-primary`, `body-compact-01`) to show all, then fewer.
 use super::form::{inset_outline, rem};
 use super::overlay::Callback;
+use super::typography::Inline;
 use crate::{
     icons::{CarbonIcon, Icon, IconSize},
     motion::{self, Curve, Motion, Speed},
     theme::color,
-    tokens::{ColorRole, TypeStyle},
-    typography::TypeStyled as _,
+    tokens::{ColorRole, FontFamilyKey, TypeStyle},
+    typography::{TypeStyled as _, font, inline_code_font},
 };
 use gpui_kit::base::SelectableText;
 use gpui_kit::{
     AnyElement, App, ClipboardItem, CursorStyle, ElementId, Hsla, InteractiveElement as _,
-    IntoElement, MouseButton, ParentElement, RenderOnce, SharedString,
-    StatefulInteractiveElement as _, Styled, Window, div, prelude::FluentBuilder as _, px,
+    InteractiveText, IntoElement, MouseButton, ParentElement, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled, StyledText, TextRun, UnderlineStyle, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -425,13 +434,70 @@ impl AlertAction {
     }
 }
 
+/// One piece of an alert's description.
+enum Description {
+    /// Any element.
+    Element(AnyElement),
+    /// A paragraph of runs, coloured as the alert's text.
+    Inlines(Vec<Inline>),
+}
+
+/// Text, its runs, and the link ranges with their targets.
+pub type DescriptionRuns = (
+    String,
+    Vec<TextRun>,
+    Vec<(std::ops::Range<usize>, SharedString)>,
+);
+
+/// The text of `inlines` and its runs in `ink`: [`Inline::Code`] in the
+/// inline-code face with no fill (`.esb-mono` has none), a link underlined
+/// in `link-primary`; with the link ranges and their targets.
+pub fn description_runs(inlines: &[Inline], ink: Hsla) -> DescriptionRuns {
+    let mut text = String::new();
+    let mut runs = Vec::new();
+    let mut links = Vec::new();
+    for inline in inlines {
+        let (s, run_font, run_color, underline) = match inline {
+            Inline::Text(s) => (s, font(FontFamilyKey::Sans, 400), ink, None),
+            Inline::Code(s) => (s, inline_code_font(), ink, None),
+            Inline::Link(s, _) => {
+                let link = color(ColorRole::LinkPrimary);
+                (
+                    s,
+                    font(FontFamilyKey::Sans, 400),
+                    link,
+                    Some(UnderlineStyle {
+                        thickness: px(1.),
+                        color: Some(link),
+                        wavy: false,
+                    }),
+                )
+            }
+        };
+        let start = text.len();
+        text.push_str(s);
+        if let Inline::Link(_, href) = inline {
+            links.push((start..text.len(), href.clone()));
+        }
+        runs.push(TextRun {
+            len: s.len(),
+            font: run_font,
+            color: run_color,
+            background_color: None,
+            underline,
+            strikethrough: None,
+        });
+    }
+    (text, runs, links)
+}
+
 /// An inline notification. See the module docs.
 #[derive(IntoElement)]
 pub struct Alert {
     id: ElementId,
     variant: AlertVariant,
     title: Option<SharedString>,
-    description: Vec<AnyElement>,
+    description: Vec<Description>,
     action: Option<AlertAction>,
     full_width: bool,
     on_close: Option<Callback>,
@@ -475,7 +541,16 @@ impl Alert {
 
     /// The description (`children`).
     pub fn description(mut self, content: impl IntoElement) -> Self {
-        self.description.push(content.into_any_element());
+        self.description
+            .push(Description::Element(content.into_any_element()));
+        self
+    }
+
+    /// The description as one wrapping paragraph of runs: plain text, mono
+    /// [`Inline::Code`] (a command, a path) and links. See the module docs.
+    pub fn description_inlines(mut self, inlines: impl IntoIterator<Item = Inline>) -> Self {
+        self.description
+            .push(Description::Inlines(inlines.into_iter().collect()));
         self
     }
 
@@ -512,7 +587,7 @@ impl Alert {
 
     /// `<AlertDescription>` child.
     pub fn alert_description(mut self, description: AlertDescription) -> Self {
-        self.description.push(description.0);
+        self.description.push(Description::Element(description.0));
         self
     }
 
@@ -728,7 +803,25 @@ impl RenderOnce for Alert {
                         .child(SelectableText::new((id.clone(), "title"), t)),
                 )
             })
-            .children(self.description.into_iter().map(|c| {
+            .children(self.description.into_iter().enumerate().map(|(i, c)| {
+                let c = match c {
+                    Description::Element(e) => e,
+                    Description::Inlines(inlines) => {
+                        let (text, runs, links) = description_runs(&inlines, look.text);
+                        let styled = StyledText::new(text).with_runs(runs);
+                        if links.is_empty() {
+                            styled.into_any_element()
+                        } else {
+                            let (ranges, targets): (Vec<_>, Vec<_>) = links.into_iter().unzip();
+                            InteractiveText::new(
+                                (id.clone(), SharedString::from(format!("description-{i}"))),
+                                styled,
+                            )
+                            .on_click(ranges, move |ix, _, cx| cx.open_url(&targets[ix]))
+                            .into_any_element()
+                        }
+                    }
+                };
                 div()
                     .flex_shrink_1()
                     .min_w_0()
@@ -960,6 +1053,29 @@ mod tests {
         assert_eq!(copied_text(None, Some("why")), "why");
         assert_eq!(copied_text(Some("Stopped"), None), "Stopped");
         assert_eq!(copied_text(None, None), "");
+    }
+
+    #[test]
+    fn a_rich_description_sets_its_command_in_mono() {
+        crate::theme::tests_set(CarbonTheme::White);
+        let ink = color(ColorRole::TextPrimary);
+        let (text, runs, links) = description_runs(
+            &[
+                Inline::Text("Install it with ".into()),
+                Inline::Code("brew install gh".into()),
+                Inline::Text(".".into()),
+            ],
+            ink,
+        );
+        assert_eq!(text, "Install it with brew install gh.");
+        assert_eq!(runs.iter().map(|r| r.len).collect::<Vec<_>>(), [16, 15, 1]);
+        assert_eq!(runs[1].font.family, inline_code_font().family);
+        assert_eq!(runs[0].font.family, font(FontFamilyKey::Sans, 400).family);
+        assert!(
+            runs.iter()
+                .all(|r| r.background_color.is_none() && r.color == ink)
+        );
+        assert!(links.is_empty());
     }
 
     #[test]

@@ -1,5 +1,6 @@
 //! Actions › Button: the reference preview, a configurable live button, and
-//! every kind × size and state.
+//! every kind × size and state, and buttons as the triggers of Kit popovers
+//! (selected while open).
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
@@ -273,7 +274,48 @@ impl Render for ButtonPage {
             .example(reference)
             .example(states)
             .example(matrix)
+            .example(controls::block(
+                "Popover triggers (Kit Popover; selected while open)",
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .items_center()
+                    .gap(tokens::SPACING_05)
+                    .child(popover_with(
+                        "button-pop-ghost",
+                        Button::new("button-pop-ghost-trigger", "Filter")
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::Sm)
+                            .icon(CarbonIcon::Filter),
+                    ))
+                    .child(popover_with(
+                        "button-pop-icon",
+                        Button::new("button-pop-icon-trigger", "Options")
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::Sm)
+                            .icon(CarbonIcon::OverflowMenuVertical)
+                            .icon_only(true),
+                    ))
+                    .child(popover_with(
+                        "button-pop-tertiary",
+                        Button::new("button-pop-tertiary-trigger", "Choose")
+                            .variant(ButtonVariant::Tertiary)
+                            .size(ButtonSize::Sm),
+                    )),
+            ))
     }
+}
+
+/// A Kit popover opened from a u0ui button.
+fn popover_with(id: &'static str, trigger: Button) -> impl IntoElement {
+    gpui_kit::component::popover::Popover::new(id)
+        .trigger(trigger)
+        .content(|_, _, _| {
+            div()
+                .p(tokens::SPACING_05)
+                .type_style(TypeStyle::BodyCompact01)
+                .child("The trigger stays selected while this is open.")
+        })
 }
 
 /// Add the demo icon when `on`.

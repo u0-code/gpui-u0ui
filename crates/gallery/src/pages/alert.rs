@@ -1,12 +1,14 @@
 //! Feedback › Alert: the reference four notifications (destructive, success,
 //! warning with close, info with an action) and a live alert with every
-//! `AlertProps` prop, and an error whose long words fold and copy.
+//! `AlertProps` prop, an error whose long words fold and copy, and a
+//! description with commands in mono (u0's `EmptyStates` board).
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div,
 };
+use u0ui::components::Inline;
 use u0ui::components::alert::{Alert, AlertAction, AlertDescription, AlertTitle, AlertVariant};
 use u0ui::prelude::*;
 
@@ -177,5 +179,21 @@ impl Render for AlertPage {
             .config(config)
             .example(controls::block("Reference preview", reference))
             .example(controls::block("Words, Copy and Show all", copyable))
+            .example(controls::block(
+                "Description with mono runs",
+                Alert::new("alert-rich")
+                    .variant(AlertVariant::Warning)
+                    .title("GitHub is reached with gh, and gh is not on this Mac")
+                    .description_inlines([
+                        Inline::Text("Install it with ".into()),
+                        Inline::Code("brew install gh".into()),
+                        Inline::Text(" and sign in with ".into()),
+                        Inline::Code("gh auth login".into()),
+                        Inline::Text(
+                            ", or give a token in Settings \u{203a} Source control & issues."
+                                .into(),
+                        ),
+                    ]),
+            ))
     }
 }

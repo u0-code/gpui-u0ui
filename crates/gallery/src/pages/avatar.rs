@@ -1,6 +1,7 @@
 //! Data display › Avatar: the reference avatars (JD, AK lg, MR xl, a group
 //! with +3), a live avatar with every size and color, and the image paths
-//! (loaded image, broken image → fallback); marks overlapped as a group
+//! (loaded image, broken image → fallback), the icon fallback (a gray
+//! User icon, u0's pending review draft); marks overlapped as a group
 //! (`MarkGroup`) at 12, 16 and 24px.
 use crate::controls;
 use crate::page::Body;
@@ -131,5 +132,18 @@ impl Render for AvatarPage {
             .example(controls::block("Reference preview", reference))
             .example(controls::block("MarkGroup", marks))
             .example(controls::block("Sizes × colors", all))
+            .example(controls::block(
+                "Icon fallback",
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap(tokens::SPACING_05)
+                    .children(AvatarSize::ALL.map(|size| {
+                        Avatar::new().size(size).fallback(
+                            AvatarFallback::icon(CarbonIcon::User).color(AvatarColor::Gray),
+                        )
+                    })),
+            ))
     }
 }
