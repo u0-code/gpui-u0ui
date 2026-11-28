@@ -649,6 +649,12 @@ impl Render for ChromePage {
                             )
                             .machine("This Mac")
                             .action("Open in your browser", |_, _| {}),
+                    )
+                    .child(
+                        PreviewStrip::new("strip-ref-down", "storybook", Some(6006))
+                            .answering(false)
+                            .machine("build-box")
+                            .action("Open in your browser", |_, _| {}),
                     ),
             );
         Body::new()
