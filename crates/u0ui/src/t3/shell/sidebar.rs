@@ -143,7 +143,7 @@ impl RenderOnce for SidebarBrandHeader {
         let initial: String = self.brand.chars().take(1).collect();
         // `.t3-sbhead-mark { width: 1.25rem; height: 1.25rem; background:
         // var(--background-inverse); color: var(--text-inverse); font-size: 0.6875rem }`.
-        let mark = sans(div(), 11., 600)
+        let mark = sans(div(), 12., 600)
             .flex()
             .flex_none()
             .items_center()
@@ -244,13 +244,19 @@ impl FolderCounts {
 
 /// (background, text) of a `.t3-count--<status>` pill: needs you
 /// `support-warning` / `#161616`, failed `support-error` /
-/// `text-on-color`, working blue tag, done gray tag.
+/// `text-on-color` (`#161616` on the dark themes, whose `support-error` is
+/// a light red white text does not read on), working blue tag, done gray
+/// tag.
 pub fn count_colors(status: Status) -> (Hsla, Hsla) {
     match status {
         Status::NeedsYou => (color(ColorRole::SupportWarning), ink()),
         Status::Failed => (
             color(ColorRole::SupportError),
-            color(ColorRole::TextOnColor),
+            if crate::theme::is_dark() {
+                ink()
+            } else {
+                color(ColorRole::TextOnColor)
+            },
         ),
         Status::Working => (
             color(ColorRole::TagBackgroundBlue),
@@ -260,6 +266,63 @@ pub fn count_colors(status: Status) -> (Hsla, Hsla) {
             color(ColorRole::TagBackgroundGray),
             color(ColorRole::TagColorGray),
         ),
+    }
+}
+
+// ── Count ───────────────────────────────────────────────────────────────
+
+/// A number on a pill (`.t3-count`, `.t3-shelf-count`): `label-01` (12px:
+/// nothing in Carbon's type scale is smaller), 18px tall and at least as
+/// wide, 4px side padding, a 16px radius, as Carbon's small tag. Quiet by
+/// default (`layer-accent-01` / `text-secondary`, a shelf's), or in a
+/// status's colors ([`count_colors`]).
+#[derive(IntoElement)]
+pub struct Count {
+    n: usize,
+    status: Option<Status>,
+}
+
+impl Count {
+    /// A quiet count of `n`.
+    pub fn new(n: usize) -> Self {
+        Self { n, status: None }
+    }
+
+    /// In the colors of `status` (`.t3-count--<status>`).
+    pub fn status(mut self, status: Status) -> Self {
+        self.status = Some(status);
+        self
+    }
+
+    /// (background, text) the pill takes.
+    fn colors(&self) -> (Hsla, Hsla) {
+        self.status.map_or_else(
+            || {
+                (
+                    color(ColorRole::LayerAccent01),
+                    color(ColorRole::TextSecondary),
+                )
+            },
+            count_colors,
+        )
+    }
+}
+
+impl RenderOnce for Count {
+    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+        let (bg, fg) = self.colors();
+        sans(div(), 12., 400)
+            .flex_none()
+            .flex()
+            .justify_center()
+            .h(rem(18.))
+            .line_height(rem(18.))
+            .min_w(rem(18.))
+            .px(rem(4.))
+            .rounded(rem(16.))
+            .bg(bg)
+            .text_color(fg)
+            .child(self.n.to_string())
     }
 }
 
@@ -398,26 +461,10 @@ impl RenderOnce for ProjectFolderHeader {
                     .child(e.size(super::BadgeSize::Sm))
             }))
             .when(focused, |b| b.child(ring()));
-        // `.t3-count { min-width: 1.125rem; padding: 0 var(--spacing-02);
-        // font-size: 0.6875rem; line-height: 1.125rem; border-radius: 16 }`.
-        let counts =
-            div()
-                .flex()
-                .flex_none()
-                .gap(rem(2.))
-                .children(self.counts.visible().into_iter().map(|(status, n)| {
-                    let (bg, fg) = count_colors(status);
-                    sans(div(), 11., 400)
-                        .line_height(rem(18.))
-                        .min_w(rem(18.))
-                        .px(rem(4.))
-                        .flex()
-                        .justify_center()
-                        .rounded(rem(16.))
-                        .bg(bg)
-                        .text_color(fg)
-                        .child(n.to_string())
-                }));
+        // `.t3-folder-counts { display: flex; gap: 2px }`.
+        let counts = div().flex().flex_none().gap(rem(2.)).children(
+            (self.counts.visible().into_iter()).map(|(status, n)| Count::new(n).status(status)),
+        );
         let new_label = self
             .new_thread_label
             .unwrap_or_else(|| format!("New thread in {}", self.name).into());
@@ -519,17 +566,7 @@ impl RenderOnce for SidebarShelfHeader {
             .when_some(self.on_toggle, |b, f| b.on_click(move |_, w, cx| f(w, cx)))
             .child(icon(CarbonIcon::ChevronDown, 14., ink).rotate(radians(turn)))
             .child(self.label)
-            .children(self.count.map(|n| {
-                // `.t3-shelf-count { padding: 0 var(--spacing-02); background:
-                // var(--layer-accent-01); font-size: 0.6875rem; line-height: 1rem; radius 16 }`.
-                sans(div(), 11., 400)
-                    .line_height(rem(16.))
-                    .px(rem(4.))
-                    .rounded(px(16.))
-                    .bg(color(ColorRole::LayerAccent01))
-                    .text_color(ink)
-                    .child(n.to_string())
-            }))
+            .children(self.count.map(Count::new))
             .when(focused, |b| b.child(ring()));
         div()
             .flex()
@@ -565,7 +602,7 @@ impl RenderOnce for PullRequestMiniBadge {
         let title: SharedString = format!("PR #{} - {}", self.number, self.state.label()).into();
         // `.t3-prmini { gap: 2px; padding: 0 var(--spacing-02); font-size:
         // 0.6875rem; line-height: 1rem; border-radius: var(--border-radius-16) }`.
-        sans(div(), 11., 400)
+        sans(div(), 12., 400)
             .id(ElementId::Name(format!("t3-prmini-{}", self.number).into()))
             .line_height(rem(16.))
             .flex()
@@ -1189,6 +1226,24 @@ mod tests {
         assert_eq!((hex(bg), hex(fg)), ("#f1c21b".into(), "#161616".into()));
         let (bg, fg) = count_colors(Status::Failed);
         assert_eq!((hex(bg), hex(fg)), ("#da1e28".into(), "#ffffff".into()));
+    }
+
+    #[test]
+    fn a_failed_count_on_a_dark_theme_is_dark_ink_on_its_light_red() {
+        crate::theme::tests_set(CarbonTheme::G100);
+        let (bg, fg) = count_colors(Status::Failed);
+        assert_eq!((hex(bg), hex(fg)), ("#fa4d56".into(), "#161616".into()));
+    }
+
+    #[test]
+    fn a_count_is_quiet_unless_given_a_status() {
+        crate::theme::tests_set(CarbonTheme::White);
+        let (bg, fg) = Count::new(3).colors();
+        assert_eq!((hex(bg), hex(fg)), ("#e0e0e0".into(), "#525252".into()));
+        assert_eq!(
+            Count::new(3).status(Status::Working).colors(),
+            count_colors(Status::Working)
+        );
     }
 
     #[test]

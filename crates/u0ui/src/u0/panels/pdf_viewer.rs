@@ -443,7 +443,7 @@ impl RenderOnce for PdfViewer {
                 // gap: 2px; padding: var(--spacing-02); font-size: 0.6875rem;
                 // color: var(--text-secondary) }`, hover `layer-hover-01`,
                 // `--on` `state-selected-background` / `text-primary`.
-                sans(gpui_kit::base::Button::new(tid), 11., 400)
+                sans(gpui_kit::base::Button::new(tid), 12., 400)
                     .track_focus(&focus)
                     .relative()
                     .flex()

@@ -1185,7 +1185,7 @@ impl RenderOnce for GuideRail {
                 let ring = focus_visible(&focus, window);
                 let (fill, ink) = state.bullet();
                 let on_select = self.on_select.clone();
-                let bullet = sans(div(), 11., 400)
+                let bullet = sans(div(), 12., 400)
                     .flex()
                     .flex_none()
                     .items_center()

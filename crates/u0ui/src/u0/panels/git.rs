@@ -186,7 +186,7 @@ impl RefKind {
 /// var(--font-mono); font-size: 0.6875rem; line-height: 1rem }`.
 fn ref_chip(name: SharedString) -> AnyElement {
     let (bg, fg) = RefKind::of(&name).colors();
-    mono(div(), 11., 400)
+    mono(div(), 12., 400)
         .flex_none()
         .line_height(rem(16.))
         .px(tokens::SPACING_02)
@@ -1318,7 +1318,7 @@ impl RenderOnce for LinkedItemsSection {
             // `.g-linked-head b { font-weight: inherit }`.
             .child(div().flex_none().child(self.texts.title.clone()))
             .child(
-                sans(div(), 11., 400)
+                sans(div(), 12., 400)
                     .flex_none()
                     .line_height(rem(16.))
                     .px(tokens::SPACING_02)

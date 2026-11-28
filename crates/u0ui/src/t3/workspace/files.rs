@@ -633,7 +633,7 @@ fn file_row(
         let (fill, ink) = s.colors();
         // `.t3-frow-git { font-family: mono; font-size: 0.6875rem; font-weight: 600;
         // padding: 0 4px }` with the `.t3-fstat--<s>` pair.
-        mono(div(), 11., 600)
+        mono(div(), 12., 600)
             .flex_none()
             .px(rem(4.))
             .bg(fill)

@@ -12,7 +12,7 @@ use u0ui::t3::Status;
 use u0ui::t3::base::use_ticker;
 use u0ui::t3::review::PullRequestState;
 use u0ui::t3::shell::{
-    ConnectionStatus, EnvironmentBadge, FolderCounts, MachineKind, ProjectFolderHeader,
+    ConnectionStatus, Count, EnvironmentBadge, FolderCounts, MachineKind, ProjectFolderHeader,
     SidebarBrandHeader, SidebarShelfHeader, ThreadRow, UpdatePill, UpdateState,
 };
 
@@ -236,7 +236,38 @@ impl Render for FolderPage {
                 "Reference preview",
                 folder_reference("ref-folder"),
             ))
+            .example(controls::block("Count", counts()))
     }
+}
+
+/// Every count a header shows: quiet (a shelf's), then each status's,
+/// one, two and three digits.
+fn counts() -> impl IntoElement {
+    let row = |status: Option<Status>| {
+        div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap(px(8.))
+            .children([1, 12, 128].map(|n| {
+                let count = Count::new(n);
+                status.map_or(count, |s| Count::new(n).status(s))
+            }))
+    };
+    div()
+        .flex()
+        .flex_col()
+        .gap(px(8.))
+        .child(row(None))
+        .children(
+            [
+                Status::NeedsYou,
+                Status::Failed,
+                Status::Working,
+                Status::Done,
+            ]
+            .map(|s| row(Some(s))),
+        )
 }
 
 // ── SidebarShelfHeader ──────────────────────────────────────────────────

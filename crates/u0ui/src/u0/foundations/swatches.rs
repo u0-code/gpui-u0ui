@@ -104,7 +104,7 @@ impl RenderOnce for TokenSwatches {
                 let text = |t: String, role: ColorRole| {
                     div()
                         .font(mono.clone())
-                        .text_size(rems(0.6875))
+                        .text_size(rems(0.75))
                         .line_height(rems(1.))
                         .text_color(color(role))
                         .overflow_hidden()

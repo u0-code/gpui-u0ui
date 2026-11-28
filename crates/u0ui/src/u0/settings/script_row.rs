@@ -155,7 +155,7 @@ impl RenderOnce for ScriptRow {
         // var(--spacing-02); background: var(--layer-accent-01); color:
         // var(--text-secondary); font-size: 0.6875rem; line-height: 1.25rem;
         // text-align: center }`.
-        let kind = sans(div(), 11., 400)
+        let kind = sans(div(), 12., 400)
             .flex()
             .flex_none()
             .justify_center()

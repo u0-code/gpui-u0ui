@@ -370,7 +370,7 @@ impl RenderOnce for FilterMenu {
             // `.g-fmenu-count { padding: 0 5px; background: var(--interactive);
             // color: var(--text-on-color); font-size: 0.6875rem; line-height:
             // 1rem; border-radius: 16 }`.
-            sans(div(), 11., 400)
+            sans(div(), 12., 400)
                 .line_height(rem(16.))
                 .px(px(5.))
                 .rounded(tokens::BORDER_RADIUS_16.rems())

@@ -80,6 +80,9 @@ short doc comment next to the value.
 - States: hover `*-hover`, active `*-active`, selected `*-selected`, disabled `*-disabled` + not-allowed.
   Focus: 2px `focus` ring on every interactive element; filled buttons also get a 1px `focus-inset` inside.
 - Body text `body-compact-01` (14/18, letter-spacing 0.16px); labels `label-01` (12/16, 0.32px).
+- Nothing is drawn under 12px, `label-01`, the smallest step of Carbon's type scale: where the
+  reference CSS says `0.6875rem` (11px, a count, a chip, a mono tag), draw it at 12px. A number on a
+  pill is `t3::shell::Count`.
 - No hard-coded user-facing strings inside components; callers pass labels.
 
 ## Gallery rules

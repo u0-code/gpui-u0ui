@@ -479,7 +479,7 @@ impl RenderOnce for SwipeRow {
             let ring = focus_visible(&focus, window);
             let ink = color(ColorRole::TextOnColor);
             let on_press = a.on_press.clone();
-            sans(press(aid, &focus), 11., 400)
+            sans(press(aid, &focus), 12., 400)
                 .accessibility_label(a.label.clone())
                 .flex_col()
                 .justify_center()

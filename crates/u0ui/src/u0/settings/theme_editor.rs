@@ -478,14 +478,14 @@ impl RenderOnce for ThemeEditor {
                                 open.update(cx, |s, cx| s.set_open(true, cx));
                             })
                             .child(
-                                mono(div(), 11., 400)
+                                mono(div(), 12., 400)
                                     .overflow_hidden()
                                     .whitespace_nowrap()
                                     .text_ellipsis()
                                     .child(t.name.clone()),
                             )
                             .child(
-                                mono(div(), 11., 400)
+                                mono(div(), 12., 400)
                                     .text_color(color(ColorRole::TextSecondary))
                                     .overflow_hidden()
                                     .whitespace_nowrap()
