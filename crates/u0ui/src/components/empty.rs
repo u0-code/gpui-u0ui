@@ -8,17 +8,20 @@
 //!   a 5rem `layer-01` square holding the icon in `icon-primary`;
 //!   `EmptyTitle` is `heading-03` (20/28) in `text-primary`; `EmptyDescription`
 //!   `body-01` in `text-secondary`; `EmptyContent` a wrapping row of actions 8px apart.
-//! - **Behavior**: none. Kit's `Empty` centers its content; Carbon's pattern
-//!   is left-aligned, so it is drawn here.
+//! - **Behavior**: the title and description are selectable (Base's
+//!   `SelectableText`), so what an error state says can be copied. Kit's
+//!   `Empty` centers its content; Carbon's pattern is left-aligned, so it
+//!   is drawn here.
 use super::parts::part;
 use crate::{
     theme::color,
     tokens::{ColorRole, SPACING_03, SPACING_06, SPACING_07, TypeStyle},
     typography::TypeStyled as _,
 };
+use gpui_kit::base::SelectableText;
 use gpui_kit::{
-    AnyElement, App, IntoElement, ParentElement, RenderOnce, SharedString, Styled, Window, div,
-    rems,
+    AnyElement, App, ElementId, IntoElement, ParentElement, RenderOnce, SharedString, Styled,
+    Window, div, rems,
 };
 
 /// `.cu-empty { max-width: 26rem }` in px.
@@ -158,7 +161,10 @@ impl RenderOnce for EmptyTitle {
         div()
             .type_style(TypeStyle::Heading03)
             .text_color(color(ColorRole::TextPrimary))
-            .child(self.0)
+            .child(SelectableText::new(
+                ElementId::Name(format!("empty-title:{}", self.0).into()),
+                self.0,
+            ))
     }
 }
 
@@ -179,7 +185,10 @@ impl RenderOnce for EmptyDescription {
         div()
             .type_style(TypeStyle::Body01)
             .text_color(color(ColorRole::TextSecondary))
-            .child(self.0)
+            .child(SelectableText::new(
+                ElementId::Name(format!("empty-desc:{}", self.0).into()),
+                self.0,
+            ))
     }
 }
 

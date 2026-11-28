@@ -29,6 +29,13 @@
 //!   outline (`transition: outline 110ms`). Closing unmounts the notification
 //!   (Carbon has no hide transition) after calling `on_close`.
 //! - **Behavior**: the buttons are Base buttons (focus, Enter/Space, pointer).
+//! - **Words** (u0's, not Carbon's): the title and the plain text given by
+//!   [`Alert::words`] are selectable (Base's `SelectableText`). With
+//!   [`Alert::copy`] a 3rem Copy button (20px `Copy`, `Checkmark` for
+//!   [`COPIED_MS`] after) sits before the close button and copies the title
+//!   and the whole of the words. With [`Alert::fold`], words longer than
+//!   [`FOLD_LINES`] lines or [`FOLD_CHARS`] characters show their start and
+//!   a link (`link-primary`, `body-compact-01`) to show all, then fewer.
 use super::form::{inset_outline, rem};
 use super::overlay::Callback;
 use crate::{
@@ -38,10 +45,11 @@ use crate::{
     tokens::{ColorRole, TypeStyle},
     typography::TypeStyled as _,
 };
+use gpui_kit::base::SelectableText;
 use gpui_kit::{
-    AnyElement, App, CursorStyle, ElementId, Hsla, InteractiveElement as _, IntoElement,
-    MouseButton, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled,
-    Window, div, prelude::FluentBuilder as _, px,
+    AnyElement, App, ClipboardItem, CursorStyle, ElementId, Hsla, InteractiveElement as _,
+    IntoElement, MouseButton, ParentElement, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled, Window, div, prelude::FluentBuilder as _, px,
 };
 use std::rc::Rc;
 
@@ -283,6 +291,68 @@ pub(crate) fn close_button(
         .use_keyed_state((id.clone(), "focus"), cx, |_, cx| cx.focus_handle())
         .read(cx)
         .clone();
+    square_button(
+        id,
+        CarbonIcon::Close,
+        look,
+        label,
+        Rc::new(move |window, cx| {
+            // Closing removes the button: keep the Tab starting point.
+            crate::u0::primitives::parts::vacate_focus(&focus, window, cx);
+            on_click(window, cx)
+        }),
+        window,
+        cx,
+    )
+}
+
+/// How long the Copy button shows `Checkmark` after a copy.
+pub const COPIED_MS: u64 = 2000;
+
+/// The most lines of words a folded notification shows.
+pub const FOLD_LINES: usize = 6;
+
+/// The most characters of words a folded notification shows.
+pub const FOLD_CHARS: usize = 480;
+
+/// Where `words` are cut while folded: after [`FOLD_LINES`] lines or
+/// [`FOLD_CHARS`] characters, whichever comes first; `None` when they fit.
+pub fn fold_at(words: &str) -> Option<usize> {
+    let by_lines = words
+        .match_indices('\n')
+        .nth(FOLD_LINES - 1)
+        .map(|(i, _)| i);
+    let by_chars = words.char_indices().nth(FOLD_CHARS).map(|(i, _)| i);
+    let at = match (by_lines, by_chars) {
+        (Some(a), Some(b)) => a.min(b),
+        (a, b) => a.or(b)?,
+    };
+    // Nothing but blank space past the cut: it fits.
+    (!words[at..].trim().is_empty()).then_some(at)
+}
+
+/// What Copy puts on the clipboard: the title, then the words, a line apart.
+pub fn copied_text(title: Option<&str>, words: Option<&str>) -> String {
+    match (title, words) {
+        (Some(t), Some(w)) => format!("{t}\n{w}"),
+        (t, w) => t.or(w).unwrap_or_default().to_owned(),
+    }
+}
+
+/// A 3rem square button with a 20px icon: close and copy.
+fn square_button(
+    id: ElementId,
+    icon: CarbonIcon,
+    look: NotificationLook,
+    label: SharedString,
+    on_click: Callback,
+    window: &mut Window,
+    cx: &mut App,
+) -> gpui_kit::base::Button {
+    let focus = window
+        .use_keyed_state((id.clone(), "focus"), cx, |_, cx| cx.focus_handle())
+        .read(cx)
+        .clone();
     let outline = motion::animate_color(
         (id.clone(), "outline"),
         if focus.is_focused(window) {
@@ -305,19 +375,12 @@ pub(crate) fn close_button(
         .justify_center()
         .cursor(CursorStyle::PointingHand)
         .child(
-            Icon::carbon(CarbonIcon::Close)
+            Icon::carbon(icon)
                 .size(IconSize::S20)
                 .color(look.close_icon),
         )
         .child(inset_outline(2., outline))
-        .on_click({
-            let focus = focus.clone();
-            move |_, window, cx| {
-                // Closing removes the button: keep the Tab starting point.
-                crate::u0::primitives::parts::vacate_focus(&focus, window, cx);
-                on_click(window, cx)
-            }
-        })
+        .on_click(move |_, window, cx| on_click(window, cx))
 }
 
 /// `AlertTitle`.
@@ -374,6 +437,9 @@ pub struct Alert {
     on_close: Option<Callback>,
     close_label: SharedString,
     low_contrast: bool,
+    words: Option<SharedString>,
+    copy: Option<(SharedString, SharedString)>,
+    fold: Option<(SharedString, SharedString)>,
 }
 
 impl Alert {
@@ -389,6 +455,9 @@ impl Alert {
             on_close: None,
             close_label: "Close notification".into(),
             low_contrast: true,
+            words: None,
+            copy: None,
+            fold: None,
         }
     }
 
@@ -407,6 +476,31 @@ impl Alert {
     /// The description (`children`).
     pub fn description(mut self, content: impl IntoElement) -> Self {
         self.description.push(content.into_any_element());
+        self
+    }
+
+    /// The description as plain text: selectable, copied whole by
+    /// [`Self::copy`], folded by [`Self::fold`].
+    pub fn words(mut self, words: impl Into<SharedString>) -> Self {
+        self.words = Some(words.into());
+        self
+    }
+
+    /// Show the Copy button, labeled `label`, and `copied` once it copied:
+    /// it copies the title and the whole of the words.
+    pub fn copy(mut self, label: impl Into<SharedString>, copied: impl Into<SharedString>) -> Self {
+        self.copy = Some((label.into(), copied.into()));
+        self
+    }
+
+    /// Fold long words (see [`fold_at`]) behind a link labeled `show_all`,
+    /// and `show_less` once they are all shown.
+    pub fn fold(
+        mut self,
+        show_all: impl Into<SharedString>,
+        show_less: impl Into<SharedString>,
+    ) -> Self {
+        self.fold = Some((show_all.into(), show_less.into()));
         self
     }
 
@@ -568,6 +662,51 @@ impl RenderOnce for Alert {
         let vw = viewport_rem(window);
         let wide = is_wide(vw);
         let closable = self.on_close.is_some();
+        let corner = usize::from(closable) + usize::from(self.copy.is_some());
+        let unfolded = window.use_keyed_state((id.clone(), "unfolded"), cx, |_, _| false);
+        let words = self.words.clone().map(|words| {
+            let cut = self.fold.as_ref().and_then(|_| fold_at(&words));
+            let all = *unfolded.read(cx);
+            let shown: SharedString = match cut {
+                Some(at) if !all => words[..at].trim_end().to_owned().into(),
+                _ => words.clone(),
+            };
+            let link = cut.and(self.fold.clone()).map(|(more, less)| {
+                let unfolded = unfolded.clone();
+                let focus = window
+                    .use_keyed_state((id.clone(), "fold-focus"), cx, |_, cx| cx.focus_handle())
+                    .read(cx)
+                    .clone();
+                // A Carbon `Link` (`.cds--link`): `link-primary`, hover
+                // `link-primary-hover`, a 1px `focus` outline.
+                gpui_kit::base::Button::new((id.clone(), "fold"))
+                    .track_focus(&focus)
+                    .relative()
+                    .self_start()
+                    .mt(rem(4.))
+                    .cursor(CursorStyle::PointingHand)
+                    .text_color(color(ColorRole::LinkPrimary))
+                    .hover(|s| s.text_color(color(ColorRole::LinkPrimaryHover)))
+                    .child(if all { less } else { more })
+                    .when(focus.is_focused(window), |d| {
+                        d.child(inset_outline(1., look.focus))
+                    })
+                    .on_click(move |_, _, cx| {
+                        unfolded.update(cx, |u, cx| {
+                            *u = !*u;
+                            cx.notify();
+                        })
+                    })
+            });
+            div()
+                .flex()
+                .flex_col()
+                .flex_shrink_1()
+                .min_w_0()
+                .type_style(TypeStyle::BodyCompact01)
+                .child(SelectableText::new((id.clone(), "words"), shown))
+                .children(link)
+        });
 
         // `.cds--inline-notification__text-wrapper { display: flex; flex-wrap: wrap;
         // padding: 0.9375rem 0 }`.
@@ -586,7 +725,7 @@ impl RenderOnce for Alert {
                         .min_w_0()
                         .type_style(TypeStyle::HeadingCompact01)
                         .mr(rem(4.))
-                        .child(t),
+                        .child(SelectableText::new((id.clone(), "title"), t)),
                 )
             })
             .children(self.description.into_iter().map(|c| {
@@ -595,17 +734,18 @@ impl RenderOnce for Alert {
                     .min_w_0()
                     .type_style(TypeStyle::BodyCompact01)
                     .child(c)
-            }));
+            }))
+            .children(words);
         let details = div()
             .flex()
             .flex_row()
             .flex_1()
             .min_w_0()
             .ml(rem(DETAILS_MARGIN))
-            .mr(rem(if wide || !closable {
+            .mr(rem(if wide || corner == 0 {
                 DETAILS_MARGIN
             } else {
-                48.
+                ROW_HEIGHT * corner as f32
             }))
             .when(!wide, |d| d.w_full())
             .child(
@@ -664,6 +804,38 @@ impl RenderOnce for Alert {
             }
         });
 
+        let copy = self.copy.clone().map(|(label, copied)| {
+            let flash =
+                crate::u0::primitives::parts::flash_state((id.clone(), "copied"), window, cx);
+            let done = crate::u0::primitives::parts::flash_on(&flash, COPIED_MS, cx);
+            let text = copied_text(self.title.as_deref(), self.words.as_deref());
+            let button = square_button(
+                (id.clone(), "copy").into(),
+                if done {
+                    CarbonIcon::Checkmark
+                } else {
+                    CarbonIcon::Copy
+                },
+                look,
+                if done { copied } else { label },
+                Rc::new(move |_, cx| {
+                    cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
+                    crate::u0::primitives::parts::flash(&flash, COPIED_MS, cx);
+                }),
+                window,
+                cx,
+            );
+            if wide {
+                button
+            } else {
+                // Before the close button, where there is one.
+                button
+                    .absolute()
+                    .top_0()
+                    .right(rem(if closable { ROW_HEIGHT } else { 0. }))
+            }
+        });
+
         div()
             .id(id)
             .relative()
@@ -710,10 +882,11 @@ impl RenderOnce for Alert {
                             .mx(rem(16.))
                             .mb(rem(16.))
                             .children(action)
+                            .children(copy)
                             .children(close),
                     )
                 } else {
-                    d.children(action).children(close)
+                    d.children(action).children(copy).children(close)
                 }
             })
             .into_any_element()
@@ -762,6 +935,31 @@ mod tests {
             NotificationLook::of(NotificationKind::Warning, true).accent,
             color(ColorRole::SupportWarning)
         );
+    }
+
+    #[test]
+    fn long_words_fold_after_six_lines_or_480_characters() {
+        let trace: String = (1..=20).map(|i| format!("    at line {i}\n")).collect();
+        let at = fold_at(&trace).unwrap();
+        assert_eq!(trace[..at].lines().count(), FOLD_LINES);
+        assert!(trace[..at].ends_with("line 6"));
+        assert_eq!(fold_at("one line"), None);
+        // Six lines and a trailing newline fit.
+        assert_eq!(fold_at("a\nb\nc\nd\ne\nf\n"), None);
+        let long = "語".repeat(500);
+        let at = fold_at(&long).unwrap();
+        assert_eq!(long[..at].chars().count(), FOLD_CHARS);
+    }
+
+    #[test]
+    fn copy_takes_the_title_and_all_the_words() {
+        assert_eq!(
+            copied_text(Some("Stopped"), Some("at a\nat b")),
+            "Stopped\nat a\nat b"
+        );
+        assert_eq!(copied_text(None, Some("why")), "why");
+        assert_eq!(copied_text(Some("Stopped"), None), "Stopped");
+        assert_eq!(copied_text(None, None), "");
     }
 
     #[test]
