@@ -142,7 +142,25 @@ impl Render for SubagentPage {
             .config(config)
             .example(controls::block("Reference preview", reference()))
             .example(controls::block("SubagentStatusDot", dots))
+            .example(controls::block("Many subagents", many()))
     }
+}
+
+/// A bar of 24 subagents in a narrow column: ten marks at most, the rest
+/// a count.
+fn many() -> impl IntoElement {
+    use SubagentStatus::*;
+    let statuses = (0..24)
+        .map(|i| match i % 4 {
+            0 => Running,
+            1 => Completed,
+            2 => Waiting,
+            _ => Failed,
+        })
+        .collect();
+    div()
+        .w(gpui_kit::rems(26.))
+        .child(SubagentBar::new("sub-many", statuses))
 }
 
 /// The overview tile.

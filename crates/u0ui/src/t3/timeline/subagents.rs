@@ -376,6 +376,19 @@ impl RenderOnce for SubagentRow {
     }
 }
 
+/// The most dots the bar draws: past it, the rest are told as "+{n}", so
+/// that many subagents never push the bar past its column.
+const DOTS: usize = 10;
+
+/// How many of `n` subagents get a dot, and how many are left to "+{n}".
+fn dots(n: usize) -> (usize, usize) {
+    if n <= DOTS {
+        (n, 0)
+    } else {
+        (DOTS - 1, n - (DOTS - 1))
+    }
+}
+
 /// The subagents summary bar: dots, "{n} subagents", "{k} running", View all.
 #[derive(IntoElement)]
 pub struct SubagentBar {
@@ -429,6 +442,7 @@ impl RenderOnce for SubagentBar {
             .filter(|s| **s == SubagentStatus::Running)
             .count();
         let view = self.on_view_all.clone();
+        let (shown, more) = dots(self.agents.len());
         // `.t3-subbar { display: flex; align-items: center; gap: spacing-03; min-height: size-md;
         // padding: 0 spacing-02 0 spacing-04; background: layer-01; font-size: 0.875rem }`.
         div()
@@ -445,15 +459,35 @@ impl RenderOnce for SubagentBar {
             .line_height(rem(18.))
             .text_color(color(ColorRole::TextPrimary))
             // `.t3-subbar-dots { display: flex; gap: 3px }`.
-            .child(div().flex().flex_row().items_center().gap(px(3.)).children(
-                self.agents.iter().enumerate().map(|(i, s)| {
-                    SubagentStatusDot::new((id.clone(), SharedString::from(format!("dot-{i}"))), *s)
-                }),
-            ))
-            // `<b>` with no weight rule of its own: the render draws it regular.
-            .child(div().child((self.count)(self.agents.len())))
             .child(
                 div()
+                    .flex()
+                    .flex_row()
+                    .flex_none()
+                    .items_center()
+                    .gap(px(3.))
+                    .children(self.agents.iter().take(shown).enumerate().map(|(i, s)| {
+                        SubagentStatusDot::new(
+                            (id.clone(), SharedString::from(format!("dot-{i}"))),
+                            *s,
+                        )
+                    }))
+                    .when(more > 0, |d| {
+                        d.child(
+                            div()
+                                .pl(px(2.))
+                                .text_size(rem(12.))
+                                .text_color(color(ColorRole::TextSecondary))
+                                .child(format!("+{more}")),
+                        )
+                    }),
+            )
+            // `<b>` with no weight rule of its own: the render draws it regular.
+            .child(div().flex_none().child((self.count)(self.agents.len())))
+            .child(
+                div()
+                    .min_w_0()
+                    .truncate()
                     .text_size(rem(12.))
                     .text_color(color(ColorRole::TextSecondary))
                     .child((self.running)(running)),
@@ -482,6 +516,14 @@ mod tests {
             Some(48)
         );
         assert_eq!(fmt_elapsed_opt(None), "");
+    }
+
+    #[test]
+    fn many_subagents_draw_at_most_ten_marks_the_rest_told_as_a_count() {
+        assert_eq!(dots(0), (0, 0));
+        assert_eq!(dots(10), (10, 0));
+        assert_eq!(dots(11), (9, 2));
+        assert_eq!(dots(40), (9, 31));
     }
 
     #[test]
