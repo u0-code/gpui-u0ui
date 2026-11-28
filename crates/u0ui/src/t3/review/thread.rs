@@ -87,6 +87,7 @@ pub struct ChatHeader {
     project: Option<SharedString>,
     branch: Option<SharedString>,
     status: Option<Status>,
+    status_label: Option<SharedString>,
     environment: Option<HeaderEnvironment>,
     actions: Vec<AnyElement>,
     layout: Option<HeaderLayout>,
@@ -105,6 +106,7 @@ impl ChatHeader {
             project: None,
             branch: None,
             status: None,
+            status_label: None,
             environment: None,
             actions: Vec::new(),
             layout: Some(HeaderLayout::default()),
@@ -130,6 +132,13 @@ impl ChatHeader {
     /// The thread status.
     pub fn status(mut self, status: Status) -> Self {
         self.status = Some(status);
+        self
+    }
+
+    /// The status pill's words in place of the status's English name
+    /// (an app's own language).
+    pub fn status_label(mut self, label: impl Into<SharedString>) -> Self {
+        self.status_label = Some(label.into());
         self
     }
 
@@ -241,7 +250,9 @@ impl RenderOnce for ChatHeader {
                         .size(BadgeSize::Sm),
                 )
             })
-            .when_some(self.status, |d, s| d.child(StatusPill::new(s)));
+            .when_some(self.status, |d, s| {
+                d.child(StatusPill::new(s).when_some(self.status_label.clone(), |p, l| p.label(l)))
+            });
         let on_layout = self.on_layout.clone();
         let layout = self.layout.map(|l| {
             PanelLayoutControls::new((id.clone(), "layout"))
@@ -1509,6 +1520,14 @@ impl RenderOnce for ThreadHoverCard {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_header_says_its_status_in_the_words_given() {
+        let h = ChatHeader::new("h", "t").status(Status::NeedsYou);
+        assert_eq!(h.status_label, None);
+        let h = h.status_label("需要你");
+        assert_eq!(h.status_label.as_deref(), Some("需要你"));
+    }
 
     #[test]
     fn git_labels_follow_the_reference() {
