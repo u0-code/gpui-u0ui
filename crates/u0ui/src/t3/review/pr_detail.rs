@@ -255,27 +255,54 @@ impl RenderOnce for PullRequestDetailHeader {
             });
         let title_size = if self.title_large { 28. } else { 20. };
         let title_lh = if self.title_large { rem(36.) } else { rem(28.) };
+        // A long title wraps under itself; the glyph, the edit button and
+        // the top action keep their place on its first line.
+        let first_line = |child: AnyElement| {
+            div()
+                .flex()
+                .flex_none()
+                .items_center()
+                .h(title_lh)
+                .child(child)
+        };
         let title = div()
             .flex()
-            .items_center()
+            .items_start()
             .gap(rem(8.))
-            .child(PullRequestStateGlyph::new(self.state).size(20.))
-            .child(
-                sans(div(), title_size, 300)
-                    .font_weight(gpui_kit::FontWeight(400.))
-                    .line_height(title_lh)
-                    .text_color(color(ColorRole::TextPrimary))
-                    .child(self.title.clone()),
-            )
-            .child(icon_button(
-                (id.clone(), "edit"),
-                self.texts.edit_title.clone(),
-                CarbonIcon::Edit,
-                self.on_edit.clone(),
+            .child(first_line(
+                PullRequestStateGlyph::new(self.state)
+                    .size(20.)
+                    .into_any_element(),
             ))
-            .when_some(self.top_action, |row, act| {
-                row.child(div().flex_1()).child(act)
-            });
+            .child(
+                // The title and its edit button take what the top action
+                // leaves; the title wraps within it.
+                div()
+                    .flex()
+                    .flex_1()
+                    .min_w_0()
+                    .items_start()
+                    .gap(rem(8.))
+                    .child(
+                        sans(div(), title_size, 300)
+                            .min_w_0()
+                            .flex_shrink(1.)
+                            .font_weight(gpui_kit::FontWeight(400.))
+                            .line_height(title_lh)
+                            .text_color(color(ColorRole::TextPrimary))
+                            .child(self.title.clone()),
+                    )
+                    .child(first_line(
+                        icon_button(
+                            (id.clone(), "edit"),
+                            self.texts.edit_title.clone(),
+                            CarbonIcon::Edit,
+                            self.on_edit.clone(),
+                        )
+                        .into_any_element(),
+                    )),
+            )
+            .when_some(self.top_action, |row, act| row.child(first_line(act)));
         let meta = sans(div(), 14., 400)
             .flex()
             .flex_wrap()
