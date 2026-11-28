@@ -1,12 +1,15 @@
 //! Data display › Avatar: the reference avatars (JD, AK lg, MR xl, a group
 //! with +3), a live avatar with every size and color, and the image paths
-//! (loaded image, broken image → fallback).
+//! (loaded image, broken image → fallback); marks overlapped as a group
+//! (`MarkGroup`) at 12, 16 and 24px.
 use crate::controls;
 use crate::page::Body;
 use gpui_kit::{
     AnyView, App, AppContext as _, Context, IntoElement, ParentElement, Render, Styled, Window, div,
 };
-use u0ui::components::avatar::{Avatar, AvatarColor, AvatarFallback, AvatarGroup, AvatarSize};
+use u0ui::components::avatar::{
+    Avatar, AvatarColor, AvatarFallback, AvatarGroup, AvatarSize, MarkGroup,
+};
 use u0ui::prelude::*;
 
 /// Build the page.
@@ -73,6 +76,21 @@ impl Render for AvatarPage {
                     .children(AvatarColor::ALL.map(|c| fallback("JD", c).size(size)))
             }));
 
+        // Marks that are not people (here three Material symbols), overlapped
+        // as avatars are.
+        let marks = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap(tokens::SPACING_05)
+            .children([12., 16., 24.].map(|size| {
+                MarkGroup::new(size).marks(["smart_toy", "terminal", "code"].map(|name| {
+                    Icon::named(name)
+                        .size_length(gpui_kit::px(size))
+                        .color(theme::color(ColorRole::IconPrimary))
+                }))
+            }));
+
         let sizes = AvatarSize::ALL.map(|s| s.name());
         let colors = AvatarColor::ALL.map(|c| c.name());
         let config = div()
@@ -111,6 +129,7 @@ impl Render for AvatarPage {
             .playground(live)
             .config(config)
             .example(controls::block("Reference preview", reference))
+            .example(controls::block("MarkGroup", marks))
             .example(controls::block("Sizes × colors", all))
     }
 }
