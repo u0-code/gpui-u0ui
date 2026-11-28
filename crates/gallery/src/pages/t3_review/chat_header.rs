@@ -136,5 +136,15 @@ impl Render for Page {
             .hint("The layout toggles press; the title reports onRename")
             .config(config)
             .example(controls::block("Reference preview", reference("ch-ref")))
+            .example(controls::block(
+                "Inline, its status in the app's words",
+                div().w_full().child(
+                    reference("ch-inline-label")
+                        .inline(true)
+                        .layout(None)
+                        .status(Status::NeedsYou)
+                        .status_label("需要你"),
+                ),
+            ))
     }
 }
